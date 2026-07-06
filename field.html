@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Solarsearch Field</title>
+<meta name="theme-color" content="#0F2E27">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F6F9F7; --panel:#FFFFFF; --tint:#E8F1EA; --tint2:#F0F5F1;
+  --ink:#0F2E27; --ink2:#41615A; --ink3:#6D8781;
+  --line:#DBE5DE; --line2:#C4D5CA;
+  --amber:#FFB100; --amberd:#DE8F00; --ambers:#FFF3D6;
+  --safe:#177A53; --safes:#E2F2EA; --red:#C2452D; --reds:#FBEAE6;
+  --display:'Bricolage Grotesque',sans-serif; --body:'Instrument Sans',sans-serif; --mono:'Spline Sans Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom)}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px;border-radius:4px}
+.mono{font-family:var(--mono)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:999px;font-weight:700;font-size:.95rem;padding:14px 24px}
+.btn-amber{background:var(--amber);color:var(--ink)}
+.btn-safe{background:var(--safe);color:#fff}
+.btn-ink{background:var(--ink);color:#fff}
+.btn-ghost{background:none;border:1.5px solid var(--line2);color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-block{width:100%}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:40;background:var(--ink);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:12px}
+.top .logo{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:1.05rem}
+.top .logo em{font-style:normal;color:var(--amber)}
+.top .tag{margin-left:auto;font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;background:rgba(255,255,255,.12);padding:5px 11px;border-radius:99px;color:#CFE5DA}
+.top .back{background:none;border:none;color:#fff;font-size:1.2rem;padding:4px 8px;margin-left:-8px}
+.offline-pill{position:fixed;top:64px;left:50%;transform:translateX(-50%);background:var(--ambers);color:#7A5A00;border:1px solid #F2D48A;font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;padding:5px 13px;border-radius:99px;z-index:50;display:none}
+.offline-pill.show{display:block}
+
+.view{display:none;padding:18px 18px 100px;max-width:640px;margin:0 auto}
+.view.active{display:block;animation:rise .22s ease}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+h1{font-family:var(--display);font-size:1.35rem;font-weight:700;letter-spacing:-.01em}
+.sub{color:var(--ink3);font-size:.85rem;margin-top:2px}
+
+/* job cards */
+.job{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:12px;display:block;width:100%;text-align:left}
+.job:active{background:var(--tint2)}
+.job .row1{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.job .ref{font-family:var(--mono);font-size:.66rem;font-weight:700;color:var(--amberd);letter-spacing:.06em}
+.job .addr{font-weight:700;font-size:1rem;margin-top:2px}
+.job .meta{font-size:.8rem;color:var(--ink2);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap}
+.mode-pill{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.06em;padding:4px 10px;border-radius:99px}
+.mode-pill.presale{background:var(--ambers);color:#7A5A00}
+.mode-pill.solarsafe{background:var(--safes);color:var(--safe)}
+.prog-mini{height:5px;background:var(--line);border-radius:99px;margin-top:12px;overflow:hidden}
+.prog-mini i{display:block;height:100%;background:var(--safe);border-radius:99px}
+
+/* checklist */
+.sec-h{font-family:var(--mono);font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin:22px 0 8px;display:flex;justify-content:space-between}
+.step-row{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;width:100%;text-align:left}
+.step-row:active{background:var(--tint2)}
+.step-row .thumb{width:46px;height:46px;border-radius:9px;background:var(--tint);flex:none;display:flex;align-items:center;justify-content:center;font-size:1.1rem;overflow:hidden;position:relative}
+.step-row .thumb img{width:100%;height:100%;object-fit:cover}
+.step-row .st{flex:1;min-width:0}
+.step-row .st b{font-size:.9rem;display:block}
+.step-row .st small{font-size:.72rem;color:var(--ink3)}
+.state-chip{font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.05em;padding:4px 9px;border-radius:7px;flex:none}
+.state-chip.todo{background:var(--tint2);color:var(--ink3)}
+.state-chip.pass{background:var(--safes);color:var(--safe)}
+.state-chip.minor{background:var(--ambers);color:#7A5A00}
+.state-chip.major{background:var(--reds);color:var(--red)}
+.state-chip.na{background:var(--tint2);color:var(--ink3);text-decoration:line-through}
+.req-dot{width:7px;height:7px;border-radius:50%;background:var(--red);position:absolute;top:4px;right:4px}
+
+/* capture view */
+.cap-hint{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
+.cap-hint .h{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--amberd);font-weight:700;margin-bottom:6px}
+.cap-hint p{font-size:.88rem;color:var(--ink2)}
+.cap-hint .ref{font-family:var(--mono);font-size:.66rem;color:var(--ink3);margin-top:8px;letter-spacing:.04em}
+.photo-zone{margin-top:14px;border:2px dashed var(--line2);border-radius:14px;min-height:220px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--ink3);font-size:.9rem;background:var(--panel);position:relative;overflow:hidden}
+.photo-zone img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.photo-zone .retake{position:absolute;bottom:10px;right:10px;z-index:2}
+.assess{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.as-btn{border:1.5px solid var(--line2);background:var(--panel);border-radius:11px;padding:12px 4px;font-family:var(--mono);font-size:.66rem;font-weight:700;letter-spacing:.04em;color:var(--ink2)}
+.as-btn.sel-pass{background:var(--safe);border-color:var(--safe);color:#fff}
+.as-btn.sel-minor{background:var(--amber);border-color:var(--amber);color:var(--ink)}
+.as-btn.sel-major{background:var(--red);border-color:var(--red);color:#fff}
+.as-btn.sel-na{background:var(--ink3);border-color:var(--ink3);color:#fff}
+textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;background:var(--panel);padding:12px 14px;font-size:.9rem;font-family:inherit;margin-top:12px;min-height:70px;resize:vertical}
+textarea:focus{outline:none;border-color:var(--ink)}
+.cap-nav{position:fixed;bottom:0;left:0;right:0;background:var(--paper);border-top:1px solid var(--line);padding:12px 18px calc(12px + env(safe-area-inset-bottom));display:flex;gap:10px;z-index:30}
+.cap-nav .btn{flex:1}
+
+/* gate + convert */
+.gate{background:var(--reds);border:1px solid #F0C7BC;border-radius:12px;padding:13px 15px;font-size:.84rem;color:var(--red);margin-top:14px;display:none}
+.gate.show{display:block}
+.convert{background:var(--ink);color:#fff;border-radius:14px;padding:16px;margin-top:20px}
+.convert b{display:block;margin-bottom:4px}
+.convert p{font-size:.82rem;color:#A9C6BB;margin-bottom:12px}
+.consent-line{display:flex;gap:10px;align-items:flex-start;font-size:.8rem;color:#CFE5DA;margin-bottom:12px}
+.consent-line input{width:17px;height:17px;accent-color:var(--amber);flex:none;margin-top:2px}
+.toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:999px;font-size:.85rem;z-index:300;opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.done-wrap{text-align:center;padding:40px 10px}
+.done-wrap .ic{width:70px;height:70px;border-radius:50%;background:var(--safes);color:var(--safe);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <button class="back" id="topBack" onclick="navBack()" style="display:none">‹</button>
+  <span class="logo">solar<em>search</em>&nbsp;<span style="font-weight:600;color:#9FC0B4;font-size:.72rem">FIELD</span></span>
+  <span class="tag" id="topTag">INSPECTOR ONE</span>
+</div>
+<div class="offline-pill" id="offlinePill">OFFLINE — CAPTURES QUEUED, WILL SYNC</div>
+
+<!-- ================= VIEWS ================= -->
+<section class="view active" id="v-jobs">
+  <h1>Today's jobs</h1>
+  <div class="sub" id="jobsDate"></div>
+  <div id="jobList"></div>
+</section>
+
+<section class="view" id="v-job">
+  <div class="row1" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <div><span class="mono" id="jRef" style="font-size:.68rem;color:var(--amberd);font-weight:700;letter-spacing:.06em"></span>
+    <h1 id="jAddr" style="margin-top:2px"></h1>
+    <div class="sub" id="jMeta"></div></div>
+    <span class="mode-pill" id="jMode"></span>
+  </div>
+  <div id="checklist"></div>
+  <div class="gate" id="gateMsg"></div>
+  <div class="convert" id="convertBox" style="display:none">
+    <b>Customer wants upgrade pricing?</b>
+    <p>One tap clones this site into the Solarsearch pipeline at inspection-complete — quotes without a second visit.</p>
+    <label class="consent-line"><input type="checkbox" id="convertConsent"><span>Customer consents on-screen to receiving quotes via Solarsearch and to this inspection being used as their site assessment. Consent v3.2 recorded.</span></label>
+    <button class="btn btn-amber btn-block" onclick="convertLead()">Create quote lead from this inspection</button>
+  </div>
+  <div style="margin-top:20px">
+    <button class="btn btn-safe btn-block" id="completeBtn" onclick="completeJob()">Complete inspection</button>
+  </div>
+</section>
+
+<section class="view" id="v-cap">
+  <span class="mono" id="cSec" style="font-size:.62rem;color:var(--ink3);letter-spacing:.1em;font-weight:700"></span>
+  <h1 id="cTitle" style="margin-top:2px"></h1>
+  <div class="cap-hint">
+    <div class="h">WHAT THE PHOTO MUST SHOW</div>
+    <p id="cHint"></p>
+    <div class="ref" id="cRef"></div>
+  </div>
+  <label class="photo-zone" id="photoZone">
+    <input type="file" accept="image/*" capture="environment" id="camInput" hidden>
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="6" width="19" height="14" rx="3" stroke="#6D8781" stroke-width="1.8"/><path d="M8.5 6l1.4-2.4h4.2L15.5 6" stroke="#6D8781" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="#6D8781" stroke-width="1.8"/></svg>
+    <span id="zoneLabel">Tap to take photo</span>
+  </label>
+  <div class="assess" role="group" aria-label="Assessment">
+    <button class="as-btn" data-as="pass" onclick="setAssess('pass')">PASS</button>
+    <button class="as-btn" data-as="minor" onclick="setAssess('minor')">MINOR</button>
+    <button class="as-btn" data-as="major" onclick="setAssess('major')">MAJOR</button>
+    <button class="as-btn" data-as="na" onclick="setAssess('na')">N/A</button>
+  </div>
+  <textarea id="cNote" placeholder="Observation note (required for MINOR/MAJOR) — what you can see, plainly. The assessor writes the standard reference."></textarea>
+  <div class="cap-nav">
+    <button class="btn btn-ghost" onclick="saveStep(false)">Save</button>
+    <button class="btn btn-ink" onclick="saveStep(true)">Save & next →</button>
+  </div>
+</section>
+
+<section class="view" id="v-done">
+  <div class="done-wrap">
+    <div class="ic"><svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <h1>Inspection complete</h1>
+    <p class="sub" id="doneSummary" style="margin:8px 0 18px"></p>
+    <p style="font-size:.85rem;color:var(--ink2)">Evidence pack queued for sync. Presale jobs go to the design queue; Solarsafe jobs go to assessment and human sign-off.</p>
+    <button class="btn btn-ghost" style="margin-top:20px" onclick="goJobs()">Back to jobs</button>
+  </div>
+</section>
+
+<div class="toast" id="toastEl" role="status"></div>
+
+<script>
+/* ================================================================
+   PHOTO PROTOCOL — JSON-driven (PRD F-2). Edit steps without code.
+   modes: presale | safety | battery_ready | battery_installed
+   Rooftop array section encodes the 6-shot report format (photos 1–6).
+   ================================================================ */
+const PROTOCOL=[
+ {section:'Rooftop array', steps:[
+  {key:'array_overview',   title:'Photo 1 — Rooftop array overview', hint:'Whole array from access point, panels and roof edge in frame.', pass:'Panels secure, no visible damage or discolouration.', ref:'', modes:['safety','presale'], req:true},
+  {key:'panel_condition',  title:'Photo 2 — Panel condition (close-up)', hint:'Close-up across panel faces, low angle to catch reflections.', pass:'No cracking or hot-spot discolouration visible.', ref:'', modes:['safety'], req:true},
+  {key:'mounting_flashing',title:'Photo 3 — Mounting & flashing', hint:'One mounting foot with flashing/seal clearly visible.', pass:'Mounting and flashing sound and secure.', ref:'', modes:['safety'], req:true},
+  {key:'dc_connections',   title:'Photo 4 — Panel connections (DC)', hint:'Under-panel shot: connectors and cable runs beneath the array.', pass:'DC cabling secure, connectors intact, no cables on roof surface.', ref:'AS/NZS 5033 ref', modes:['safety'], req:true},
+  {key:'roof_penetrations',title:'Photo 5 — Array roof penetrations', hint:'Cable entry/dektite where conduit passes through the roof.', pass:'Roof penetrations sealed correctly.', ref:'', modes:['safety'], req:true},
+  {key:'array_overall',    title:'Photo 6 — Array overall view', hint:'Wide shot from a second angle showing full layout.', pass:'Array layout consistent and secure.', ref:'', modes:['safety','presale'], req:true},
+  {key:'roof_planes',      title:'Roof planes & shading', hint:'Each usable roof plane, plus anything casting shade (trees, aerials).', pass:'—', ref:'', modes:['presale'], req:true},
+ ]},
+ {section:'Isolators & inverter', steps:[
+  {key:'dc_isolator_roof', title:'Rooftop DC isolator', hint:'Housing, seals and label close-up. Do not open the enclosure.', pass:'Housing intact, seals sound, label legible.', ref:'AS/NZS 5033 ref', modes:['safety'], req:true},
+  {key:'inverter_install', title:'Inverter installation', hint:'Whole unit and mounting, surroundings in frame.', pass:'Secure, ventilated, weather-appropriate location.', ref:'', modes:['safety','battery_ready'], req:true},
+  {key:'inverter_display', title:'Inverter display & nameplate', hint:'Display state/error history and the nameplate (model & serial).', pass:'Operating normally, no active faults.', ref:'', modes:['safety','battery_ready','presale'], req:true},
+ ]},
+ {section:'Switchboard & cabling', steps:[
+  {key:'switchboard_ext',  title:'Switchboard — exterior', hint:'Door open to visible face only. Main switch, solar breaker, labelling. Never remove covers.', pass:'Labelled correctly, spare capacity visible for battery circuit.', ref:'AS/NZS 3000 ref', modes:['safety','presale','battery_ready'], req:true},
+  {key:'meter',            title:'Meter & NMI', hint:'Meter face with NMI legible (or bill photo).', pass:'—', ref:'G-1 NMI capture', modes:['presale','battery_ready'], req:true},
+  {key:'cable_runs',       title:'Cabling & conduit runs', hint:'Visible external runs: wall drops, roof runs.', pass:'No UV damage, sagging, or unprotected runs.', ref:'', modes:['safety'], req:true},
+  {key:'signage',          title:'Signage & shutdown procedure', hint:'Warning labels and shutdown procedure at the switchboard.', pass:'Required signage present and legible.', ref:'', modes:['safety'], req:true},
+ ]},
+ {section:'Battery — proposed location', steps:[
+  {key:'bat_wall_wide',    title:'Proposed battery wall — wide', hint:'Whole wall with nearby windows/doors in frame for clearance context.', pass:'—', ref:'AS/NZS 5139 context', modes:['presale','battery_ready'], req:true},
+  {key:'bat_wall_measure', title:'Proposed wall — measurement', hint:'Tape measure in frame: distance to nearest opening.', pass:'—', ref:'AS/NZS 5139 context', modes:['battery_ready'], req:false},
+ ]},
+ {section:'Battery — installed', steps:[
+  {key:'bat_unit',         title:'Battery unit overview', hint:'Whole unit, mounting and immediate surroundings.', pass:'Secure mounting, no visible damage or swelling, protected from weather/sun as required.', ref:'AS/NZS 5139 ref', modes:['battery_installed'], req:true},
+  {key:'bat_clearances',   title:'Clearances — wide shot', hint:'Unit with nearest window/door/opening in the same frame.', pass:'Required clearances from openings maintained.', ref:'AS/NZS 5139 ref', modes:['battery_installed'], req:true},
+  {key:'bat_clearance_measure', title:'Clearance — measurement', hint:'Tape measure in frame from unit edge to nearest opening.', pass:'Meets clearance requirement.', ref:'AS/NZS 5139 ref', modes:['battery_installed'], req:true},
+  {key:'bat_impact',       title:'Impact protection (garage)', hint:'If in a garage/carport: barrier or bollard relative to vehicle path.', pass:'Mechanical protection present where vehicle impact possible.', ref:'AS/NZS 5139 ref', modes:['battery_installed'], req:false},
+  {key:'bat_signage',      title:'Battery signage & shutdown', hint:'Fire emergency info and shutdown procedure labels.', pass:'Required battery signage present and legible.', ref:'AS/NZS 5139 ref', modes:['battery_installed'], req:true},
+  {key:'bat_cabling',      title:'Battery cable entry & isolator', hint:'Cable entries, glands and battery isolator. Do not open enclosures.', pass:'Entries sealed, isolator accessible and labelled.', ref:'', modes:['battery_installed'], req:true},
+ ]},
+ {section:'Property & access', steps:[
+  {key:'street_view',      title:'Street / access view', hint:'House from street: storeys, access, parking for install crews.', pass:'—', ref:'', modes:['presale'], req:true},
+  {key:'docs',             title:'Customer documentation', hint:'Any certificates, manuals or previous reports the customer holds.', pass:'—', ref:'', modes:['safety','battery_installed'], req:false},
+ ]},
+];
+
+/* modes per job type: presale = presale; solarsafe jobs pick safety +/- battery variants */
+const DEMO_JOBS=[
+ {id:1, ref:'SS-1044', addr:'14 Banksia St, Merewether 2291', customer:'Sarah Nguyen', time:'9:40 am', mode:'presale',   modes:['presale'], label:'Pre-sale inspection'},
+ {id:2, ref:'SS-1046', addr:'8 Kilaben Rd, Warners Bay 2282', customer:'Mark Wilson',  time:'11:20 am', mode:'solarsafe', modes:['safety','battery_installed'], label:'Solarsafe — safety + installed battery'},
+ {id:3, ref:'SS-1047', addr:'22 Wollombi Rd, Cessnock 2325',  customer:'Lena Patel',   time:'1:40 pm',  mode:'solarsafe', modes:['safety','battery_ready'], label:'Solarsafe — battery-ready check'},
+];
+
+/* ================= state ================= */
+const $=id=>document.getElementById(id);
+let toastT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400)}
+const store={};   // jobId -> {stepKey:{photo,assess,note}}
+let curJob=null, curSteps=[], curIx=0, navStack=['v-jobs'];
+
+function stepsFor(job){
+  const out=[];
+  PROTOCOL.forEach(sec=>{
+    const st=sec.steps.filter(s=>s.modes.some(m=>job.modes.includes(m)));
+    if(st.length)out.push({section:sec.section,steps:st});
+  });
+  return out;
+}
+function flatSteps(job){return stepsFor(job).flatMap(s=>s.steps)}
+function jobProgress(job){
+  const d=store[job.id]||{}; const fs=flatSteps(job);
+  const done=fs.filter(s=>d[s.key]&&d[s.key].assess).length;
+  return {done,total:fs.length};
+}
+
+/* ================= views ================= */
+function showView(id,push=true){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  $(id).classList.add('active');
+  if(push)navStack.push(id);
+  $('topBack').style.display=id==='v-jobs'?'none':'block';
+  window.scrollTo({top:0});
+}
+function navBack(){
+  navStack.pop();
+  const prev=navStack[navStack.length-1]||'v-jobs';
+  showView(prev,false);
+}
+function goJobs(){navStack=['v-jobs'];showView('v-jobs',false);renderJobs()}
+
+function renderJobs(){
+  $('jobsDate').textContent=new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+  $('jobList').innerHTML=DEMO_JOBS.map(j=>{
+    const p=jobProgress(j);
+    return `<button class="job" onclick="openJob(${j.id})">
+      <div class="row1"><div><div class="ref">${j.ref} · ${j.time}</div><div class="addr">${j.addr}</div></div>
+      <span class="mode-pill ${j.mode}">${j.mode==='presale'?'PRE-SALE':'SOLARSAFE'}</span></div>
+      <div class="meta"><span>${j.customer}</span><span>${j.label}</span><span class="mono">${p.done}/${p.total} steps</span></div>
+      <div class="prog-mini"><i style="width:${p.total?p.done/p.total*100:0}%"></i></div>
+    </button>`;
+  }).join('');
+}
+
+function openJob(id){
+  curJob=DEMO_JOBS.find(j=>j.id===id);
+  $('jRef').textContent=curJob.ref+' · '+curJob.time;
+  $('jAddr').textContent=curJob.addr;
+  $('jMeta').textContent=curJob.customer+' · '+curJob.label;
+  $('jMode').className='mode-pill '+curJob.mode;
+  $('jMode').textContent=curJob.mode==='presale'?'PRE-SALE':'SOLARSAFE';
+  $('convertBox').style.display=curJob.mode==='solarsafe'?'block':'none';
+  renderChecklist();
+  showView('v-job');
+}
+function renderChecklist(){
+  const d=store[curJob.id]||{};
+  $('checklist').innerHTML=stepsFor(curJob).map(sec=>{
+    const rows=sec.steps.map(s=>{
+      const e=d[s.key]||{};
+      const chip=e.assess?`<span class="state-chip ${e.assess}">${e.assess.toUpperCase()}</span>`:'<span class="state-chip todo">TO DO</span>';
+      const thumb=e.photo?`<img src="${e.photo}" alt="">`:'📷';
+      return `<button class="step-row" onclick="openStep('${s.key}')">
+        <span class="thumb">${thumb}${s.req&&!e.assess?'<span class="req-dot"></span>':''}</span>
+        <span class="st"><b>${s.title}</b><small>${s.hint}</small></span>${chip}</button>`;
+    }).join('');
+    const done=sec.steps.filter(s=>d[s.key]&&d[s.key].assess).length;
+    return `<div class="sec-h"><span>${sec.section}</span><span class="mono">${done}/${sec.steps.length}</span></div>${rows}`;
+  }).join('');
+  updateGate();
+}
+function updateGate(){
+  const d=store[curJob.id]||{};
+  const missing=flatSteps(curJob).filter(s=>s.req&&!(d[s.key]&&d[s.key].assess&&(d[s.key].photo||d[s.key].assess==='na')));
+  const g=$('gateMsg');
+  if(missing.length){
+    g.classList.add('show');
+    g.textContent=`Completion gate: ${missing.length} mandatory step${missing.length>1?'s':''} still need a photo + assessment.`;
+    $('completeBtn').disabled=true;
+  }else{g.classList.remove('show');$('completeBtn').disabled=false}
+}
+
+/* ================= capture ================= */
+function openStep(key){
+  curSteps=flatSteps(curJob); curIx=curSteps.findIndex(s=>s.key===key);
+  loadStep(); showView('v-cap');
+}
+function loadStep(){
+  const s=curSteps[curIx];
+  const sec=stepsFor(curJob).find(x=>x.steps.includes(s));
+  $('cSec').textContent=(sec?sec.section.toUpperCase():'')+' · STEP '+(curIx+1)+' OF '+curSteps.length+(s.req?' · MANDATORY':'');
+  $('cTitle').textContent=s.title;
+  $('cHint').textContent=s.hint+(s.pass!=='—'?' Pass looks like: '+s.pass:'');
+  $('cRef').textContent=(s.ref?s.ref+' · ':'')+'GEOTAG + TIMESTAMP AUTO-ATTACHED · NON-INTRUSIVE: NEVER OPEN ENCLOSURES';
+  const e=(store[curJob.id]||{})[s.key]||{};
+  renderPhoto(e.photo);
+  document.querySelectorAll('.as-btn').forEach(b=>{b.className='as-btn'+(e.assess===b.dataset.as?' sel-'+e.assess:'')});
+  $('cNote').value=e.note||'';
+}
+function renderPhoto(url){
+  const z=$('photoZone');
+  if(url){z.innerHTML=`<input type="file" accept="image/*" capture="environment" id="camInput" hidden><img src="${url}" alt="Captured photo"><button class="btn btn-ghost retake" style="background:#fff" onclick="event.preventDefault();retake()">Retake</button>`;}
+  else{z.innerHTML=`<input type="file" accept="image/*" capture="environment" id="camInput" hidden>
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="6" width="19" height="14" rx="3" stroke="#6D8781" stroke-width="1.8"/><path d="M8.5 6l1.4-2.4h4.2L15.5 6" stroke="#6D8781" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="#6D8781" stroke-width="1.8"/></svg>
+    <span>Tap to take photo</span>`;}
+  wireCam();
+}
+function wireCam(){
+  const inp=$('camInput'), z=$('photoZone');
+  z.onclick=e=>{if(e.target.closest('.retake'))return;inp.click()};
+  inp.onchange=()=>{
+    const f=inp.files[0]; if(!f)return;
+    const url=URL.createObjectURL(f);
+    ensure(curSteps[curIx].key).photo=url;
+    renderPhoto(url);
+    toast(navigator.onLine?'Photo captured':'Photo captured — queued (offline)');
+    /* wire to API: upload to supabase storage; insert photos row {inspection_id, step_key, taken_at, geotag} */
+  };
+}
+function retake(){$('camInput').click()}
+function ensure(key){store[curJob.id]=store[curJob.id]||{};store[curJob.id][key]=store[curJob.id][key]||{};return store[curJob.id][key]}
+function setAssess(a){
+  ensure(curSteps[curIx].key).assess=a;
+  document.querySelectorAll('.as-btn').forEach(b=>{b.className='as-btn'+(a===b.dataset.as?' sel-'+a:'')});
+}
+function saveStep(next){
+  const s=curSteps[curIx], e=ensure(s.key);
+  e.note=$('cNote').value.trim();
+  if(!e.assess)return toast('Pick an assessment first');
+  if((e.assess==='minor'||e.assess==='major')&&!e.note)return toast('MINOR/MAJOR needs an observation note');
+  if(e.assess!=='na'&&!e.photo)return toast('Photo required (or mark N/A)');
+  if(next&&curIx<curSteps.length-1){curIx++;loadStep();window.scrollTo({top:0})}
+  else{renderChecklist();showView('v-job',false);navStack.pop()}
+}
+
+/* ================= convert + complete ================= */
+function convertLead(){
+  if(!$('convertConsent').checked)return toast('Customer consent box first');
+  toast('Quote lead created — enters pipeline at Inspected. (wire: clone site → leads)');
+  $('convertConsent').checked=false;
+  /* wire to API: insert lead {site_id, lead_type per findings, state:'inspected', source:'solarsafe_conversion', consent v3.2} */
+}
+function completeJob(){
+  const d=store[curJob.id]||{}; const fs=flatSteps(curJob);
+  const counts={pass:0,minor:0,major:0,na:0};
+  fs.forEach(s=>{const a=(d[s.key]||{}).assess;if(a)counts[a]++});
+  $('doneSummary').textContent=`${curJob.ref} · ${fs.length} steps · ${counts.pass} pass · ${counts.minor} minor · ${counts.major} major`;
+  showView('v-done');
+  /* wire to API: update inspections set completed_at=now(); event 'inspection.completed' */
+}
+
+/* ================= offline ================= */
+function setOnline(){$('offlinePill').classList.toggle('show',!navigator.onLine)}
+window.addEventListener('online',()=>{setOnline();toast('Back online — syncing queued captures')});
+window.addEventListener('offline',setOnline);
+setOnline();
+
+renderJobs();
+</script>
+</body>
+</html>

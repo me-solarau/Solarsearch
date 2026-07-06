@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your quotes — Solarsearch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F7F9F6;--panel:#fff;--tint:#E8F1EA;--tint2:#F0F5F1;--ink:#0F2E27;--ink2:#41615A;--ink3:#6D8781;--line:#DBE5DE;--line2:#C4D5CA;--amber:#FFB100;--amberd:#DE8F00;--ambers:#FFF3D6;--green:#177A53;--greens:#E2F2EA;--display:'Bricolage Grotesque',sans-serif;--body:'Instrument Sans',sans-serif;--mono:'Spline Sans Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px;border-radius:4px}
+.mono{font-family:var(--mono)}
+.wrap{max-width:760px;margin:0 auto;padding:0 20px}
+header{background:var(--ink);color:#fff;padding:16px 0}
+.logo{font-family:var(--display);font-weight:800;font-size:1.1rem}
+.logo em{font-style:normal;color:var(--amber)}
+.hero{padding:30px 0 8px}
+.hero .ref{font-family:var(--mono);font-size:.68rem;color:var(--amberd);font-weight:700;letter-spacing:.08em}
+.hero h1{font-family:var(--display);font-size:1.6rem;font-weight:700;margin-top:4px}
+.hero .sub{color:var(--ink2);font-size:.92rem;margin-top:6px}
+.same{background:var(--greens);border:1px solid #BFE3D2;border-radius:12px;padding:13px 16px;margin:18px 0;font-size:.86rem;color:var(--green);display:flex;gap:10px;align-items:flex-start}
+.design-strip{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 18px;display:flex;gap:18px;flex-wrap:wrap;font-size:.84rem;color:var(--ink2);margin-bottom:18px}
+.design-strip b{font-family:var(--mono);color:var(--ink)}
+.quote{background:var(--panel);border:1.5px solid var(--line);border-radius:15px;margin-bottom:14px;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.quote.sel{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.q-main{padding:18px;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
+.co{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+.avatar{width:42px;height:42px;border-radius:11px;font-family:var(--display);font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.co b{font-size:1rem}
+.stars{color:var(--amberd);font-size:.78rem;letter-spacing:1px}
+.rl{font-size:.76rem;color:var(--ink2)}
+.kit{font-size:.82rem;color:var(--ink2);display:grid;gap:3px}
+.kit i{font-style:normal;font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;color:var(--ink3);text-transform:uppercase;margin-right:6px}
+.price .after{font-family:var(--mono);font-size:1.6rem;font-weight:700;letter-spacing:-.02em;text-align:right}
+.price .before{font-family:var(--mono);font-size:.74rem;color:var(--ink3);text-decoration:line-through;text-align:right}
+.price .save{display:block;font-family:var(--mono);font-size:.68rem;background:var(--greens);color:var(--green);padding:3px 9px;border-radius:99px;margin-top:6px;text-align:center}
+.q-foot{border-top:1px solid var(--line);background:var(--tint2);padding:11px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.wty{font-size:.76rem;color:var(--ink2)}
+.wty b{font-family:var(--mono)}
+.pick{border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);border-radius:99px;padding:9px 20px;font-size:.84rem;font-weight:700}
+.quote.sel .pick{background:var(--ink);color:#fff}
+.dock{position:sticky;bottom:0;background:var(--ink);color:#fff;padding:14px 0;margin-top:22px}
+.dock .in{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.dock small{display:block;color:#A9C6BB;font-size:.76rem}
+.btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:999px;font-weight:700;font-size:.92rem;padding:13px 26px}
+.btn-amber{background:var(--amber);color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.modal-back{position:fixed;inset:0;background:rgba(15,46,39,.55);z-index:200;display:none;align-items:center;justify-content:center;padding:18px}
+.modal-back.open{display:flex}
+.modal{background:var(--panel);border-radius:18px;max-width:480px;width:100%;padding:26px;max-height:90vh;overflow-y:auto}
+.modal h3{font-family:var(--display);font-size:1.25rem;margin-bottom:6px}
+.modal p{color:var(--ink2);font-size:.9rem;margin-bottom:14px}
+.consent{background:var(--tint2);border:1.5px solid var(--line2);border-radius:11px;padding:14px;display:flex;gap:11px;font-size:.84rem;color:var(--ink2);margin-bottom:14px}
+.consent input{width:18px;height:18px;accent-color:var(--ink);flex:none;margin-top:2px}
+.agent-line{font-size:.76rem;color:var(--ink3);margin-bottom:14px}
+.done{display:none;text-align:center;padding:60px 20px}
+.done .ic{width:72px;height:72px;border-radius:50%;background:var(--greens);color:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+.done h2{font-family:var(--display);font-size:1.6rem;margin-bottom:10px}
+.done p{color:var(--ink2);max-width:440px;margin:0 auto 8px}
+footer{padding:26px 0 40px;font-family:var(--mono);font-size:.64rem;color:var(--ink3);letter-spacing:.05em;text-align:center}
+</style>
+</head>
+<body>
+<header><div class="wrap"><span class="logo">solar<em>search</em></span></div></header>
+
+<div id="chooseView">
+<div class="wrap hero">
+  <div class="ref">SS-1046 · WARNERS BAY 2282 · LINK VALID 7 DAYS</div>
+  <h1>Your quotes are ready, Mark.</h1>
+  <div class="sub">Three accredited local installers priced the system designed from your home inspection. Nobody has your contact details — the one you choose gets them, the others never do.</div>
+</div>
+<div class="wrap">
+  <div class="same">✓&nbsp;<span><b>Identical design, honest comparison.</b> Every quote below is for the exact same system on your actual roof — the only differences are price, equipment tier, warranty and the installer's track record.</span></div>
+  <div class="design-strip">
+    <span>System <b>10.6 kW + 13.5 kWh</b></span><span>From your inspection <b>21 photos ✓</b></span><span>Rebate applied <b>federal · rules v2026.05</b></span><span>Rebate locked at <b>your install date</b></span>
+  </div>
+  <div id="quoteList"></div>
+</div>
+<div class="dock"><div class="wrap in">
+  <div><span id="dockMsg">Select the installer you'd like to go with</span><small>Or choose nobody — the quotes stay yours either way. No callbacks unless you pick one.</small></div>
+  <button class="btn btn-amber" id="goBtn" disabled onclick="openConfirm()">Continue with selected</button>
+</div></div>
+<footer>SOLARSEARCH.COM.AU · A ME-SOLAR BRAND · YOUR AGREEMENT & WARRANTIES ARE WITH THE INSTALLER YOU CHOOSE — SOLARSEARCH ACTS AS FACILITATOR &amp; AUTHORISED AGENT</footer>
+</div>
+
+<div class="done" id="doneView">
+  <div class="ic"><svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <h2>Locked in.</h2>
+  <p id="doneCo" style="font-weight:700;color:var(--ink)"></p>
+  <p>Their formal agreement is on its way for e-signature — issued in their name, with your 10-year workmanship warranty and all consumer guarantees sitting with them. Your rebate is set at your installation date.</p>
+  <p style="font-size:.82rem;color:var(--ink3)">Grid connection paperwork starts now. We'll keep you posted by SMS.</p>
+</div>
+
+<div class="modal-back" id="modal">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Confirm your choice</h3>
+    <p><b id="mCo">—</b> will receive your name, contact details, inspection pack and the designed system. The other installers never see your details.</p>
+    <div class="consent"><input type="checkbox" id="cShare"><label for="cShare">I consent to Solarsearch sharing my details with this installer so they can issue their agreement. Consent v3.2, timestamped.</label></div>
+    <div class="agent-line">Your contract, installation, warranties and consumer guarantees are with the installer. Solarsearch acts as facilitator and authorised agent and receives a fee from the installer.</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" style="background:none;border:1.5px solid var(--line2)" onclick="closeConfirm()">Back</button>
+      <button class="btn btn-amber" onclick="confirmChoice()">Confirm & continue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const QUOTES=[
+ {id:1,co:'Pilot Installer Pty Ltd',col:'#177A53',rating:4.9,reviews:214,panel:'Jinko Tiger Neo 440W',inv:'Sungrow SH-RS hybrid',bat:'Sungrow SBR 13.5 kWh',before:19980,after:14890,wty:10},
+ {id:2,co:'Hunter Coast Solar',col:'#1F5C8C',rating:4.8,reviews:167,panel:'REC Alpha Pure 440W',inv:'Fronius Gen24',bat:'BYD HVM 13.8 kWh',before:21340,after:16250,wty:12},
+ {id:3,co:'Valley Energy Co.',col:'#8C1F4B',rating:4.7,reviews:388,panel:'Trina Vertex S+ 435W',inv:'GoodWe GT + AC-coupled',bat:'Tesla Powerwall 3',before:22110,after:17020,wty:10},
+];
+let sel=null;
+const $=id=>document.getElementById(id);
+const fmt$=n=>'$'+n.toLocaleString();
+function initials(n){return n.split(' ').map(w=>w[0]).join('').slice(0,2)}
+function stars(r){return '★'.repeat(Math.round(r))+'☆'.repeat(5-Math.round(r))}
+function render(){
+  $('quoteList').innerHTML=QUOTES.map(q=>`<div class="quote ${sel===q.id?'sel':''}" id="q${q.id}">
+    <div class="q-main">
+      <div>
+        <div class="co"><span class="avatar" style="background:${q.col}">${initials(q.co)}</span>
+          <span><b>${q.co}</b><br><span class="stars">${stars(q.rating)}</span> <span class="rl">${q.rating} · ${q.reviews} verified reviews · SAA accredited</span></span></div>
+        <div class="kit">
+          <span><i>Panels</i>${q.panel}</span>
+          <span><i>Inverter</i>${q.inv}</span>
+          <span><i>Battery</i>${q.bat}</span>
+        </div>
+      </div>
+      <div class="price">
+        <div class="before">${fmt$(q.before)} before rebates</div>
+        <div class="after">${fmt$(q.after)}</div>
+        <span class="save">– ${fmt$(q.before-q.after)} rebates</span>
+      </div>
+    </div>
+    <div class="q-foot">
+      <span class="wty">Workmanship warranty <b>${q.wty} yrs</b> · agreement &amp; guarantees with this installer</span>
+      <button class="pick" onclick="pick(${q.id})" aria-pressed="${sel===q.id}">${sel===q.id?'✓ Selected':'Select'}</button>
+    </div>
+  </div>`).join('');
+  $('goBtn').disabled=!sel;
+  $('dockMsg').textContent=sel?QUOTES.find(q=>q.id===sel).co+' selected':'Select the installer you\'d like to go with';
+}
+function pick(id){sel=sel===id?null:id;render()}
+function openConfirm(){$('mCo').textContent=QUOTES.find(q=>q.id===sel).co;$('cShare').checked=false;$('modal').classList.add('open')}
+function closeConfirm(){$('modal').classList.remove('open')}
+function confirmChoice(){
+  if(!$('cShare').checked)return;
+  closeConfirm();
+  $('doneCo').textContent=QUOTES.find(q=>q.id===sel).co;
+  $('chooseView').style.display='none';$('doneView').style.display='block';window.scrollTo({top:0});
+  /* wire: quotes.status='chosen'; immutable board_snapshot already stored; event 'customer.chose'; proposal issue */
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeConfirm()});
+render();
+</script>
+</body>
+</html>

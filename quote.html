@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solarsearch — Instant solar quote</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%220%200%2048%2048%22%20fill%3D%22none%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2221%22%20r%3D%229%22%20fill%3D%22%23FFB100%22/%3E%3Cg%20stroke%3D%22%23FFB100%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%3E%3Cline%20x1%3D%2221%22%20y1%3D%226.5%22%20x2%3D%2221%22%20y2%3D%229.5%22/%3E%3Cline%20x1%3D%2221%22%20y1%3D%2232.5%22%20x2%3D%2221%22%20y2%3D%2235.5%22/%3E%3Cline%20x1%3D%226.5%22%20y1%3D%2221%22%20x2%3D%229.5%22%20y2%3D%2221%22/%3E%3Cline%20x1%3D%2232.5%22%20y1%3D%2221%22%20x2%3D%2235.5%22%20y2%3D%2221%22/%3E%3Cline%20x1%3D%2210.7%22%20y1%3D%2210.7%22%20x2%3D%2212.9%22%20y2%3D%2212.9%22/%3E%3Cline%20x1%3D%2231.3%22%20y1%3D%2210.7%22%20x2%3D%2229.1%22%20y2%3D%2212.9%22/%3E%3Cline%20x1%3D%2210.7%22%20y1%3D%2231.3%22%20x2%3D%2212.9%22%20y2%3D%2229.1%22/%3E%3C/g%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2221%22%20r%3D%2216%22%20stroke%3D%22%230F2E27%22%20stroke-width%3D%224.5%22/%3E%3Cline%20x1%3D%2232.3%22%20y1%3D%2232.3%22%20x2%3D%2242%22%20y2%3D%2242%22%20stroke%3D%22%230F2E27%22%20stroke-width%3D%226%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F7F9F6; --panel:#FFFFFF; --tint:#E8F1EA; --tint-2:#F0F5F0;
+  --ink:#0F2E27; --ink-2:#41615A; --ink-3:#6D8781;
+  --line:#DBE5DE; --line-2:#C6D5CC;
+  --amber:#FFB100; --amber-deep:#DE8F00; --amber-soft:#FFF3D6;
+  --green:#177A53; --green-soft:#E2F2EA; --red:#C2452D;
+  --display:'Bricolage Grotesque',sans-serif; --body:'Instrument Sans',sans-serif; --mono:'Spline Sans Mono',monospace;
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 1px 2px rgba(15,46,39,.05),0 10px 30px -12px rgba(15,46,39,.14);
+  --shadow-lg:0 2px 4px rgba(15,46,39,.06),0 24px 60px -18px rgba(15,46,39,.24);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px;border-radius:4px}
+.mono{font-family:var(--mono)}
+h1,h2,h3{font-family:var(--display);line-height:1.1;letter-spacing:-.015em}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px;width:100%}
+.eyebrow{font-family:var(--mono);font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.eyebrow .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:8px;vertical-align:1px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:999px;font-weight:600;font-size:.95rem;padding:13px 26px;transition:transform .15s,background .15s;text-decoration:none}
+.btn-amber{background:var(--amber);color:var(--ink);box-shadow:0 1px 0 rgba(15,46,39,.15),0 8px 20px -8px rgba(222,143,0,.55)}
+.btn-amber:hover{background:#FFBD26;transform:translateY(-1px)}
+.btn-ink{background:var(--ink);color:#fff}
+.btn-ink:hover{background:#1A4038}
+.btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line-2)}
+.btn-ghost:hover{border-color:var(--ink-2)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+header{background:rgba(247,249,246,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:1.2rem;text-decoration:none;letter-spacing:-.02em;color:var(--ink)}
+.logo .wm{color:var(--amber-deep)}
+.mode-tag{font-family:var(--mono);font-size:.68rem;letter-spacing:.12em;background:var(--ink);color:var(--amber);padding:6px 13px;border-radius:999px}
+main{flex:1}
+
+/* stage 1: address */
+.ask{max-width:640px;margin:0 auto;padding:72px 24px 40px;text-align:center}
+.ask h1{font-size:clamp(2rem,4.6vw,3rem);font-weight:800;letter-spacing:-.025em}
+.ask .lede{color:var(--ink-2);font-size:1.08rem;margin:16px auto 30px;max-width:460px}
+.ask-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);text-align:left}
+.f-label{display:block;font-size:.84rem;font-weight:600;margin:0 0 8px;color:var(--ink-2)}
+.f-input{width:100%;border:1.5px solid var(--line-2);border-radius:var(--radius-sm);background:var(--panel);padding:14px 16px;font-size:1rem;margin-bottom:18px}
+.f-input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.bill-line{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.bill-line output{font-family:var(--mono);font-weight:700;font-size:1.15rem}
+input[type=range]{width:100%;appearance:none;-webkit-appearance:none;height:6px;border-radius:99px;background:linear-gradient(to right,var(--amber) 0%,var(--amber) var(--fill,50%),var(--line) var(--fill,50%));margin-bottom:20px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--ink);border:3px solid #fff;box-shadow:0 2px 8px rgba(15,46,39,.35);cursor:grab}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--ink);border:3px solid #fff;cursor:grab}
+.field-err{color:var(--red);font-size:.85rem;min-height:1.3em;margin:-8px 0 8px}
+.micro{font-size:.78rem;color:var(--ink-3);text-align:center;margin-top:14px}
+
+/* stage 2/3 shared */
+.stage{display:none}
+.stage.active{display:block;animation:rise .35s ease}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* scan + quote layout */
+.quote-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:26px;padding:44px 0 60px;align-items:start}
+@media(max-width:900px){.quote-grid{grid-template-columns:1fr}}
+.roof-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.roof-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.roof-head .a{font-weight:700;font-family:var(--display);font-size:1rem}
+.roof-head .m{font-family:var(--mono);font-size:.7rem;color:var(--ink-3);letter-spacing:.06em}
+.roof-stage{position:relative;background:#20423A}
+.roof-stage svg{display:block;width:100%;height:auto}
+.scanline{position:absolute;left:0;right:0;top:0;height:3px;background:var(--amber);box-shadow:0 0 18px 4px rgba(255,177,0,.75);opacity:0}
+.scanning .scanline{opacity:1;animation:scan 2.4s ease-in-out}
+@keyframes scan{0%{top:0}50%{top:calc(100% - 3px)}100%{top:0}}
+.scan-status{position:absolute;left:16px;bottom:14px;font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;color:#CFE5DA;background:rgba(15,46,39,.75);padding:7px 13px;border-radius:999px}
+.roof-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--ink-2)}
+.roof-foot b{font-family:var(--mono)}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+/* quote card */
+.q-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.q-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.q-head h2{font-size:1.15rem}
+.q-head .rules{font-family:var(--mono);font-size:.66rem;color:var(--ink-3);letter-spacing:.06em}
+.q-price{padding:22px 24px 6px;text-align:left}
+.q-price .before{font-family:var(--mono);font-size:.84rem;color:var(--ink-3);text-decoration:line-through}
+.q-price .after{font-family:var(--mono);font-size:2.6rem;font-weight:700;letter-spacing:-.03em;line-height:1.1}
+.q-price .after small{font-size:.9rem;color:var(--ink-3);font-weight:400;font-family:var(--body)}
+.q-price .save{display:inline-block;font-family:var(--mono);font-size:.74rem;background:var(--green-soft);color:var(--green);padding:4px 10px;border-radius:999px;margin-top:8px}
+.q-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);margin-top:18px;border-top:1px solid var(--line)}
+.q-stat{background:var(--panel);padding:14px 24px}
+.q-stat .v{font-family:var(--mono);font-weight:700;font-size:1.15rem}
+.q-stat .l{font-size:.74rem;color:var(--ink-3)}
+.q-controls{padding:18px 24px;border-top:1px solid var(--line);background:var(--tint-2)}
+.q-controls .cl{display:flex;justify-content:space-between;font-size:.84rem;font-weight:600;margin-bottom:8px}
+.q-controls .cl output{font-family:var(--mono)}
+.bat-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel);border:1.5px solid var(--line-2);border-radius:var(--radius-sm);padding:13px 15px;margin-top:14px;font-size:.9rem;font-weight:600}
+.bat-toggle small{display:block;font-weight:400;color:var(--ink-3);font-size:.76rem}
+.switch{position:relative;width:46px;height:26px;flex:none}
+.switch input{opacity:0;width:100%;height:100%;position:absolute;cursor:pointer;z-index:2;margin:0}
+.switch .tr{position:absolute;inset:0;background:var(--line-2);border-radius:99px;transition:background .15s}
+.switch .tr::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch input:checked + .tr{background:var(--green)}
+.switch input:checked + .tr::after{transform:translateX(20px)}
+.fin{padding:16px 24px;border-top:1px dashed var(--line-2);font-size:.86rem;color:var(--ink-2);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.fin b{font-family:var(--mono);color:var(--ink);font-size:1.05rem}
+.q-actions{padding:18px 24px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap}
+.q-actions .btn{flex:1;min-width:160px}
+.assump{font-family:var(--mono);font-size:.64rem;color:var(--ink-3);letter-spacing:.05em;padding:0 24px 18px;line-height:1.7}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:13px 22px;border-radius:999px;font-size:.88rem;z-index:300;opacity:0;transition:all .3s;pointer-events:none;box-shadow:var(--shadow-lg)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+footer{border-top:1px solid var(--line);padding:18px 0;font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;color:var(--ink-3)}
+footer .wrap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="logo" href="#" onclick="return false;">
+      <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="21" cy="21" r="9" fill="#FFB100"/><g stroke="#FFB100" stroke-width="3" stroke-linecap="round"><line x1="21" y1="6.5" x2="21" y2="9.5"/><line x1="21" y1="32.5" x2="21" y2="35.5"/><line x1="6.5" y1="21" x2="9.5" y2="21"/><line x1="32.5" y1="21" x2="35.5" y2="21"/><line x1="10.7" y1="10.7" x2="12.9" y2="12.9"/><line x1="31.3" y1="10.7" x2="29.1" y2="12.9"/><line x1="10.7" y1="31.3" x2="12.9" y2="29.1"/></g><circle cx="21" cy="21" r="16" stroke="#0F2E27" stroke-width="4.5"/><line x1="32.3" y1="32.3" x2="42" y2="42" stroke="#0F2E27" stroke-width="6" stroke-linecap="round"/></svg>
+      solar<span class="wm">search</span>
+    </a>
+    <span class="mode-tag">INSTANT QUOTE</span>
+  </div>
+</header>
+
+<main>
+
+<!-- ========== STAGE 1: ADDRESS ========== -->
+<section class="stage active" id="stageAsk">
+  <div class="ask">
+    <span class="eyebrow"><span class="dot"></span>Design + price in about 20 seconds</span>
+    <h1 style="margin-top:14px">Point us at your roof.</h1>
+    <p class="lede">We map your roof from imagery, lay out the panels, and price the system with today's rebates — before you talk to anyone.</p>
+    <div class="ask-card">
+      <label class="f-label" for="addr">Property address</label>
+      <input class="f-input" id="addr" placeholder="e.g. 14 Banksia St, Cronulla NSW" autocomplete="street-address">
+      <div class="field-err" id="addrErr" role="alert"></div>
+      <div class="bill-line"><label class="f-label" for="bill" style="margin:0">Quarterly power bill</label><output id="billOut" for="bill">$800</output></div>
+      <input type="range" id="bill" min="200" max="2000" step="50" value="800" aria-label="Quarterly electricity bill">
+      <button class="btn btn-amber" style="width:100%;padding:16px" onclick="startScan()">Scan my roof</button>
+      <p class="micro">Free · no signup · nothing is sent to installers</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== STAGE 2/3: SCAN + QUOTE ========== -->
+<section class="stage" id="stageQuote">
+  <div class="wrap quote-grid">
+
+    <div class="roof-panel">
+      <div class="roof-head">
+        <span class="a" id="qAddr">14 Banksia St</span>
+        <span class="m" id="scanMeta">MAPPING ROOF…</span>
+      </div>
+      <div class="roof-stage" id="roofStage">
+        <svg viewBox="0 0 560 400" role="img" aria-label="Top-down view of your roof with solar panel layout">
+          <rect x="0" y="0" width="560" height="400" fill="#20423A"/>
+          <g opacity=".5" stroke="#2C5449" stroke-width="1">
+            <path d="M0 60H560M0 340H560" fill="none"/>
+            <circle cx="70" cy="352" r="16" fill="#2C5449" stroke="none"/>
+            <circle cx="500" cy="48" r="22" fill="#2C5449" stroke="none"/>
+            <circle cx="522" cy="66" r="14" fill="#2C5449" stroke="none"/>
+          </g>
+          <rect x="28" y="352" width="180" height="26" rx="6" fill="#3A5A50"/>
+          <g id="house">
+            <rect x="110" y="90" width="340" height="230" rx="8" fill="#57746B" stroke="#7B958C" stroke-width="2"/>
+            <line x1="110" y1="205" x2="450" y2="205" stroke="#7B958C" stroke-width="2"/>
+            <g id="panelLayer"></g>
+            <line x1="110" y1="205" x2="450" y2="205" stroke="#46615A" stroke-width="1" opacity=".4"/>
+          </g>
+          <g font-family="'Spline Sans Mono',monospace" font-size="11" fill="#9FC0B4">
+            <text x="112" y="82">NORTH-FACING PLANE</text>
+            <text x="112" y="338">SOUTH PLANE — NOT USED</text>
+          </g>
+        </svg>
+        <div class="scanline"></div>
+        <div class="scan-status" id="scanStatus">LOCATING PROPERTY…</div>
+      </div>
+      <div class="roof-foot">
+        <span><span class="legend-dot" style="background:#123B63"></span>440 W panel</span>
+        <span>Usable area <b id="roofArea">— m²</b></span>
+        <span>Aspect <b>N / NW</b></span>
+        <span>Shading <b id="roofShade">low</b></span>
+      </div>
+    </div>
+
+    <div class="q-card" id="qCard" style="opacity:.35;pointer-events:none;transition:opacity .4s">
+      <div class="q-head">
+        <h2>Your instant quote</h2>
+        <span class="rules">RULES v2026.05 · JUL–DEC WINDOW</span>
+      </div>
+      <div class="q-price">
+        <div class="before" id="qBefore">$— before rebates</div>
+        <div class="after" id="qAfter">$—<small> installed</small></div>
+        <span class="save" id="qRebate">– $— federal rebates</span>
+      </div>
+      <div class="q-stats">
+        <div class="q-stat"><div class="v" id="sSize">— kW</div><div class="l">system size · <span id="sPanels">—</span> panels</div></div>
+        <div class="q-stat"><div class="v" id="sProd">— kWh</div><div class="l">est. generation / year</div></div>
+        <div class="q-stat"><div class="v" id="sSave" style="color:var(--green)">$—</div><div class="l">est. bill savings / year</div></div>
+        <div class="q-stat"><div class="v" id="sPayback">— yrs</div><div class="l">simple payback</div></div>
+      </div>
+      <div class="q-controls">
+        <div class="cl"><label for="panelCount">Panels on roof</label><output id="panelOut" for="panelCount">14 × 440 W</output></div>
+        <input type="range" id="panelCount" min="8" max="24" value="14" aria-label="Number of panels">
+        <div class="bat-toggle">
+          <span>Add a 13.5 kWh battery<small id="batHint">+ $— after the federal battery discount</small></span>
+          <span class="switch"><input type="checkbox" id="batOn" aria-label="Add battery"><span class="tr"></span></span>
+        </div>
+      </div>
+      <div class="fin">
+        <span>Or on a 5-year green loan (7.0% p.a. comparison)</span>
+        <b id="qMonthly">$—/mo</b>
+      </div>
+      <div class="q-actions">
+        <button class="btn btn-ink" onclick="toast('Estimate emailed (demo)')">Email me this quote</button>
+        <button class="btn btn-amber" onclick="handoff()">Book my free home assessment</button>
+      </div>
+      <div class="assump" id="assump">ASSUMES 3.9 kWh/kW/DAY (SYDNEY) · 32c/kWh USAGE · 5c FEED-IN · SELF-USE 40% (75% WITH BATTERY) · ESTIMATE ONLY — FINAL DESIGN CONFIRMED ON SITE</div>
+      <div style="padding:0 24px 20px"><button class="btn btn-ghost" style="width:100%" onclick="resetApp()">↺ Quote a different address</button></div>
+    </div>
+
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 SOLARSEARCH.COM.AU · A ME-SOLAR BRAND · ABN PENDING · DEMO BUILD · NOT FINANCIAL ADVICE</span>
+    <span>REBATES: CHEAPER HOME BATTERIES + SOLAR STCs · SET AT INSTALL DATE</span>
+  </div>
+</footer>
+
+<div class="toast" id="toastEl" role="status"></div>
+
+<script>
+/* ---------- rebate rules (same engine as main site) ---------- */
+const RULES={v:'v2026.05',stcFactor:6.8,stcPrice:37,tiers:[[14,1],[28,.6],[50,.15]]};
+function batteryRebate(kwh){let stc=0,prev=0;for(const[cap,rate]of RULES.tiers){const span=Math.max(0,Math.min(kwh,cap)-prev);stc+=span*RULES.stcFactor*rate;prev=cap;if(kwh<=cap)break}return Math.floor(stc)*RULES.stcPrice}
+function solarRebate(kw){return Math.floor(kw*34)*RULES.stcPrice}
+
+/* ---------- pricing + yield model ---------- */
+const M={panelW:.44,costPerKw:1350,fixed:1600,batKwh:13.5,batCost:2800+820*13.5,
+  yieldPerKwDay:3.9,tariff:.32,fit:.05,selfUse:.40,selfUseBat:.75,loanRate:.07,loanYears:5};
+
+const S={addr:'',bill:800,panels:14,maxPanels:20,bat:false,shade:'low'};
+
+/* ---------- helpers ---------- */
+const $=id=>document.getElementById(id);
+function fmt(n){return '$'+Math.round(n).toLocaleString()}
+function paintRange(el){const p=(el.value-el.min)/(el.max-el.min)*100;el.style.setProperty('--fill',p+'%')}
+let toastT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2800)}
+
+/* ---------- stage 1 ---------- */
+const bill=$('bill');
+bill.addEventListener('input',()=>{S.bill=+bill.value;$('billOut').textContent='$'+S.bill;paintRange(bill)});
+paintRange(bill);
+$('addr').addEventListener('keydown',e=>{if(e.key==='Enter')startScan()});
+
+function hashStr(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return h}
+
+function startScan(){
+  const a=$('addr').value.trim();
+  if(a.length<6){$('addrErr').textContent='Enter a street address so we can find the roof.';return}
+  $('addrErr').textContent='';
+  S.addr=a;
+  const h=hashStr(a.toLowerCase());
+  S.maxPanels=14+(h%11);                 // 14–24 panels of roof capacity
+  S.shade=['low','low','low','moderate'][h%4];
+  const targetKw=S.bill<=500?6.6:S.bill<=900?8.8:S.bill<=1400?10.6:13.2;
+  S.panels=Math.min(S.maxPanels,Math.max(8,Math.round(targetKw/M.panelW)));
+  S.bat=false;$('batOn').checked=false;
+
+  $('stageAsk').classList.remove('active');
+  $('stageQuote').classList.add('active');
+  $('qAddr').textContent=S.addr;
+  $('roofShade').textContent=S.shade;
+  $('qCard').style.opacity=.35;$('qCard').style.pointerEvents='none';
+  $('panelLayer').innerHTML='';
+  $('roofArea').textContent='— m²';
+
+  const stage=$('roofStage');
+  stage.classList.add('scanning');
+  const msgs=['LOCATING PROPERTY…','MEASURING ROOF PLANES…','CHECKING SHADING…','PLACING PANELS…'];
+  msgs.forEach((m,i)=>setTimeout(()=>{$('scanStatus').textContent=m},i*650));
+  setTimeout(()=>{
+    stage.classList.remove('scanning');
+    $('scanStatus').textContent='DESIGN COMPLETE';
+    $('scanMeta').textContent='IMAGERY PRE-ASSESSMENT · CONFIRMED ON SITE';
+    $('roofArea').textContent=Math.round(S.maxPanels*2.1*1.9)+' m²';
+    const pc=$('panelCount');pc.max=S.maxPanels;pc.value=S.panels;paintRange(pc);
+    drawPanels(true);
+    recalc();
+    $('qCard').style.opacity=1;$('qCard').style.pointerEvents='auto';
+  },2600);
+}
+
+/* ---------- roof drawing ---------- */
+function drawPanels(animate){
+  const layer=$('panelLayer');
+  const cols=8, pw=38, ph=32, gx=3, gy=4, x0=118, y0=96;
+  let html='';
+  for(let i=0;i<Math.min(S.panels,24);i++){
+    const r=Math.floor(i/cols), c=i%cols;
+    const x=x0+c*(pw+gx), y=y0+r*(ph+gy);
+    const d=animate?`style="opacity:0;animation:pin .25s ease forwards;animation-delay:${i*55}ms"`:''; 
+    html+=`<g ${d}><rect x="${x}" y="${y}" width="${pw}" height="${ph}" rx="2.5" fill="#123B63" stroke="#3E70A5" stroke-width="1.2"/><line x1="${x+pw/2}" y1="${y+2}" x2="${x+pw/2}" y2="${y+ph-2}" stroke="#2A5A8C" stroke-width="1"/><line x1="${x+2}" y1="${y+ph/2}" x2="${x+pw-2}" y2="${y+ph/2}" stroke="#2A5A8C" stroke-width="1"/></g>`;
+  }
+  layer.innerHTML=html;
+  if(!document.getElementById('pinKf')){
+    const st=document.createElement('style');st.id='pinKf';
+    st.textContent='@keyframes pin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}';
+    document.head.appendChild(st);
+  }
+}
+
+/* ---------- quote maths ---------- */
+function recalc(){
+  const kw=+(S.panels*M.panelW).toFixed(2);
+  const shadeF=S.shade==='moderate'?0.92:1;
+  const gen=Math.round(kw*M.yieldPerKwDay*365*shadeF);
+  let before=M.fixed+M.costPerKw*kw;
+  let rebate=solarRebate(kw);
+  if(S.bat){before+=M.batCost;rebate+=batteryRebate(M.batKwh)}
+  const after=before-rebate;
+  const selfUse=S.bat?M.selfUseBat:M.selfUse;
+  const save=Math.min(S.bill*4*0.95, Math.round(gen*(selfUse*M.tariff+(1-selfUse)*M.fit)));
+  const payback=(after/save).toFixed(1);
+  const r=M.loanRate/12,n=M.loanYears*12;
+  const monthly=after*r/(1-Math.pow(1+r,-n));
+
+  $('qBefore').textContent=fmt(before)+' before rebates';
+  $('qAfter').innerHTML=fmt(after)+'<small> installed</small>';
+  $('qRebate').textContent='– '+fmt(rebate)+' federal rebates';
+  $('sSize').textContent=kw+' kW';
+  $('sPanels').textContent=S.panels;
+  $('sProd').textContent=gen.toLocaleString()+' kWh';
+  $('sSave').textContent=fmt(save);
+  $('sPayback').textContent=payback+' yrs';
+  $('qMonthly').textContent=fmt(monthly)+'/mo';
+  $('panelOut').textContent=S.panels+' × 440 W';
+  $('batHint').textContent='+ '+fmt(M.batCost-batteryRebate(M.batKwh))+' after the federal battery discount';
+}
+
+const pc=$('panelCount');
+pc.addEventListener('input',()=>{S.panels=+pc.value;paintRange(pc);drawPanels(false);recalc()});
+$('batOn').addEventListener('change',e=>{S.bat=e.target.checked;recalc();toast(S.bat?'Battery added — self-use jumps to 75%':'Battery removed')});
+
+function handoff(){
+  const kw=(S.panels*M.panelW).toFixed(2);
+  const p=new URLSearchParams({src:'iq',addr:S.addr,bill:S.bill,kw:kw,bat:S.bat?1:0});
+  window.location.href='index.html?'+p.toString();
+}
+
+function resetApp(){
+  $('stageQuote').classList.remove('active');
+  $('stageAsk').classList.add('active');
+  $('scanMeta').textContent='MAPPING ROOF…';
+  window.scrollTo({top:0});
+}
+</script>
+</body>
+</html>

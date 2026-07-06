@@ -1,0 +1,11 @@
+<svg width="96" height="96" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Solarsearch icon">
+  <circle cx="21" cy="21" r="9" fill="#FFB100"/>
+  <g stroke="#FFB100" stroke-width="3" stroke-linecap="round">
+    <line x1="21" y1="6.5" x2="21" y2="9.5"/><line x1="21" y1="32.5" x2="21" y2="35.5"/>
+    <line x1="6.5" y1="21" x2="9.5" y2="21"/><line x1="32.5" y1="21" x2="35.5" y2="21"/>
+    <line x1="10.7" y1="10.7" x2="12.9" y2="12.9"/><line x1="31.3" y1="10.7" x2="29.1" y2="12.9"/>
+    <line x1="10.7" y1="31.3" x2="12.9" y2="29.1"/>
+  </g>
+  <circle cx="21" cy="21" r="16" stroke="#0F2E27" stroke-width="4.5"/>
+  <line x1="32.3" y1="32.3" x2="42" y2="42" stroke="#0F2E27" stroke-width="6" stroke-linecap="round"/>
+</svg>

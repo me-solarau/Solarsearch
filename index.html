@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solarsearch — Live solar & battery prices, side by side</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%220%200%2048%2048%22%20fill%3D%22none%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2221%22%20r%3D%229%22%20fill%3D%22%23FFB100%22/%3E%3Cg%20stroke%3D%22%23FFB100%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%3E%3Cline%20x1%3D%2221%22%20y1%3D%226.5%22%20x2%3D%2221%22%20y2%3D%229.5%22/%3E%3Cline%20x1%3D%2221%22%20y1%3D%2232.5%22%20x2%3D%2221%22%20y2%3D%2235.5%22/%3E%3Cline%20x1%3D%226.5%22%20y1%3D%2221%22%20x2%3D%229.5%22%20y2%3D%2221%22/%3E%3Cline%20x1%3D%2232.5%22%20y1%3D%2221%22%20x2%3D%2235.5%22%20y2%3D%2221%22/%3E%3Cline%20x1%3D%2210.7%22%20y1%3D%2210.7%22%20x2%3D%2212.9%22%20y2%3D%2212.9%22/%3E%3Cline%20x1%3D%2231.3%22%20y1%3D%2210.7%22%20x2%3D%2229.1%22%20y2%3D%2212.9%22/%3E%3Cline%20x1%3D%2210.7%22%20y1%3D%2231.3%22%20x2%3D%2212.9%22%20y2%3D%2229.1%22/%3E%3C/g%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2221%22%20r%3D%2216%22%20stroke%3D%22%230F2E27%22%20stroke-width%3D%224.5%22/%3E%3Cline%20x1%3D%2232.3%22%20y1%3D%2232.3%22%20x2%3D%2242%22%20y2%3D%2242%22%20stroke%3D%22%230F2E27%22%20stroke-width%3D%226%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F7F9F6; --panel:#FFFFFF; --tint:#E8F1EA; --tint-2:#F0F5F0;
+  --ink:#0F2E27; --ink-2:#41615A; --ink-3:#6D8781;
+  --line:#DBE5DE; --line-2:#C6D5CC;
+  --amber:#FFB100; --amber-deep:#DE8F00; --amber-soft:#FFF3D6;
+  --green:#177A53; --green-soft:#E2F2EA;
+  --red:#C2452D;
+  --display:'Bricolage Grotesque',sans-serif;
+  --body:'Instrument Sans',sans-serif;
+  --mono:'Spline Sans Mono',monospace;
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 1px 2px rgba(15,46,39,.05),0 10px 30px -12px rgba(15,46,39,.14);
+  --shadow-lg:0 2px 4px rgba(15,46,39,.06),0 24px 60px -18px rgba(15,46,39,.24);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+img{max-width:100%}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--amber);outline-offset:2px;border-radius:4px}
+.mono{font-family:var(--mono)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.eyebrow{font-family:var(--mono);font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.eyebrow .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:8px;vertical-align:1px}
+h1,h2,h3{font-family:var(--display);line-height:1.08;letter-spacing:-.01em}
+.section{padding:88px 0}
+.section-head{max-width:640px;margin-bottom:44px}
+.section-head h2{font-size:clamp(1.7rem,3.4vw,2.4rem);font-weight:700;margin:14px 0 12px}
+.section-head p{color:var(--ink-2);font-size:1.02rem}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:999px;font-weight:600;font-size:.95rem;padding:13px 26px;transition:transform .15s ease,box-shadow .15s ease,background .15s ease;text-decoration:none}
+.btn-amber{background:var(--amber);color:var(--ink);box-shadow:0 1px 0 rgba(15,46,39,.15),0 8px 20px -8px rgba(222,143,0,.55)}
+.btn-amber:hover{background:#FFBD26;transform:translateY(-1px)}
+.btn-ink{background:var(--ink);color:#fff}
+.btn-ink:hover{background:#1A4038}
+.btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line-2)}
+.btn-ghost:hover{border-color:var(--ink-2)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-lg{padding:16px 32px;font-size:1.02rem}
+
+/* ---------- header ---------- */
+header{position:sticky;top:0;z-index:60;background:rgba(247,249,246,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:68px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:1.22rem;text-decoration:none;letter-spacing:-.02em}
+.logo svg{flex:none}
+.logo .wm{color:var(--amber-deep)}
+footer .logo .wm{color:var(--amber)}
+.nav-links{display:flex;gap:28px;align-items:center;list-style:none}
+.nav-links a{text-decoration:none;font-size:.92rem;font-weight:500;color:var(--ink-2)}
+.nav-links a:hover{color:var(--ink)}
+.nav .btn{padding:10px 20px;font-size:.88rem}
+@media(max-width:820px){.nav-links{display:none}}
+
+/* ---------- hero ---------- */
+.hero{padding:74px 0 60px;position:relative;overflow:hidden}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+@media(max-width:920px){.hero-grid{grid-template-columns:1fr;gap:40px}}
+.hero h1{font-size:clamp(2.3rem,5vw,3.6rem);font-weight:800;letter-spacing:-.025em}
+.hero h1 .hl{position:relative;white-space:nowrap}
+.hero h1 .hl::after{content:"";position:absolute;left:-2px;right:-2px;bottom:.06em;height:.34em;background:var(--amber);opacity:.4;z-index:-1;border-radius:3px}
+.hero p.lede{margin:20px 0 28px;font-size:1.12rem;color:var(--ink-2);max-width:520px}
+.postcode-bar{display:flex;background:var(--panel);border:1.5px solid var(--line-2);border-radius:999px;padding:6px;max-width:480px;box-shadow:var(--shadow)}
+.postcode-bar input{flex:1;border:none;background:transparent;padding:10px 18px;font-size:1.05rem;font-family:var(--mono);font-weight:500;min-width:0}
+.postcode-bar input:focus{outline:none}
+.postcode-bar .btn{flex:none}
+.hero .promise{display:flex;gap:18px;margin-top:18px;flex-wrap:wrap}
+.hero .promise span{font-size:.85rem;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+.hero .promise svg{color:var(--green)}
+.field-err{color:var(--red);font-size:.85rem;margin-top:8px;min-height:1.2em}
+
+/* rebate staircase card (signature) */
+.stair-card{background:var(--ink);color:#F2F7F3;border-radius:20px;padding:28px 28px 20px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
+.stair-card .eyebrow{color:#9FC0B4}
+.stair-card h3{font-size:1.25rem;font-weight:700;margin:10px 0 2px;color:#fff}
+.stair-card .sub{font-size:.88rem;color:#A9C6BB;margin-bottom:14px}
+.stair-card .now{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.stair-card .now .val{font-family:var(--mono);font-size:2rem;font-weight:700;color:var(--amber)}
+.stair-card .now .lbl{font-size:.82rem;color:#A9C6BB}
+.stair-svg{width:100%;height:auto;display:block;margin-top:6px}
+.stair-note{font-family:var(--mono);font-size:.7rem;color:#7FA396;margin-top:10px;letter-spacing:.04em}
+
+/* trust strip */
+.trust{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel)}
+.trust-row{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;padding:26px 0}
+@media(max-width:820px){.trust-row{grid-template-columns:repeat(2,1fr)}}
+.trust-item{text-align:center}
+.trust-item .n{font-family:var(--mono);font-weight:700;font-size:1.45rem;letter-spacing:-.02em}
+.trust-item .n em{font-style:normal;color:var(--amber-deep)}
+.trust-item .l{font-size:.8rem;color:var(--ink-3);margin-top:2px}
+
+/* ---------- how it works ---------- */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+@media(max-width:960px){.steps{grid-template-columns:1fr 1fr!important}}@media(max-width:560px){.steps{grid-template-columns:1fr!important}}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px;position:relative}
+.step .badge{width:40px;height:40px;border-radius:12px;background:var(--tint);display:flex;align-items:center;justify-content:center;margin-bottom:16px;color:var(--ink)}
+.step h3{font-size:1.12rem;font-weight:700;margin-bottom:8px}
+.step p{font-size:.92rem;color:var(--ink-2)}
+.step .tag{position:absolute;top:22px;right:22px;font-family:var(--mono);font-size:.68rem;color:var(--ink-3);letter-spacing:.1em}
+
+/* ---------- price index ---------- */
+.index-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.index-head{display:flex;justify-content:space-between;align-items:center;padding:20px 26px;border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap}
+.index-head .t{font-weight:700;font-family:var(--display);font-size:1.05rem}
+.index-head .d{font-family:var(--mono);font-size:.74rem;color:var(--ink-3);letter-spacing:.06em}
+table.index{width:100%;border-collapse:collapse}
+table.index th{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600;text-align:right;padding:12px 26px;border-bottom:1px solid var(--line);background:var(--tint-2)}
+table.index th:first-child{text-align:left}
+table.index td{padding:13px 26px;border-bottom:1px solid var(--line);font-size:.94rem;text-align:right}
+table.index td:first-child{text-align:left;font-weight:600}
+table.index tr:last-child td{border-bottom:none}
+table.index .m{font-family:var(--mono);font-weight:500}
+.delta{font-family:var(--mono);font-size:.78rem;padding:2px 8px;border-radius:999px}
+.delta.down{background:var(--green-soft);color:var(--green)}
+.delta.flat{background:var(--tint-2);color:var(--ink-3)}
+@media(max-width:640px){table.index th,table.index td{padding:11px 14px;font-size:.85rem}.idx-hide{display:none}}
+
+/* ---------- calculator ---------- */
+.calc{display:grid;grid-template-columns:1fr 1fr;gap:26px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:34px;box-shadow:var(--shadow)}
+@media(max-width:860px){.calc{grid-template-columns:1fr;padding:24px}}
+.calc h3{font-size:1.2rem;margin-bottom:6px}
+.calc .hint{font-size:.88rem;color:var(--ink-2);margin-bottom:22px}
+.range-row{margin-bottom:20px}
+.range-row label{display:flex;justify-content:space-between;font-size:.86rem;font-weight:600;margin-bottom:10px}
+.range-row label output{font-family:var(--mono);font-weight:600;color:var(--ink)}
+input[type=range]{width:100%;appearance:none;-webkit-appearance:none;height:6px;border-radius:99px;background:linear-gradient(to right,var(--amber) 0%,var(--amber) var(--fill,50%),var(--line) var(--fill,50%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--ink);border:3px solid #fff;box-shadow:0 2px 8px rgba(15,46,39,.35);cursor:grab}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--ink);border:3px solid #fff;box-shadow:0 2px 8px rgba(15,46,39,.35);cursor:grab}
+.tier-bar{display:flex;height:14px;border-radius:99px;overflow:hidden;margin:6px 0 8px;border:1px solid var(--line)}
+.tier-bar .t1{background:var(--amber)}
+.tier-bar .t2{background:#FFD879}
+.tier-bar .t3{background:#FFF0C7}
+.tier-legend{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;color:var(--ink-3);letter-spacing:.03em}
+.tier-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.calc-out{background:var(--tint-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:24px}
+.calc-out .big{font-family:var(--mono);font-size:2.4rem;font-weight:700;color:var(--green);letter-spacing:-.03em}
+.calc-out .big-l{font-size:.82rem;color:var(--ink-2);margin-bottom:16px}
+.calc-out dl{display:grid;grid-template-columns:1fr auto;gap:8px 14px;font-size:.88rem}
+.calc-out dt{color:var(--ink-2)}
+.calc-out dd{font-family:var(--mono);font-weight:500;text-align:right}
+.calc-out .rule-v{font-family:var(--mono);font-size:.66rem;color:var(--ink-3);margin-top:16px;letter-spacing:.05em}
+
+/* ---------- footer ---------- */
+footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
+.foot{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:36px;padding:56px 0 40px}
+@media(max-width:820px){.foot{grid-template-columns:1fr 1fr}}
+.foot h4{color:#fff;font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px}
+.foot ul{list-style:none}
+.foot li{margin-bottom:9px}
+.foot a{text-decoration:none;font-size:.9rem;color:#B9D2C7}
+.foot a:hover{color:#fff}
+.foot .blurb{font-size:.88rem;max-width:280px;margin-top:12px}
+.foot-bar{border-top:1px solid rgba(255,255,255,.12);padding:20px 0;font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;color:#7FA396;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+/* ---------- funnel overlay ---------- */
+.overlay{position:fixed;inset:0;z-index:100;background:var(--paper);display:none;flex-direction:column;overflow-y:auto}
+.overlay.open{display:flex}
+.fun-top{position:sticky;top:0;background:rgba(247,249,246,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);z-index:5}
+.fun-top-in{max-width:720px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:16px}
+.fun-top .logo{font-size:1.05rem}
+.progress{flex:1;height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--amber);border-radius:99px;transition:width .35s ease;width:0}
+.fun-close{background:none;border:none;font-size:1rem;color:var(--ink-2);padding:6px 10px;border-radius:8px}
+.fun-close:hover{background:var(--tint)}
+.fun-body{max-width:720px;margin:0 auto;width:100%;padding:48px 24px 80px;flex:1}
+.screen{display:none;animation:rise .3s ease}
+.screen.active{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.screen .q{font-family:var(--display);font-size:clamp(1.4rem,3vw,1.9rem);font-weight:700;letter-spacing:-.015em;margin-bottom:8px}
+.screen .qh{color:var(--ink-2);font-size:.96rem;margin-bottom:28px}
+.opts{display:grid;gap:12px}
+.opts.cols{grid-template-columns:1fr 1fr}
+@media(max-width:560px){.opts.cols{grid-template-columns:1fr}}
+.opt{display:flex;align-items:center;gap:14px;background:var(--panel);border:1.5px solid var(--line-2);border-radius:var(--radius-sm);padding:17px 18px;text-align:left;font-size:.98rem;font-weight:500;transition:border-color .12s,box-shadow .12s}
+.opt:hover{border-color:var(--ink-2)}
+.opt.sel{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink);background:var(--tint-2)}
+.opt .oi{width:38px;height:38px;flex:none;border-radius:10px;background:var(--tint);display:flex;align-items:center;justify-content:center}
+.opt small{display:block;font-weight:400;color:var(--ink-3);font-size:.8rem;margin-top:1px}
+.f-input{width:100%;border:1.5px solid var(--line-2);border-radius:var(--radius-sm);background:var(--panel);padding:15px 16px;font-size:1rem;margin-bottom:14px}
+.f-input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.f-label{display:block;font-size:.84rem;font-weight:600;margin-bottom:8px;color:var(--ink-2)}
+.fun-nav{display:flex;justify-content:space-between;margin-top:34px;gap:12px}
+.link-back{background:none;border:none;color:var(--ink-2);font-size:.92rem;font-weight:500;display:flex;align-items:center;gap:6px;padding:10px 6px}
+.link-back:hover{color:var(--ink)}
+.roof-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-sm);padding:18px;display:flex;gap:16px;align-items:center;margin-top:6px}
+.roof-thumb{width:96px;height:96px;flex:none;border-radius:10px;background:
+  repeating-linear-gradient(45deg,#26483F 0 10px,#2E564B 10px 20px);position:relative;overflow:hidden}
+.roof-thumb::after{content:"";position:absolute;inset:22px 18px;background:
+  repeating-linear-gradient(90deg,var(--amber) 0 12px,#E5A320 12px 14px);border-radius:3px;opacity:.92}
+.roof-card .rd{font-size:.86rem;color:var(--ink-2)}
+.roof-card .rd b{display:block;color:var(--ink);font-size:.94rem;margin-bottom:3px}
+.roof-card .rd .mono{font-size:.8rem}
+.toggles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:16px}
+@media(max-width:560px){.toggles{grid-template-columns:1fr}}
+.tog{border:1.5px solid var(--line-2);background:var(--panel);border-radius:var(--radius-sm);padding:12px;font-size:.86rem;font-weight:500;display:flex;align-items:center;gap:8px;justify-content:center}
+.tog.sel{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink);background:var(--tint-2)}
+.bill-read{font-family:var(--mono);font-size:2rem;font-weight:700;text-align:center;margin:10px 0 22px}
+.bill-read span{font-size:.85rem;color:var(--ink-3);font-weight:400;font-family:var(--body)}
+.consent-box{background:var(--panel);border:1.5px solid var(--line-2);border-radius:var(--radius-sm);padding:18px;display:flex;gap:12px;align-items:flex-start;font-size:.88rem;color:var(--ink-2);margin-bottom:12px}
+.consent-box input{margin-top:3px;width:18px;height:18px;accent-color:var(--ink);flex:none}
+.otp-row{display:flex;gap:10px;justify-content:flex-start;margin:22px 0}
+.otp-row input{width:52px;height:62px;text-align:center;font-family:var(--mono);font-size:1.5rem;font-weight:600;border:1.5px solid var(--line-2);border-radius:var(--radius-sm);background:var(--panel)}
+.otp-row input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.demo-note{background:var(--amber-soft);border:1px solid #F2D48A;border-radius:var(--radius-sm);padding:12px 16px;font-size:.84rem;color:#7A5A00;margin-bottom:8px}
+.demo-note b{font-family:var(--mono)}
+</style>
+<style>
+/* ---------- results ---------- */
+.res-head{max-width:980px;margin:0 auto;padding:40px 24px 0;width:100%}
+.res-head h2{font-size:clamp(1.5rem,3vw,2.1rem);font-weight:700;letter-spacing:-.015em}
+.res-head .sub{color:var(--ink-2);margin-top:8px;font-size:.96rem}
+.res-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.chip{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 13px;color:var(--ink-2)}
+.chip b{color:var(--ink)}
+.sort-bar{max-width:980px;margin:22px auto 0;padding:0 24px;width:100%;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sort-bar .sl{font-size:.82rem;color:var(--ink-3);margin-right:4px}
+.sort-btn{border:1.5px solid var(--line-2);background:var(--panel);border-radius:999px;padding:8px 16px;font-size:.84rem;font-weight:600;color:var(--ink-2)}
+.sort-btn.sel{background:var(--ink);border-color:var(--ink);color:#fff}
+.offers{max-width:980px;margin:20px auto 0;padding:0 24px 40px;width:100%;display:grid;gap:16px}
+.offer{background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;transition:border-color .15s}
+.offer.picked{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink),var(--shadow)}
+.offer-main{display:grid;grid-template-columns:1.35fr 1fr auto;gap:22px;padding:22px 24px;align-items:center}
+@media(max-width:820px){.offer-main{grid-template-columns:1fr;gap:16px}}
+.offer .co{display:flex;align-items:center;gap:13px;margin-bottom:10px}
+.offer .avatar{width:44px;height:44px;border-radius:11px;font-family:var(--display);font-weight:800;font-size:1.05rem;display:flex;align-items:center;justify-content:center;color:#fff;flex:none}
+.offer .co b{font-size:1.04rem}
+.offer .rating{font-size:.8rem;color:var(--ink-2)}
+.offer .rating .stars{color:var(--amber-deep);letter-spacing:1px}
+.kit{display:grid;gap:5px;font-size:.85rem;color:var(--ink-2)}
+.kit .k{display:flex;gap:8px;align-items:baseline}
+.kit .k i{font-family:var(--mono);font-size:.64rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);width:62px;flex:none;font-style:normal}
+.pricecell{text-align:right}
+@media(max-width:820px){.pricecell{text-align:left}}
+.pricecell .after{font-family:var(--mono);font-size:1.7rem;font-weight:700;letter-spacing:-.02em}
+.pricecell .before{font-family:var(--mono);font-size:.8rem;color:var(--ink-3);text-decoration:line-through}
+.pricecell .save{display:inline-block;font-family:var(--mono);font-size:.72rem;background:var(--green-soft);color:var(--green);padding:3px 9px;border-radius:99px;margin-top:6px}
+.pricecell .pb{font-size:.78rem;color:var(--ink-2);margin-top:7px}
+.pricecell .pb b{font-family:var(--mono)}
+.offer-foot{border-top:1px solid var(--line);background:var(--tint-2);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.wty{font-size:.78rem;color:var(--ink-2);display:flex;gap:16px;flex-wrap:wrap}
+.wty b{font-family:var(--mono)}
+.offer-actions{display:flex;gap:10px;align-items:center}
+.link-btn{background:none;border:none;font-size:.82rem;font-weight:600;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px}
+.link-btn:hover{color:var(--ink)}
+.pick-btn{border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);border-radius:999px;padding:9px 18px;font-size:.84rem;font-weight:700}
+.pick-btn.sel{background:var(--ink);color:#fff}
+.rebate-drawer{display:none;border-top:1px dashed var(--line-2);padding:16px 24px;background:#FFFDF5}
+.rebate-drawer.open{display:block}
+.rebate-drawer dl{display:grid;grid-template-columns:1fr auto;gap:6px 16px;font-size:.85rem;max-width:460px}
+.rebate-drawer dt{color:var(--ink-2)}
+.rebate-drawer dd{font-family:var(--mono);text-align:right;font-weight:500}
+.rebate-drawer .rv{font-family:var(--mono);font-size:.66rem;color:var(--ink-3);margin-top:12px;letter-spacing:.05em}
+.share-dock{position:sticky;bottom:0;background:var(--ink);color:#fff;padding:16px 0;z-index:10;box-shadow:0 -10px 30px rgba(15,46,39,.2)}
+.share-dock-in{max-width:980px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.share-dock .c{font-size:.92rem}
+.share-dock .c b{font-family:var(--mono)}
+.share-dock .c small{display:block;color:#A9C6BB;font-size:.78rem;margin-top:2px}
+/* modal */
+.modal-back{position:fixed;inset:0;background:rgba(15,46,39,.55);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-back.open{display:flex}
+.modal{background:var(--panel);border-radius:18px;max-width:520px;width:100%;padding:30px;box-shadow:var(--shadow-lg);max-height:90vh;overflow-y:auto;animation:rise .25s ease}
+.modal h3{font-size:1.3rem;margin-bottom:6px}
+.modal .mh{color:var(--ink-2);font-size:.92rem;margin-bottom:18px}
+.share-list{display:grid;gap:8px;margin-bottom:16px}
+.share-list .si{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;font-size:.92rem;font-weight:600}
+.share-list .si .avatar{width:34px;height:34px;border-radius:9px;font-size:.85rem;font-family:var(--display);font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center}
+.success-wrap{text-align:center;padding:60px 24px;max-width:560px;margin:0 auto}
+.success-wrap .ic{width:74px;height:74px;border-radius:50%;background:var(--green-soft);color:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 22px}
+.success-wrap h2{font-size:1.8rem;margin-bottom:10px}
+.success-wrap p{color:var(--ink-2);margin-bottom:8px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:13px 22px;border-radius:999px;font-size:.88rem;z-index:300;opacity:0;transition:all .3s ease;pointer-events:none;box-shadow:var(--shadow-lg)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.ss-grid{display:grid}@media(max-width:860px){.ss-grid{grid-template-columns:1fr!important}}
+</style>
+</head>
+<body>
+
+<!-- ================= HEADER ================= -->
+<header>
+  <div class="wrap nav">
+    <a class="logo" href="#top" aria-label="Solarsearch home">
+      <svg width="34" height="34" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="21" cy="21" r="9" fill="#FFB100"/><g stroke="#FFB100" stroke-width="3" stroke-linecap="round"><line x1="21" y1="6.5" x2="21" y2="9.5"/><line x1="21" y1="32.5" x2="21" y2="35.5"/><line x1="6.5" y1="21" x2="9.5" y2="21"/><line x1="32.5" y1="21" x2="35.5" y2="21"/><line x1="10.7" y1="10.7" x2="12.9" y2="12.9"/><line x1="31.3" y1="10.7" x2="29.1" y2="12.9"/><line x1="10.7" y1="31.3" x2="12.9" y2="29.1"/></g><circle cx="21" cy="21" r="16" stroke="#0F2E27" stroke-width="4.5"/><line x1="32.3" y1="32.3" x2="42" y2="42" stroke="#0F2E27" stroke-width="6" stroke-linecap="round"/></svg>
+      solar<span class="wm">search</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#rebate">Battery rebate</a></li>
+      <li><a href="#index">Market ledger</a></li>
+      <li><a href="#solarsafe">Solarsafe</a></li>
+      <li><a href="#calc">Calculator</a></li>
+      <li><a href="quote.html">Instant quote</a></li>
+      <li><a href="#" onclick="return false;" style="color:var(--ink-3)">For installers</a></li>
+    </ul>
+    <button class="btn btn-amber" onclick="openFunnel()">See live prices</button>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- ================= HERO ================= -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><span class="dot"></span>Live installer pricing · compared before anyone calls</span>
+      <h1 style="margin-top:16px">One visit. Three quotes. <span class="hl">You choose.</span></h1>
+      <p class="lede">We assess your home properly — roof, switchboard, battery spot — and design your system once. Then up to three accredited local installers compete for your job on the exact same design.</p>
+      <form class="postcode-bar" id="heroForm" novalidate>
+        <input id="heroPostcode" inputmode="numeric" maxlength="4" placeholder="Your postcode" aria-label="Enter your postcode">
+        <button class="btn btn-ink" type="submit">Book my free assessment</button>
+      </form>
+      <div class="field-err" id="heroErr" role="alert"></div>
+      <div class="promise">
+        <span><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Free home assessment</span>
+        <span><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Identical design, honest comparison</span>
+        <span><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Max 3 installers — you pick</span>
+      </div>
+    </div>
+
+    <!-- Signature: rebate step-down staircase -->
+    <aside class="stair-card" id="rebate" aria-label="Federal battery rebate step-down">
+      <span class="eyebrow"><span class="dot"></span>Federal battery rebate</span>
+      <h3>The rebate steps down every 6 months</h3>
+      <div class="sub">Cheaper Home Batteries Program · locked at your installation date</div>
+      <div class="now">
+        <span class="val" id="stairNow">~$252</span>
+        <span class="lbl">per usable kWh today (first 14 kWh) · next cut <b class="mono" style="color:#fff">1 Jan 2027</b></span>
+      </div>
+      <svg class="stair-svg" viewBox="0 0 520 210" role="img" aria-label="Chart showing the federal battery rebate declining in steps from 2026 to 2030">
+        <g font-family="'Spline Sans Mono',monospace" font-size="11" fill="#7FA396">
+          <text x="14" y="200">2026</text><text x="130" y="200">2027</text><text x="240" y="200">2028</text><text x="350" y="200">2029</text><text x="458" y="200">2030</text>
+        </g>
+        <!-- staircase -->
+        <g id="stairSteps"></g>
+        <!-- you are here -->
+        <g id="youAreHere">
+          <line x1="46" y1="34" x2="46" y2="62" stroke="#FFB100" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <circle cx="46" cy="66" r="5" fill="#FFB100"/>
+          <rect x="12" y="12" rx="6" width="112" height="22" fill="#FFB100"/>
+          <text x="68" y="27" text-anchor="middle" font-family="'Spline Sans Mono',monospace" font-size="11" font-weight="700" fill="#0F2E27">YOU ARE HERE</text>
+        </g>
+      </svg>
+      <div class="stair-note">STC factor 6.8/kWh · Jul–Dec 2026 window · declines to ~2.1 by 2030 · source: DCCEEW</div>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= TRUST ================= -->
+<div class="trust">
+  <div class="wrap trust-row">
+    <div class="trust-item"><div class="n mono">28,400+</div><div class="l">comparisons run</div></div>
+    <div class="trust-item"><div class="n mono"><em>4.8</em>/5</div><div class="l">consumer rating · 2,100 reviews</div></div>
+    <div class="trust-item"><div class="n mono">140+</div><div class="l">vetted installers, SAA accredited</div></div>
+    <div class="trust-item"><div class="n mono">$0</div><div class="l">to compare & choose — the installer you select pays our fee</div></div>
+  </div>
+</div>
+
+<!-- ================= HOW IT WORKS ================= -->
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow"><span class="dot"></span>How it works</span>
+      <h2>Three strangers on three days? No. One proper visit.</h2>
+      <p>Getting solar quotes usually means three companies measuring three different things and quoting three systems you can't compare. We inspect once, design once — and installers compete on the identical system.</p>
+    </div>
+    <div class="steps" style="grid-template-columns:repeat(4,1fr)">
+      <div class="step">
+        <span class="tag">20 SEC</span>
+        <div class="badge">1</div>
+        <h3>Instant estimate online</h3>
+        <p>Enter your address, see your roof, a system and a price range in about twenty seconds.</p>
+      </div>
+      <div class="step">
+        <span class="tag">20 MIN</span>
+        <div class="badge">2</div>
+        <h3>Free home assessment</h3>
+        <p>Our inspector visits once: roof, switchboard, battery spot. No sales pitch, nothing to sign.</p>
+      </div>
+      <div class="step">
+        <span class="tag">3 QUOTES</span>
+        <div class="badge">3</div>
+        <h3>One design, priced three ways</h3>
+        <p>Accredited local installers price the identical system — you compare price, gear and reputation.</p>
+      </div>
+      <div class="step">
+        <span class="tag">YOU DECIDE</span>
+        <div class="badge">4</div>
+        <h3>Choose — or walk away</h3>
+        <p>Pick your installer on your private link, or keep the quotes and do nothing. Nobody calls unless you say so.</p>
+      </div>
+    </div>
+  </section>
+
+<!-- ================= PRICE INDEX ================= -->
+<section class="section" id="index" style="padding-top:20px">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow"><span class="dot"></span>The Solarsearch Market Ledger</span>
+      <h2>What Australians actually paid last month</h2>
+      <p>Median fully-installed prices drawn from live installer price books across our network. Updated on the first of every month.</p>
+    </div>
+    <div class="index-card">
+      <div class="index-head">
+        <span class="t">Market Ledger — battery &amp; solar medians, June 2026</span>
+        <span class="d">N = 2,913 OFFERS · AFTER FEDERAL REBATE</span>
+      </div>
+      <table class="index">
+        <thead><tr><th scope="col">City</th><th scope="col">6.6 kW solar</th><th scope="col" class="idx-hide">10 kW solar</th><th scope="col">13.5 kWh battery*</th><th scope="col">vs May</th></tr></thead>
+        <tbody>
+          <tr><td>Sydney</td><td class="m">$5,940</td><td class="m idx-hide">$8,720</td><td class="m">$8,190</td><td><span class="delta down">▼ 2.1%</span></td></tr>
+          <tr><td>Melbourne</td><td class="m">$5,720</td><td class="m idx-hide">$8,450</td><td class="m">$8,340</td><td><span class="delta down">▼ 1.4%</span></td></tr>
+          <tr><td>Brisbane</td><td class="m">$5,510</td><td class="m idx-hide">$8,180</td><td class="m">$7,960</td><td><span class="delta down">▼ 2.8%</span></td></tr>
+          <tr><td>Adelaide</td><td class="m">$5,380</td><td class="m idx-hide">$7,990</td><td class="m">$8,050</td><td><span class="delta flat">— 0.3%</span></td></tr>
+          <tr><td>Perth</td><td class="m">$5,290</td><td class="m idx-hide">$7,860</td><td class="m">$6,740</td><td><span class="delta down">▼ 3.5%</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-family:var(--mono);font-size:.7rem;color:var(--ink-3);margin-top:12px;letter-spacing:.04em">* RETROFIT TO EXISTING SOLAR · INCLUDES FEDERAL CHEAPER HOME BATTERIES DISCOUNT · WA INCLUDES STATE SCHEME · DEMONSTRATION DATA</p>
+  </div>
+</section>
+
+<!-- ================= SOLARSAFE ================= -->
+<section class="section" id="solarsafe" style="padding-top:24px">
+  <div class="wrap">
+    <div class="stair-card" style="border-radius:20px">
+      <div style="display:grid;grid-template-columns:1.2fr .8fr;gap:30px;align-items:center" class="ss-grid">
+        <div>
+          <span class="eyebrow"><span class="dot"></span>Solarsafe — for existing solar homes</span>
+          <h3 style="font-size:1.5rem;margin-top:12px">Already have solar? Get it checked before you add a battery.</h3>
+          <p style="color:#A9C6BB;font-size:.95rem;margin:12px 0 18px">A 20-minute AI-assisted inspection of your existing system — compliance, inverter health, switchboard capacity and battery readiness. Clause-referenced report with accredited sign-off. If anything needs fixing, we send a single rectification notice on your authority and build the date-stamped evidence file that keeps you in control.</p>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem;color:#CFE5DA">
+            <span>✓ Battery-ready check</span><span>✓ Standards-referenced findings</span><span>✓ Independent — and we say so in writing</span>
+          </div>
+          <button class="btn btn-amber" style="margin-top:22px" onclick="openFunnel('battery')">Book a battery-ready check</button>
+        </div>
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:20px">
+          <div class="stair-note" style="margin:0 0 12px">SAMPLE FINDING</div>
+          <div style="font-family:var(--mono);font-size:.78rem;color:#F2F7F3;line-height:1.7">
+            F-03 · DC isolator label<br>
+            <span style="color:#FFB100">AS/NZS 5033 · MINOR</span><br>
+            <span style="color:#A9C6BB">Weathered label on rooftop isolator. Photo 11 attached. Rectification requested — 14-day response window.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CALCULATOR ================= -->
+<section class="section" id="calc" style="padding-top:24px">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow"><span class="dot"></span>Rebate calculator</span>
+      <h2>What's the federal battery rebate worth on your system?</h2>
+      <p>The discount is tiered by size and steps down every six months. Slide to your battery size — we'll do the certificate maths.</p>
+    </div>
+    <div class="calc">
+      <div>
+        <h3>Your battery</h3>
+        <p class="hint">Usable capacity in kWh. A typical family evening load suits 10–13.5 kWh; EV charging or a pool usually means more.</p>
+        <div class="range-row">
+          <label for="calcKwh">Usable capacity <output id="calcKwhOut" class="mono">13.5 kWh</output></label>
+          <input type="range" id="calcKwh" min="5" max="40" step="0.5" value="13.5" aria-describedby="tierLegend">
+        </div>
+        <div class="tier-bar" id="tierBar" aria-hidden="true"><div class="t1" style="width:100%"></div></div>
+        <div class="tier-legend" id="tierLegend">
+          <span><i style="background:var(--amber)"></i>0–14 kWh · 100% rate</span>
+          <span><i style="background:#FFD879"></i>14–28 kWh · 60%</span>
+          <span><i style="background:#FFF0C7"></i>28–50 kWh · 15%</span>
+        </div>
+      </div>
+      <div class="calc-out" aria-live="polite">
+        <div class="big" id="calcRebate">$3,397</div>
+        <div class="big-l">estimated federal discount, taken off your invoice</div>
+        <dl>
+          <dt>Certificates created (STCs)</dt><dd id="calcStc">92</dd>
+          <dt>Assumed STC value (net of admin)</dt><dd>$37</dd>
+          <dt>Effective rate, first 14 kWh</dt><dd>$252 / kWh</dd>
+          <dt>Next step-down</dt><dd>1 Jan 2027</dd>
+        </dl>
+        <div class="rule-v">RULES v2026.05 · JUL–DEC 2026 STC FACTOR 6.8/kWh · ESTIMATE ONLY</div>
+        <button class="btn btn-amber" style="margin-top:18px;width:100%" onclick="openFunnel('battery')">Compare battery quotes at this size</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ================= FOOTER ================= -->
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="logo" href="#top" style="color:#fff">
+          <svg width="32" height="32" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="21" cy="21" r="9" fill="#FFB100"/><g stroke="#FFB100" stroke-width="3" stroke-linecap="round"><line x1="21" y1="6.5" x2="21" y2="9.5"/><line x1="21" y1="32.5" x2="21" y2="35.5"/><line x1="6.5" y1="21" x2="9.5" y2="21"/><line x1="32.5" y1="21" x2="35.5" y2="21"/><line x1="10.7" y1="10.7" x2="12.9" y2="12.9"/><line x1="31.3" y1="10.7" x2="29.1" y2="12.9"/><line x1="10.7" y1="31.3" x2="12.9" y2="29.1"/></g><circle cx="21" cy="21" r="16" stroke="#F2F7F3" stroke-width="4.5"/><line x1="32.3" y1="32.3" x2="42" y2="42" stroke="#F2F7F3" stroke-width="6" stroke-linecap="round"/></svg>
+          solar<span class="wm">search</span>
+        </a>
+        <p class="blurb">Independent comparison for solar and home batteries. We don't sell or install systems — installers pay us for introductions you approve.</p>
+      </div>
+      <div><h4>Compare</h4><ul><li><a href="quote.html">Instant roof quote</a></li><li><a href="#" onclick="openFunnel('solar');return false;">Solar quotes</a></li><li><a href="#" onclick="openFunnel('both');return false;">Solar + battery</a></li><li><a href="#" onclick="openFunnel('battery');return false;">Battery retrofit</a></li><li><a href="#" onclick="openFunnel('commercial');return false;">Commercial</a></li></ul></div>
+      <div><h4>Learn</h4><ul><li><a href="#rebate">Federal battery rebate</a></li><li><a href="#index">Market ledger</a></li><li><a href="#calc">Rebate calculator</a></li><li><a href="#how">How we work</a></li></ul></div>
+      <div><h4>Company</h4><ul><li><a href="#" onclick="return false;">For installers</a></li><li><a href="#" onclick="return false;">Privacy policy</a></li><li><a href="#" onclick="return false;">Collection notice</a></li><li><a href="#" onclick="return false;">Contact</a></li></ul></div>
+    </div>
+    <div class="foot-bar">
+      <span>© 2026 SOLARSEARCH.COM.AU · A ME-SOLAR BRAND · ABN PENDING · DEMO BUILD</span>
+      <span>PRICES SHOWN INCLUDE FEDERAL STC DISCOUNTS · RULES v2026.05</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ================= FUNNEL OVERLAY ================= -->
+<div class="overlay" id="funnel" role="dialog" aria-modal="true" aria-label="Quote comparison questionnaire">
+  <div class="fun-top">
+    <div class="fun-top-in">
+      <span class="logo" style="pointer-events:none">
+        <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="21" cy="21" r="9" fill="#FFB100"/><g stroke="#FFB100" stroke-width="3" stroke-linecap="round"><line x1="21" y1="6.5" x2="21" y2="9.5"/><line x1="21" y1="32.5" x2="21" y2="35.5"/><line x1="6.5" y1="21" x2="9.5" y2="21"/><line x1="32.5" y1="21" x2="35.5" y2="21"/><line x1="10.7" y1="10.7" x2="12.9" y2="12.9"/><line x1="31.3" y1="10.7" x2="29.1" y2="12.9"/><line x1="10.7" y1="31.3" x2="12.9" y2="29.1"/></g><circle cx="21" cy="21" r="16" stroke="#0F2E27" stroke-width="4.5"/><line x1="32.3" y1="32.3" x2="42" y2="42" stroke="#0F2E27" stroke-width="6" stroke-linecap="round"/></svg>
+      </span>
+      <div class="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100"><i id="progBar"></i></div>
+      <button class="fun-close" onclick="closeFunnel()" aria-label="Close and return to home page">✕ Close</button>
+    </div>
+  </div>
+
+  <div class="fun-body" id="funBody">
+
+    <!-- S1 postcode -->
+    <section class="screen" data-screen="postcode">
+      <div class="q">Where's the property?</div>
+      <div class="qh">We'll check which vetted installers hold live pricing for your area.</div>
+      <label class="f-label" for="fPostcode">Postcode</label>
+      <input class="f-input mono" id="fPostcode" inputmode="numeric" maxlength="4" placeholder="e.g. 2000" style="max-width:220px;font-size:1.2rem">
+      <div class="field-err" id="errPostcode"></div>
+      <div class="fun-nav"><span></span><button class="btn btn-ink" onclick="stepPostcode()">Continue</button></div>
+    </section>
+
+    <!-- S2 goal -->
+    <section class="screen" data-screen="goal">
+      <div class="q">What are you looking to install?</div>
+      <div class="qh">This shapes the offers we match you with.</div>
+      <div class="opts">
+        <button class="opt" data-goal="solar"><span class="oi">☀️</span><span>Solar panels only<small>New rooftop solar system</small></span></button>
+        <button class="opt" data-goal="both"><span class="oi">🔋</span><span>Solar + battery together<small>Most popular — one install, one rebate claim</small></span></button>
+        <button class="opt" data-goal="battery"><span class="oi">⚡</span><span>Battery only — I already have solar<small>Retrofit before the next rebate step-down</small></span></button>
+        <button class="opt" data-goal="commercial"><span class="oi">🏢</span><span>Commercial or strata<small>30 kW+ · feasibility &amp; tender comparison</small></span></button>
+      </div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><span></span></div>
+    </section>
+
+    <!-- S3 address -->
+    <section class="screen" data-screen="address">
+      <div class="q">Confirm the property address</div>
+      <div class="qh">We pre-assess your roof from satellite imagery so quotes are grounded in reality.</div>
+      <label class="f-label" for="fAddress">Street address</label>
+      <input class="f-input" id="fAddress" placeholder="e.g. 14 Banksia St" autocomplete="street-address">
+      <div class="roof-card" id="roofCard" hidden>
+        <div class="roof-thumb" aria-hidden="true"></div>
+        <div class="rd">
+          <b>Roof pre-assessment</b>
+          <span class="mono" id="roofMeta">≈ 74 m² usable · N/NW aspect · low shading</span><br>
+          <span style="font-size:.78rem;color:var(--ink-3)">Estimated from imagery — your installer confirms on site.</span>
+        </div>
+      </div>
+      <div class="field-err" id="errAddress"></div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-ink" onclick="stepAddress()">Looks right</button></div>
+    </section>
+
+    <!-- S4 ownership / property -->
+    <section class="screen" data-screen="property">
+      <div class="q">A bit about the property</div>
+      <div class="qh">Roof type and storeys affect installation pricing.</div>
+      <label class="f-label">Do you own this property?</label>
+      <div class="opts cols" data-group="own">
+        <button class="opt" data-val="own">Yes, owner-occupier</button>
+        <button class="opt" data-val="landlord">Yes, it's my investment property</button>
+        <button class="opt" data-val="rent">No, I rent<small>You'll need the owner's approval — we'll flag this</small></button>
+      </div>
+      <label class="f-label" style="margin-top:22px">Roof type</label>
+      <div class="opts cols" data-group="roof">
+        <button class="opt" data-val="tile">Tile</button>
+        <button class="opt" data-val="tin">Tin / Colorbond</button>
+        <button class="opt" data-val="flat">Flat / other</button>
+      </div>
+      <label class="f-label" style="margin-top:22px">Storeys</label>
+      <div class="opts cols" data-group="storeys">
+        <button class="opt" data-val="1">Single storey</button>
+        <button class="opt" data-val="2">Two or more</button>
+      </div>
+      <div class="field-err" id="errProperty"></div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-ink" onclick="stepProperty()">Continue</button></div>
+    </section>
+
+    <!-- S5 energy -->
+    <section class="screen" data-screen="energy">
+      <div class="q">What does a typical quarterly bill look like?</div>
+      <div class="qh">Rough is fine — it drives system sizing and your payback estimate.</div>
+      <div class="bill-read"><span>≈ </span><span class="mono" id="billOut">$800</span><span> / quarter</span></div>
+      <input type="range" id="fBill" min="200" max="2000" step="50" value="800" aria-label="Quarterly electricity bill in dollars">
+      <label class="f-label" style="margin-top:26px">Anything that pushes usage up?</label>
+      <div class="toggles" data-group="extras">
+        <button class="tog" data-val="pool">🏊 Pool pump</button>
+        <button class="tog" data-val="ev">🚗 EV (or planned)</button>
+        <button class="tog" data-val="hw">♨️ Electric hot water</button>
+      </div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-ink" onclick="stepEnergy()">Continue</button></div>
+    </section>
+
+    <!-- S6 battery branch -->
+    <section class="screen" data-screen="battery">
+      <div class="q">About your existing solar</div>
+      <div class="qh">Battery compatibility depends on your current inverter — "not sure" is a perfectly good answer.</div>
+      <label class="f-label">Existing system size</label>
+      <div class="opts cols" data-group="sysSize">
+        <button class="opt" data-val="small">Under 5 kW</button>
+        <button class="opt" data-val="mid">5 – 8 kW<small>Most common — 6.6 kW era</small></button>
+        <button class="opt" data-val="large">Over 8 kW</button>
+        <button class="opt" data-val="unsure">Not sure</button>
+      </div>
+      <label class="f-label" style="margin-top:22px">If the grid goes down, what should stay on?</label>
+      <div class="opts" data-group="backup">
+        <button class="opt" data-val="whole">Whole home backup<small>Bigger battery + backup gateway</small></button>
+        <button class="opt" data-val="essentials">Just the essentials<small>Fridge, lights, wifi — the usual pick</small></button>
+        <button class="opt" data-val="none">No backup needed<small>Bill savings only</small></button>
+      </div>
+      <div class="field-err" id="errBattery"></div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-ink" onclick="stepBattery()">Continue</button></div>
+    </section>
+
+    <!-- S7 timeline -->
+    <section class="screen" data-screen="timeline">
+      <div class="q">When are you hoping to install?</div>
+      <div class="qh">The federal rebate is set on your installation date — it next steps down on 1 Jan 2027.</div>
+      <div class="opts" data-group="timeline">
+        <button class="opt" data-val="asap">As soon as possible<small>Lock in the current rebate window</small></button>
+        <button class="opt" data-val="soon">Within 1–3 months</button>
+        <button class="opt" data-val="later">3–6 months away</button>
+        <button class="opt" data-val="research">Just researching for now<small>No pressure — the comparison is still yours to keep</small></button>
+      </div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><span></span></div>
+    </section>
+
+    <!-- S8 contact -->
+    <section class="screen" data-screen="contact">
+      <div class="q">Where should we send your comparison?</div>
+      <div class="qh">We verify your mobile so installers know every Solarsearch lead is a real person. <b>No installer sees these details unless you choose them later.</b></div>
+      <label class="f-label" for="fName">Full name</label>
+      <input class="f-input" id="fName" placeholder="e.g. Johan Berg" autocomplete="name">
+      <label class="f-label" for="fEmail">Email</label>
+      <input class="f-input" id="fEmail" type="email" placeholder="you@example.com" autocomplete="email">
+      <label class="f-label" for="fMobile">Mobile</label>
+      <input class="f-input mono" id="fMobile" inputmode="tel" placeholder="04XX XXX XXX" autocomplete="tel">
+      <div class="consent-box">
+        <input type="checkbox" id="consentPrivacy">
+        <label for="consentPrivacy">I agree to the <a href="#" onclick="return false;"><u>collection notice</u></a> and <a href="#" onclick="return false;"><u>privacy policy</u></a>. My details are only shared with installers I explicitly select — up to three, and possibly none.</label>
+      </div>
+      <div class="consent-box" style="border-style:dashed">
+        <input type="checkbox" id="consentMarketing">
+        <label for="consentMarketing">Optional: email me when the rebate changes or prices move in my area.</label>
+      </div>
+      <div class="field-err" id="errContact"></div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-ink" onclick="stepContact()">Verify my mobile</button></div>
+    </section>
+
+    <!-- S9 OTP -->
+    <section class="screen" data-screen="otp">
+      <div class="q">Enter the 6-digit code</div>
+      <div class="qh">Sent by SMS to <b class="mono" id="otpPhone">04XX XXX XXX</b>.</div>
+      <div class="demo-note">Demo mode — no SMS is really sent. Your code is <b id="demoCode">000000</b>.</div>
+      <div class="otp-row" id="otpRow">
+        <input inputmode="numeric" maxlength="1" aria-label="Digit 1"><input inputmode="numeric" maxlength="1" aria-label="Digit 2"><input inputmode="numeric" maxlength="1" aria-label="Digit 3"><input inputmode="numeric" maxlength="1" aria-label="Digit 4"><input inputmode="numeric" maxlength="1" aria-label="Digit 5"><input inputmode="numeric" maxlength="1" aria-label="Digit 6">
+      </div>
+      <div class="field-err" id="errOtp"></div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-amber btn-lg" onclick="stepOtp()">Unlock my comparison</button></div>
+    </section>
+
+    <!-- Booking -->
+    <section class="screen" data-screen="booking">
+      <div class="q">Pick a time for your free home assessment</div>
+      <div class="qh">Twenty minutes with our inspector — roof, switchboard, battery location. No sales pitch, nothing to sign, and it's how your quotes end up accurate instead of guessed.</div>
+      <div class="opts" id="slotList"></div>
+      <div class="field-err" id="errSlot"></div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><span></span></div>
+    </section>
+
+    <!-- Booked -->
+    <section class="screen" data-screen="booked">
+      <div class="success-wrap">
+        <div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h2>You're booked</h2>
+        <p id="bookedWhen" style="font-weight:700;color:var(--ink)">—</p>
+        <p>We've texted a confirmation. Here's what happens next: our inspector visits (20 min) → we design your system from real site evidence → up to three accredited installers price the identical design → you choose on your private link. Your rebate is locked at your installation date.</p>
+        <p style="font-size:.85rem;color:var(--ink3)">Need to change the time? Use the link in your SMS.</p>
+        <button class="btn btn-ghost" style="margin-top:18px" onclick="closeFunnel()">Back to Solarsearch</button>
+      </div>
+    </section>
+
+    <!-- Commercial branch -->
+    <section class="screen" data-screen="commercial">
+      <div class="q">Commercial &amp; strata projects</div>
+      <div class="qh">Systems over 30 kW run through our tender desk: a feasibility snapshot first, then like-for-like proposals from commercial specialists.</div>
+      <label class="f-label" for="fBiz">Organisation name</label>
+      <input class="f-input" id="fBiz" placeholder="e.g. Banksia Body Corporate">
+      <label class="f-label" for="fBizEmail">Work email</label>
+      <input class="f-input" id="fBizEmail" type="email" placeholder="you@company.com.au">
+      <label class="f-label" for="fBizSpend">Approximate annual electricity spend</label>
+      <select class="f-input" id="fBizSpend">
+        <option>Under $20,000</option><option>$20,000 – $100,000</option><option>$100,000 – $500,000</option><option>Over $500,000</option>
+      </select>
+      <div class="field-err" id="errBiz"></div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-ink" onclick="stepCommercial()">Request feasibility snapshot</button></div>
+    </section>
+
+    <!-- Commercial thanks -->
+    <section class="screen" data-screen="bizdone">
+      <div class="success-wrap">
+        <div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h2>Request received</h2>
+        <p>Our tender desk will email your feasibility snapshot within two business days, then walk you through the comparison process for your committee or board.</p>
+        <button class="btn btn-ghost" style="margin-top:18px" onclick="closeFunnel()">Back to Solarsearch</button>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* =============== data =============== */
+const RULES = { v:'v2026.05', stcFactor:6.8, stcPrice:37, tiers:[[14,1],[28,.6],[50,.15]] };
+
+function batteryRebate(kwh){
+  let stc=0, prev=0;
+  for(const [cap,rate] of RULES.tiers){
+    const span=Math.max(0,Math.min(kwh,cap)-prev);
+    stc+=span*RULES.stcFactor*rate; prev=cap;
+    if(kwh<=cap)break;
+  }
+  stc=Math.floor(stc);
+  return {stc, dollars:stc*RULES.stcPrice};
+}
+const SOLAR_STC_PER_KW = 34; // zone 3, 2026 deeming (approx, demo)
+function solarRebate(kw){ return Math.floor(kw*SOLAR_STC_PER_KW)*RULES.stcPrice; }
+
+const INSTALLERS=[
+ {id:1,name:'Southern Cross Solar',col:'#177A53',rating:4.9,reviews:412,wty:{panel:25,work:10},panel:'REC Alpha Pure 440W',inv:'Fronius Gen24',bat:'BYD HVM',mult:1.06},
+ {id:2,name:'Harbour Energy Co.',col:'#0F5C8C',rating:4.8,reviews:287,wty:{panel:25,work:12},panel:'Jinko Tiger Neo 440W',inv:'Sungrow SH-RS hybrid',bat:'Sungrow SBR',mult:.97},
+ {id:3,name:'Bright Roof Installers',col:'#B05A1F',rating:4.7,reviews:653,wty:{panel:25,work:7},panel:'Trina Vertex S+ 435W',inv:'GoodWe GT',bat:'Tesla Powerwall 3',mult:1.12},
+ {id:4,name:'GridFree Electrical',col:'#5A3FA0',rating:4.8,reviews:198,wty:{panel:30,work:10},panel:'SunPower Maxeon 6',inv:'Fronius Gen24',bat:'BYD HVM',mult:1.18},
+ {id:5,name:'Everyday Solar Group',col:'#8C1F4B',rating:4.6,reviews:941,wty:{panel:25,work:5},panel:'Longi Hi-MO 6 430W',inv:'Sungrow SG-RS',bat:'Sungrow SBR',mult:.9},
+ {id:6,name:'True North Renewables',col:'#1F6F6F',rating:4.9,reviews:156,wty:{panel:25,work:15},panel:'REC Alpha Pure 440W',inv:'SolarEdge Home Hub',bat:'SolarEdge Home Battery',mult:1.09},
+];
+
+/* base costs before rebate (demo model) */
+const BASE={ solarPerKw:1350, solarFixed:1600, batPerKwh:820, batFixed:2800 };
+
+/* =============== state =============== */
+const S={ postcode:'', goal:'', address:'', own:'', roof:'', storeys:'', bill:800, extras:[], sysSize:'', backup:'', timeline:'', name:'', email:'', mobile:'', picks:new Set(), sort:'value', offers:[] };
+
+/* =============== staircase svg =============== */
+(function(){
+  const vals=[311,252,214,182,155,132,112,95,78]; // per-kWh steps 2026→2030 (demo)
+  const g=document.getElementById('stairSteps');
+  const x0=20,w=54,top=44,bottom=186,max=320;
+  let html='';
+  vals.forEach((v,i)=>{
+    const h=(v/max)*(bottom-top);
+    const x=x0+i*w, y=bottom-h;
+    html+=`<rect x="${x}" y="${y}" width="${w-6}" height="${h}" rx="4" fill="${i===0?'#FFB100':'rgba(255,177,0,'+(0.55-i*0.055)+')'}"/>`;
+    if(i===0||i===2||i===4||i===6||i===8){
+      html+=`<text x="${x+(w-6)/2}" y="${y-7}" text-anchor="middle" font-family="'Spline Sans Mono',monospace" font-size="10.5" fill="${i===0?'#FFB100':'#9FC0B4'}" font-weight="${i===0?700:400}">$${v}</text>`;
+    }
+  });
+  g.innerHTML=html;
+})();
+
+/* =============== calculator =============== */
+const calcKwh=document.getElementById('calcKwh');
+function paintRange(el){ const p=(el.value-el.min)/(el.max-el.min)*100; el.style.setProperty('--fill',p+'%'); }
+function runCalc(){
+  const kwh=parseFloat(calcKwh.value);
+  paintRange(calcKwh);
+  document.getElementById('calcKwhOut').textContent=kwh+' kWh';
+  const r=batteryRebate(kwh);
+  document.getElementById('calcRebate').textContent='$'+r.dollars.toLocaleString();
+  document.getElementById('calcStc').textContent=r.stc;
+  const bar=document.getElementById('tierBar');
+  const t1=Math.min(kwh,14), t2=Math.max(0,Math.min(kwh,28)-14), t3=Math.max(0,Math.min(kwh,50)-28);
+  bar.innerHTML=`<div class="t1" style="width:${t1/kwh*100}%"></div><div class="t2" style="width:${t2/kwh*100}%"></div><div class="t3" style="width:${t3/kwh*100}%"></div>`;
+}
+calcKwh.addEventListener('input',runCalc); runCalc();
+
+/* =============== hero form =============== */
+document.getElementById('heroForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const v=document.getElementById('heroPostcode').value.trim();
+  if(!/^\d{4}$/.test(v)){ document.getElementById('heroErr').textContent='Enter a 4-digit Australian postcode to get started.'; return; }
+  document.getElementById('heroErr').textContent='';
+  S.postcode=v; openFunnel(null,true);
+});
+
+/* =============== funnel engine =============== */
+const funnel=document.getElementById('funnel');
+const screens=[...document.querySelectorAll('.screen')];
+let flow=[], idx=0;
+function buildFlow(){
+  if(S.goal==='commercial') return ['postcode','goal','address','commercial','bizdone'];
+  const f=['postcode','goal','address','property','energy'];
+  if(S.goal==='battery'||S.goal==='both') f.push('battery');
+  f.push('timeline','contact','otp','booking','booked');
+  return f;
+}
+function show(name){
+  screens.forEach(s=>s.classList.toggle('active',s.dataset.screen===name));
+  idx=flow.indexOf(name);
+  const pct=Math.round((idx)/(flow.length-1)*100);
+  document.getElementById('progBar').style.width=pct+'%';
+  funnel.scrollTo({top:0});
+  const first=screens.find(s=>s.dataset.screen===name).querySelector('input,button.opt,select');
+  if(first) setTimeout(()=>first.focus(),80);
+}
+function openFunnel(goal,skipPostcode){
+  document.body.style.overflow='hidden';
+  funnel.classList.add('open');
+  if(goal){S.goal=goal;}
+  flow=buildFlow();
+  if(skipPostcode&&S.postcode){ document.getElementById('fPostcode').value=S.postcode; show('goal'); }
+  else show('postcode');
+}
+function closeFunnel(){ funnel.classList.remove('open'); document.body.style.overflow=''; }
+function goBack(){ if(idx>0) show(flow[idx-1]); }
+
+/* step handlers */
+function stepPostcode(){
+  const v=document.getElementById('fPostcode').value.trim();
+  if(!/^\d{4}$/.test(v)){ err('errPostcode','That doesn\'t look like an Australian postcode — 4 digits, e.g. 2088.'); return; }
+  err('errPostcode',''); S.postcode=v; flow=buildFlow(); show('goal');
+}
+document.querySelectorAll('[data-goal]').forEach(b=>b.addEventListener('click',()=>{
+  S.goal=b.dataset.goal; flow=buildFlow(); show('address');
+}));
+document.getElementById('fAddress').addEventListener('input',e=>{
+  const has=e.target.value.trim().length>5;
+  document.getElementById('roofCard').hidden=!has;
+  if(has){
+    const sq=60+ (e.target.value.length*7)%55;
+    document.getElementById('roofMeta').textContent=`≈ ${sq} m² usable · N/NW aspect · low shading`;
+  }
+});
+function stepAddress(){
+  const v=document.getElementById('fAddress').value.trim();
+  if(v.length<6){ err('errAddress','Enter the street address so we can pre-assess the roof.'); return; }
+  err('errAddress',''); S.address=v; show(S.goal==='commercial'?'commercial':'property');
+}
+/* option groups */
+document.querySelectorAll('[data-group]').forEach(group=>{
+  const key=group.dataset.group;
+  group.querySelectorAll('.opt,.tog').forEach(b=>b.addEventListener('click',()=>{
+    if(key==='extras'){
+      b.classList.toggle('sel');
+      S.extras=[...group.querySelectorAll('.sel')].map(x=>x.dataset.val);
+      return;
+    }
+    group.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel'); S[key]=b.dataset.val;
+    if(key==='timeline'){ setTimeout(()=>show('contact'),200); }
+  }));
+});
+function stepProperty(){
+  if(!S.own||!S.roof||!S.storeys){ err('errProperty','Pick one option in each group — it all feeds the pricing.'); return; }
+  err('errProperty',''); show('energy');
+}
+const fBill=document.getElementById('fBill');
+fBill.addEventListener('input',()=>{ paintRange(fBill); S.bill=+fBill.value; document.getElementById('billOut').textContent='$'+S.bill.toLocaleString(); });
+paintRange(fBill);
+function stepEnergy(){ show(flow.includes('battery')?'battery':'timeline'); }
+function stepBattery(){
+  if(!S.sysSize&&S.goal==='battery'){ err('errBattery','Tell us roughly what\'s on the roof — or pick "Not sure".'); return; }
+  if(!S.backup){ err('errBattery','Choose a backup preference — it sets the battery size band.'); return; }
+  err('errBattery',''); show('timeline');
+}
+function stepContact(){
+  S.name=document.getElementById('fName').value.trim();
+  S.email=document.getElementById('fEmail').value.trim();
+  S.mobile=document.getElementById('fMobile').value.trim();
+  if(S.name.length<2) return err('errContact','Add your name so installers know who they\'re quoting.');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(S.email)) return err('errContact','That email doesn\'t look right — check for typos.');
+  if(!/^(?:04|4)\d{8}$/.test(S.mobile.replace(/[\s-]/g,''))) return err('errContact','Enter an Australian mobile, e.g. 0412 345 678.');
+  if(!document.getElementById('consentPrivacy').checked) return err('errContact','Tick the collection notice box to continue — it\'s how we keep your details protected.');
+  err('errContact','');
+  demoCode=String(Math.floor(100000+Math.random()*900000));
+  document.getElementById('demoCode').textContent=demoCode;
+  document.getElementById('otpPhone').textContent=S.mobile;
+  show('otp');
+}
+let demoCode='000000';
+const otpInputs=[...document.querySelectorAll('#otpRow input')];
+otpInputs.forEach((inp,i)=>{
+  inp.addEventListener('input',()=>{ inp.value=inp.value.replace(/\D/g,''); if(inp.value&&i<5) otpInputs[i+1].focus(); });
+  inp.addEventListener('keydown',e=>{ if(e.key==='Backspace'&&!inp.value&&i>0) otpInputs[i-1].focus(); });
+  inp.addEventListener('paste',e=>{
+    const t=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6);
+    if(t.length===6){ e.preventDefault(); otpInputs.forEach((x,j)=>x.value=t[j]); otpInputs[5].focus(); }
+  });
+});
+function stepOtp(){
+  const code=otpInputs.map(i=>i.value).join('');
+  if(code!==demoCode){ err('errOtp','That code doesn\'t match — check the SMS and try again.'); return; }
+  err('errOtp',''); renderSlots(); show('booking');
+}
+function stepCommercial(){
+  const n=document.getElementById('fBiz').value.trim(), e2=document.getElementById('fBizEmail').value.trim();
+  if(n.length<2) return err('errBiz','Add the organisation name.');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e2)) return err('errBiz','Enter a work email so we can send the snapshot.');
+  err('errBiz',''); show('bizdone');
+  document.getElementById('progBar').style.width='100%';
+}
+function err(id,msg){ document.getElementById(id).textContent=msg; }
+
+/* =============== assessment booking =============== */
+function slotOptions(){
+  const days=['Tue','Wed','Thu','Fri','Sat'];
+  const out=[]; const d=new Date();
+  for(let i=0;i<4;i++){
+    const dd=new Date(d.getTime()+ (i+2)*86400000);
+    const label=dd.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
+    out.push({label, time: i%2? '1:20 pm':'9:40 am'});
+  }
+  return out;
+}
+function renderSlots(){
+  const el=document.getElementById('slotList');
+  el.innerHTML=slotOptions().map((s,i)=>`<button class="opt" onclick="bookSlot('${s.label}','${s.time}')"><span class="oi">📅</span><span>${s.label}<small>${s.time} · 20 minutes · free</small></span></button>`).join('');
+}
+function bookSlot(day,time){
+  S.slot=day+' at '+time;
+  document.getElementById('bookedWhen').textContent=S.slot+' — '+S.address;
+  show('booked');
+  document.getElementById('progBar').style.width='100%';
+  /* wire to API: POST /inspections {site, lead, scheduled_at} */
+}
+
+/* toast */
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+/* handoff intake from the instant quote app */
+(function(){
+  const p=new URLSearchParams(location.search);
+  if(p.get('src')!=='iq') return;
+  const addr=p.get('addr')||'', bill=+(p.get('bill')||800), bat=p.get('bat')==='1';
+  S.bill=Math.min(2000,Math.max(200,bill));
+  const fb=document.getElementById('fBill');
+  fb.value=S.bill; paintRange(fb);
+  document.getElementById('billOut').textContent='$'+S.bill.toLocaleString();
+  if(addr){ const fa=document.getElementById('fAddress'); fa.value=addr; fa.dispatchEvent(new Event('input')); }
+  S.goal=bat?'both':'solar';
+  const g=document.querySelector(`[data-goal="${S.goal}"]`); if(g) g.classList.add('sel');
+  openFunnel(S.goal);
+  toast('Your instant estimate carried over — confirm the postcode to book your free assessment.');
+})();
+
+/* esc to close */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && funnel.classList.contains('open')) closeFunnel();
+});
+</script>
+</body>
+</html>
