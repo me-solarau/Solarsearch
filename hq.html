@@ -139,14 +139,26 @@ tbody tr:hover{background:var(--tint2)}
     <button class="nav-btn" data-page="board"><span class="ic">▦</span><span class="lbl">Site Quoted board</span></button>
     <button class="nav-btn" data-page="deals"><span class="ic">✓</span><span class="lbl">Deals & commissions</span></button>
     <button class="nav-btn" data-page="campaigns"><span class="ic">▲</span><span class="lbl">Campaigns</span></button>
-    <div class="foot">HUNTER PILOT · RULES v2026.05<br>DEMO DATA</div>
+    <div class="foot">HUNTER PILOT · RULES v2026.05<br>LIVE DATA</div>
   </aside>
+
+  <!-- Staff sign-in gate -->
+  <div id="gate" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,46,39,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:inherit">
+      <div style="font-weight:800;font-size:1.15rem;color:#0F2E27">Solarsearch HQ</div>
+      <div style="color:#6D8781;font-size:.9rem;margin:2px 0 16px">Staff sign-in — we'll email you a secure link.</div>
+      <input id="gEmail" type="email" placeholder="you@solarsearch.com.au" style="width:100%;padding:10px 12px;border:1px solid #dfe7e2;border-radius:10px;margin-bottom:10px;font:inherit">
+      <button onclick="sendLink()" style="width:100%;padding:11px;border:0;border-radius:10px;background:#0F2E27;color:#fff;font-weight:700;cursor:pointer;font:inherit">Email me a sign-in link</button>
+      <div id="gMsg" style="color:#6D8781;font-size:.82rem;margin-top:10px;min-height:1em"></div>
+    </div>
+  </div>
+
   <main>
     <!-- ============ DASHBOARD ============ -->
     <section class="page active" id="page-dash">
       <div class="page-head">
         <div><span class="eyebrow">Newcastle & Greater Hunter · Pilot</span><h1>Dashboard</h1><div class="sub" id="dashDate"></div></div>
-        <span class="demo-tag">DEMO DATA — WIRE TO SUPABASE</span>
+        <span class="demo-tag" onclick="signOut()" title="Sign out" style="cursor:pointer">LIVE · Sign out</span>
       </div>
       <div class="kpis" id="kpis"></div>
       <div class="eyebrow" style="margin-bottom:8px">Pipeline — live counts by stage</div>
@@ -236,6 +248,7 @@ tbody tr:hover{background:var(--tint2)}
 
 <div class="toast" id="toastEl" role="status"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ================================================================
    DATA LAYER — swap this adapter for Supabase in Bolt:
@@ -251,76 +264,68 @@ const STAGES=['captured','contacted','qualified','appointment_set','inspected','
 const STAGE_LABEL={captured:'New',contacted:'AI contacted',qualified:'Qualified',appointment_set:'Booked',inspected:'Inspected',designed:'Designed',quoted:'On board',customer_chose:'Chosen',signed:'Signed',nurture:'Nurture',dead:'Dead'};
 const STAGE_COLOR={captured:['#E3EEF6','#1F5C8C'],contacted:['#E3EEF6','#1F5C8C'],qualified:['#FFF3D6','#7A5A00'],appointment_set:['#FFF3D6','#7A5A00'],inspected:['#E8F1EA','#0F2E27'],designed:['#E8F1EA','#0F2E27'],quoted:['#E2F2EA','#177A53'],customer_chose:['#E2F2EA','#177A53'],signed:['#177A53','#fff'],nurture:['#F0F5F0','#6D8781'],dead:['#FBEAE6','#C2452D']};
 
-const FIRST=['Sarah','Mark','Lena','Tom','Priya','Jack','Emily','Noah','Grace','Liam','Olivia','Ben','Chloe','Ryan','Mia','Dave','Anna','Sam','Kate','Paul','Nina','Josh','Ruby','Alex'];
-const LAST=['Nguyen','Smith','Brown','Patel','Wilson','Taylor','Chen','Walker','Harris','King','Scott','Reid','Ward','Hunt','Bell','Cole'];
-const SUBURBS=[['Merewether','2291'],['Charlestown','2290'],['New Lambton','2305'],['Maitland','2320'],['Cessnock','2325'],['Adamstown','2289'],['Warners Bay','2282'],['Mayfield','2304'],['Singleton','2330'],['Nelson Bay','2315'],['Kotara','2289'],['Thornton','2322']];
-const SOURCES=[['meta','Rebate countdown v3'],['meta','Bill shock v1'],['google','battery quotes hunter'],['google','solar quotes newcastle'],['tiktok','Switchboard tour v1'],['solarsafe','Audit conversion'],['organic','—']];
-const TYPES=['solar_battery','battery_retrofit','solar','solar_battery'];
+/* ---- live Supabase data layer (staff-authenticated) — maps to schema.sql ---- */
+const SB_URL='https://vbpzigwgfmchdpvxetge.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicHppZ3dnZm1jaGRwdnhldGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1MzE1NzUsImV4cCI6MjA5OTEwNzU3NX0.Iyc8r8ih8J2NL2gBlXNbJnjK38t_kPYYfjQvegqcX0o';
+const db = supabase.createClient(SB_URL, SB_KEY);
+const HR=3600e3;
 
-let seedRand=42; function rnd(){seedRand=(seedRand*9301+49297)%233280;return seedRand/233280}
-function pick(a){return a[Math.floor(rnd()*a.length)]}
+let leads=[], jobs=[], deals=[], CAMPS=[];
 
-const leads=[]; let ssn=1000;
-const now=Date.now(), HR=3600e3;
-for(let i=0;i<26;i++){
-  const stageIx=Math.floor(rnd()*STAGES.length);
-  const st=rnd()<0.08?'nurture':STAGES[stageIx];
-  const [suburb,pc]=pick(SUBURBS); const [plat,creative]=pick(SOURCES);
-  const type=pick(TYPES);
-  const bill=400+Math.floor(rnd()*14)*100;
-  const kw=type==='battery_retrofit'?0:(bill<700?6.6:bill<1100?8.8:10.6);
-  const kwh=type==='solar'?0:(rnd()<.3?10:13.5);
-  const score=Math.min(98,35+Math.floor(bill/40)+(type!=='solar'?12:0)+({asap:22,'1_3_months':14,'3_6_months':6,researching:0})[pick(['asap','1_3_months','3_6_months','researching'])]+Math.floor(rnd()*10));
-  const ageH=2+Math.floor(rnd()*200);
-  leads.push({id:i,ss:'SS-'+(ssn++),name:pick(FIRST)+' '+pick(LAST),suburb,pc,type,state:st,score,bill,kw,kwh,
-    plat,creative,ageH,timeline:pick(['asap','1_3_months','3_6_months','researching']),
-    events:buildTimeline(st,ageH)});
+function calcScore(bill,type,timeline){
+  const tw={asap:22,'1_3_months':14,'3_6_months':6,researching:0}[timeline]||0;
+  return Math.min(98, 35 + Math.floor((bill||0)/40) + (type!=='solar'?12:0) + tw);
 }
-function buildTimeline(state,ageH){
-  const ix=STAGES.indexOf(state); const ev=[]; let t=ageH;
-  const defs=[
-    ['Lead captured','From ad click · OTP verified · consent v3.2 stored',''],
-    ['AI agent made contact','SMS conversation opened within 42s · disclosed as AI assistant','ai'],
-    ['Qualified by AI','Owner-occupier · bill confirmed · timeline captured · handed no objections','ai'],
-    ['Inspection booked','Tue 9:40am slot · SMS confirmation sent · reminder scheduled','ai'],
-    ['Site inspected','18 photos · switchboard OK · roof N/NW · completion gate passed','hot'],
-    ['Master design complete','Pylon project created · SS ref embedded · 2 variants','hot'],
-    ['Quotes on board','3 seats sold · Path-1 auto-quote generated · customer link sent','hot'],
-    ['Customer chose','Selected installer on portal · consent to share recorded','win'],
-    ['Agreement signed','Native e-sign captured · commission invoice raised','win']
-  ];
-  for(let i=0;i<=ix&&i<defs.length;i++){ev.push({t:defs[i][0],b:defs[i][1],cls:defs[i][2],when:t});t=Math.max(1,t-Math.floor(rnd()*30)-4)}
-  if(state==='nurture')ev.push({t:'Moved to nurture',b:'Researching — rebate step-down sequence active',cls:'',when:Math.max(1,ageH-6)});
-  return ev;
+function estSystem(bill,type){
+  const kw = type==='battery_retrofit'?0:(bill<700?6.6:bill<1100?8.8:10.6);
+  const kwh = type==='solar'?0:13.5;
+  return {kw,kwh};
+}
+const EVLABEL={
+  'lead.captured':['Lead captured','From the funnel · consent recorded',''],
+  'consent.granted':['Consent stored','Collection notice + privacy policy accepted',''],
+  'assessment.booked':['Inspection booked','Free home assessment slot chosen','ai'],
+  'lead.state_changed':['Stage changed','','']
+};
+function evToTl(e,nowMs){
+  const m=EVLABEL[e.event_type]||[e.event_type,'',''];
+  let b=m[1];
+  if(e.event_type==='lead.state_changed'&&e.payload) b=(e.payload.from||'?')+' → '+(e.payload.to||'?');
+  if(e.event_type==='assessment.booked'&&e.payload&&e.payload.slot) b=e.payload.slot;
+  return {t:m[0], b, cls:m[2], when:Math.max(1,Math.round((nowMs-new Date(e.created_at).getTime())/HR))};
 }
 
-/* board jobs = leads at quoted stage + synthetic seat data */
-const jobs=leads.filter(l=>['quoted','customer_chose','signed'].includes(l.state)).map(l=>({
-  ...l, seats: l.state==='quoted'?1+Math.floor(rnd()*3):3,
-  quotes: l.state==='quoted'?1+Math.floor(rnd()*3):3
-}));
-
-/* deals */
-const INSTALLERS=['Pilot Installer Pty Ltd','Hunter Coast Solar','Valley Energy Co.'];
-const deals=leads.filter(l=>l.state==='signed').map(l=>{
-  const stc=totalStc(l.kw,l.kwh);
-  return {...l, installer:pick(INSTALLERS), stc, commission:stc*RULES.commissionPerStc,
-    invoice:rnd()<.5?'invoiced':'paid'};
-});
-
-/* campaigns */
-const CAMPS=[
- {name:'Rebate countdown v3',plat:'meta',status:'active',spend:1840},
- {name:'Bill shock v1',plat:'meta',status:'active',spend:1210},
- {name:'battery quotes hunter',plat:'google',status:'active',spend:960},
- {name:'solar quotes newcastle',plat:'google',status:'active',spend:740},
- {name:'Switchboard tour v1',plat:'tiktok',status:'paused',spend:390},
-];
-CAMPS.forEach(c=>{
-  c.leads=leads.filter(l=>l.creative===c.name||l.plat===c.plat&&l.creative===c.name).length||leads.filter(l=>l.creative===c.name).length;
-  c.leads=Math.max(c.leads, 2+Math.floor(rnd()*7));
-  c.signed=Math.max(0,Math.floor(c.leads*(.12+rnd()*.15)));
-});
+async function loadData(){
+  const nowMs=Date.now();
+  const { data:L, error } = await db.from('leads')
+    .select('id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,created_at,sites(ss_ref,postcode,address),customers(full_name)')
+    .order('created_at',{ascending:false});
+  if(error){ toast('Load error: '+error.message); return; }
+  const ids=(L||[]).map(r=>r.id);
+  let EV=[];
+  if(ids.length){
+    const { data:E } = await db.from('events').select('lead_id,event_type,payload,created_at').in('lead_id',ids).order('created_at',{ascending:true});
+    EV=E||[];
+  }
+  const byLead={}; EV.forEach(e=>{(byLead[e.lead_id]=byLead[e.lead_id]||[]).push(e);});
+  leads=(L||[]).map((r,ix)=>{
+    const bill=r.bill_quarterly_cents?Math.round(r.bill_quarterly_cents/100):0;
+    const type=r.lead_type, tl=r.timeline||'researching';
+    const es=estSystem(bill,type);
+    const site=r.sites||{}, cust=r.customers||{};
+    return { id:ix, uuid:r.id, ss:site.ss_ref||'—', name:cust.full_name||'(no name)',
+      suburb:(site.address||'').split(',').slice(-1)[0].trim(), pc:site.postcode||'',
+      type, state:r.state, score:(r.score!=null?r.score:calcScore(bill,type,tl)),
+      bill, kw:es.kw, kwh:es.kwh, plat:r.source_platform||'organic',
+      creative:(r.utm&&r.utm.utm_campaign)||'—',
+      ageH:Math.max(1,Math.round((nowMs-new Date(r.created_at).getTime())/HR)),
+      timeline:tl, events:(byLead[r.id]||[]).map(e=>evToTl(e,nowMs)) };
+  });
+  jobs=leads.filter(l=>['quoted','customer_chose','signed'].includes(l.state)).map(l=>({...l,seats:0,quotes:0}));
+  deals=leads.filter(l=>l.state==='signed').map(l=>({...l,installer:'—',stc:totalStc(l.kw,l.kwh),commission:totalStc(l.kw,l.kwh)*RULES.commissionPerStc,invoice:'pending'}));
+  const { data:C } = await db.from('campaigns').select('name,platform,status,daily_budget_cents');
+  CAMPS=(C||[]).map(c=>({name:c.name,plat:c.platform,status:c.status,spend:Math.round((c.daily_budget_cents||0)/100),leads:0,signed:0}));
+}
 
 /* ================= render helpers ================= */
 const $=id=>document.getElementById(id);
@@ -477,7 +482,17 @@ document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>
   $('page-'+b.dataset.page).classList.add('active');
 }));
 
-renderDash();renderLeads();renderBoard();renderDeals();renderCamps();
+function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps(); }
+async function boot(){ await loadData(); renderAll(); const g=document.getElementById('gate'); if(g) g.style.display='none'; }
+function showGate(msg){ const g=document.getElementById('gate'); if(g){ g.style.display='flex'; } if(msg) document.getElementById('gMsg').textContent=msg; }
+async function sendLink(){
+  const email=(document.getElementById('gEmail').value||'').trim(); if(!email) return;
+  const { error } = await db.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.href.split('#')[0] } });
+  document.getElementById('gMsg').textContent = error ? error.message : 'Check your email for the secure sign-in link.';
+}
+async function signOut(){ await db.auth.signOut(); location.reload(); }
+db.auth.onAuthStateChange((_e,session)=>{ if(session) boot(); });
+db.auth.getSession().then(({data})=>{ if(data.session) boot(); else showGate(); });
 </script>
 </body>
 </html>
