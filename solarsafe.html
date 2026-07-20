@@ -191,11 +191,6 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
 .link-back:hover{color:var(--ink)}
 .consent-box{background:var(--panel);border:1.5px solid var(--line-2);border-radius:var(--radius-sm);padding:16px 18px;display:flex;gap:12px;align-items:flex-start;font-size:.88rem;color:var(--ink-2);margin-bottom:12px}
 .consent-box input{margin-top:3px;width:18px;height:18px;accent-color:var(--safe);flex:none}
-.otp-row{display:flex;gap:10px;margin:22px 0}
-.otp-row input{width:52px;height:62px;text-align:center;font-family:var(--mono);font-size:1.5rem;font-weight:600;border:1.5px solid var(--line-2);border-radius:var(--radius-sm);background:var(--panel)}
-.otp-row input:focus{outline:none;border-color:var(--safe);box-shadow:0 0 0 1.5px var(--safe)}
-.demo-note{background:var(--amber-soft);border:1px solid #F2D48A;border-radius:var(--radius-sm);padding:12px 16px;font-size:.84rem;color:#7A5A00;margin-bottom:8px}
-.demo-note b{font-family:var(--mono)}
 .success-wrap{text-align:center;padding:56px 24px;max-width:560px;margin:0 auto}
 .success-wrap .ic{width:74px;height:74px;border-radius:50%;background:var(--safe-soft);color:var(--safe);display:flex;align-items:center;justify-content:center;margin:0 auto 22px}
 .success-wrap h2{font-size:1.8rem;margin-bottom:10px}
@@ -419,7 +414,7 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
       <div><h4>Inspections</h4><ul><li><a href="#" onclick="openFunnel('safety');return false;">Safety &amp; compliance check</a></li><li><a href="#" onclick="openFunnel('battery');return false;">Battery-ready check</a></li><li><a href="#" onclick="openFunnel('batteryinstalled');return false;">Installed battery inspection</a></li><li><a href="#" onclick="openFunnel('prepurchase');return false;">Pre-purchase (buying a home)</a></li><li><a href="#" onclick="openFunnel('newinstall');return false;">New install verification</a></li></ul></div>
       <div><h4>Learn</h4><ul><li><a href="#checks">What we check</a></li>
       <li><a href="#evidence">Sample report</a></li><li><a href="#how">How it works</a></li><li><a href="#rectify">If we find something</a></li></ul></div>
-      <div><h4>Family</h4><ul><li><a href="https://solarsearch.com.au" target="_blank" rel="noopener">Solarsearch — compare quotes</a></li><li><a href="#" onclick="return false;">Privacy policy</a></li><li><a href="#" onclick="return false;">Collection notice</a></li></ul></div>
+      <div><h4>Family</h4><ul><li><a href="https://solarsearch.com.au" target="_blank" rel="noopener">Solarsearch — compare quotes</a></li><li><a href="/privacy.html">Privacy policy</a></li><li><a href="/collection-notice.html">Collection notice</a></li><li><a href="/login.html">Staff login</a></li></ul></div>
     </div>
     <div class="foot-bar">
       <span>© 2026 SOLARSAFE.AU · A ME-SOLAR BRAND · ABN 95665045465</span>
@@ -492,18 +487,7 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
         <label for="consentPrivacy">I agree to the <u>collection notice</u> and <u>privacy policy</u>. My report is mine — it's only shared (e.g. with my installer for rectification) on my written authority.</label>
       </div>
       <div class="field-err" id="errContact"></div>
-      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-ink" onclick="stepContact()">Verify my mobile</button></div>
-    </section>
-
-    <section class="screen" data-screen="otp">
-      <div class="q">Enter the 6-digit code</div>
-      <div class="qh">Sent by SMS to <b class="mono" id="otpPhone">04XX XXX XXX</b>.</div>
-      <div class="demo-note">Demo mode — no SMS is really sent. Your code is <b id="demoCode">000000</b>.</div>
-      <div class="otp-row" id="otpRow">
-        <input inputmode="numeric" maxlength="1" aria-label="Digit 1"><input inputmode="numeric" maxlength="1" aria-label="Digit 2"><input inputmode="numeric" maxlength="1" aria-label="Digit 3"><input inputmode="numeric" maxlength="1" aria-label="Digit 4"><input inputmode="numeric" maxlength="1" aria-label="Digit 5"><input inputmode="numeric" maxlength="1" aria-label="Digit 6">
-      </div>
-      <div class="field-err" id="errOtp"></div>
-      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-safe btn-lg" onclick="stepOtp()">Choose my time</button></div>
+      <div class="fun-nav"><button class="link-back" onclick="goBack()">← Back</button><button class="btn btn-ink" onclick="stepContact()">Choose my time</button></div>
     </section>
 
     <section class="screen" data-screen="booking">
@@ -580,7 +564,7 @@ $('heroForm').addEventListener('submit',e=>{
 /* funnel engine */
 const funnel=$('funnel');
 const screens=[...document.querySelectorAll('.screen')];
-const FLOW=['postcode','reason','system','contact','otp','booking','booked'];
+const FLOW=['postcode','reason','system','contact','booking','booked'];
 let idx=0;
 function show(name){
   screens.forEach(s=>s.classList.toggle('active',s.dataset.screen===name));
@@ -621,7 +605,6 @@ function stepSystem(){
   if(a.length<6)return err('errSystem','Add the address so we can find the roof.');
   err('errSystem',''); S.address=a; show('contact');
 }
-let demoCode='000000';
 function stepContact(){
   S.name=$('fName').value.trim(); S.email=$('fEmail').value.trim(); S.mobile=$('fMobile').value.trim();
   if(S.name.length<2)return err('errContact','Add your name.');
@@ -629,22 +612,8 @@ function stepContact(){
   if(!/^(?:04|4)\d{8}$/.test(S.mobile.replace(/[\s-]/g,'')))return err('errContact','Enter an Australian mobile, e.g. 0412 345 678.');
   if(!$('consentPrivacy').checked)return err('errContact','Tick the collection notice box to continue.');
   err('errContact','');
-  demoCode=String(Math.floor(100000+Math.random()*900000));
-  $('demoCode').textContent=demoCode; $('otpPhone').textContent=S.mobile;
-  S.leadPromise=saveLead(); /* persist the lead while the customer keys in the OTP; awaited before booking */
-  show('otp');
-}
-const otpInputs=[...document.querySelectorAll('#otpRow input')];
-otpInputs.forEach((inp,i)=>{
-  inp.addEventListener('input',()=>{inp.value=inp.value.replace(/\D/g,'');if(inp.value&&i<5)otpInputs[i+1].focus()});
-  inp.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!inp.value&&i>0)otpInputs[i-1].focus()});
-  inp.addEventListener('paste',e=>{const t=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6);
-    if(t.length===6){e.preventDefault();otpInputs.forEach((x,j)=>x.value=t[j]);otpInputs[5].focus()}});
-});
-function stepOtp(){
-  const code=otpInputs.map(i=>i.value).join('');
-  if(code!==demoCode)return err('errOtp','That code doesn\'t match — check the SMS.');
-  err('errOtp',''); renderSlots(); show('booking');
+  S.leadPromise=saveLead(); /* persist the lead, then straight to booking (SMS verify removed for launch, matching index.html) */
+  renderSlots(); show('booking');
 }
 function renderSlots(){
   const out=[]; const d=new Date();
@@ -673,7 +642,6 @@ window.goBack = goBack;
 window.stepPostcode = stepPostcode;
 window.stepSystem = stepSystem;
 window.stepContact = stepContact;
-window.stepOtp = stepOtp;
 window.bookSlot = bookSlot;
 </script>
 </body>
