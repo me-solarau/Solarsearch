@@ -169,7 +169,38 @@ tbody tr:hover{background:var(--tint2)}
     <section class="page" id="page-leads">
       <div class="page-head">
         <div><span class="eyebrow">All sources · OTP-verified only</span><h1>Lead inbox</h1></div>
-        <button class="btn btn-amber" onclick="toast('Manual lead form — wire to POST /leads')">+ New lead</button>
+        <button class="btn btn-amber" onclick="toggleNewLeadForm()">+ New lead</button>
+      </div>
+      <div class="card" id="newLeadForm" style="display:none;margin-bottom:16px;padding:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Name</label><input class="search" id="nlName" style="width:100%"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Email</label><input class="search" id="nlEmail" style="width:100%"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Mobile</label><input class="search" id="nlMobile" style="width:100%"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Postcode</label><input class="search" id="nlPostcode" style="width:100%"></div>
+          <div style="grid-column:span 2"><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Address</label><input class="search" id="nlAddress" style="width:100%"></div>
+          <div>
+            <label class="f-label" style="font-size:.72rem;color:var(--ink3)">Type</label>
+            <select id="nlGoal" style="width:100%;padding:7px;border:1.5px solid var(--line2);border-radius:8px">
+              <option value="solar">Solar only</option>
+              <option value="both" selected>Solar + battery</option>
+              <option value="battery">Battery retrofit</option>
+              <option value="commercial">Commercial</option>
+            </select>
+          </div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Bill / quarter</label><input class="search" id="nlBill" type="number" value="800" style="width:100%"></div>
+          <div>
+            <label class="f-label" style="font-size:.72rem;color:var(--ink3)">Timeline</label>
+            <select id="nlTimeline" style="width:100%;padding:7px;border:1.5px solid var(--line2);border-radius:8px">
+              <option value="asap">ASAP</option><option value="soon">1–3 months</option>
+              <option value="later">3–6 months</option><option value="research">Researching</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-err" id="nlErr" style="margin-top:8px"></div>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn btn-ink btn-sm" onclick="submitNewLead()">Create lead</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleNewLeadForm()">Cancel</button>
+        </div>
       </div>
       <div class="filters">
         <input class="search" id="leadSearch" placeholder="Search name, suburb, SS ref…">
@@ -417,6 +448,33 @@ document.querySelectorAll('.chip[data-f]').forEach(c=>c.addEventListener('click'
 }));
 $('leadSearch').addEventListener('input',e=>{leadQuery=e.target.value.toLowerCase();renderLeads()});
 
+function toggleNewLeadForm(){
+  const f=$('newLeadForm');
+  const show=f.style.display==='none';
+  f.style.display=show?'block':'none';
+  if(show){ $('nlErr').textContent=''; }
+}
+async function submitNewLead(){
+  const name=$('nlName').value.trim(), email=$('nlEmail').value.trim(), mobile=$('nlMobile').value.trim();
+  const postcode=$('nlPostcode').value.trim(), address=$('nlAddress').value.trim();
+  if(name.length<2) return $('nlErr').textContent='Add the customer\'s name.';
+  if(!/^\d{4}$/.test(postcode)) return $('nlErr').textContent='Postcode must be 4 digits.';
+  if(address.length<6) return $('nlErr').textContent='Add a street address.';
+  $('nlErr').textContent='';
+  const payload={
+    name, email:email||null, mobile:mobile||null, postcode, address,
+    goal:$('nlGoal').value, bill:$('nlBill').value, timeline:$('nlTimeline').value,
+    consent_privacy:true, consent_version:'staff-entered-2026-07',
+    source_platform:'manual_staff_entry',
+  };
+  const { data, error } = await db.rpc('capture_lead',{payload});
+  if(error){ $('nlErr').textContent='Failed: '+error.message; return; }
+  toast('Lead created — '+(data&&data.ss_ref?data.ss_ref:''));
+  toggleNewLeadForm();
+  ['nlName','nlEmail','nlMobile','nlPostcode','nlAddress'].forEach(id=>$(id).value='');
+  await loadData(); renderAll();
+}
+
 /* ================= board ================= */
 function renderBoard(){
   $('boardCards').innerHTML=jobs.map(j=>{
@@ -654,6 +712,8 @@ window.convertApplication = convertApplication;
 window.rejectApplication = rejectApplication;
 window.setEntityStatus = setEntityStatus;
 window.verifyDoc = verifyDoc;
+window.toggleNewLeadForm = toggleNewLeadForm;
+window.submitNewLead = submitNewLead;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });
