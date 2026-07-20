@@ -142,17 +142,6 @@ tbody tr:hover{background:var(--tint2)}
     <div class="foot">HUNTER PILOT · RULES v2026.05<br>LIVE DATA</div>
   </aside>
 
-  <!-- Staff sign-in gate -->
-  <div id="gate" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,46,39,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center">
-    <div style="background:#fff;border-radius:16px;padding:28px;max-width:360px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:inherit">
-      <div style="font-weight:800;font-size:1.15rem;color:#0F2E27">Solarsearch HQ</div>
-      <div style="color:#6D8781;font-size:.9rem;margin:2px 0 16px">Staff sign-in — we'll email you a secure link.</div>
-      <input id="gEmail" type="email" placeholder="you@solarsearch.com.au" style="width:100%;padding:10px 12px;border:1px solid #dfe7e2;border-radius:10px;margin-bottom:10px;font:inherit">
-      <button onclick="sendLink()" style="width:100%;padding:11px;border:0;border-radius:10px;background:#0F2E27;color:#fff;font-weight:700;cursor:pointer;font:inherit">Email me a sign-in link</button>
-      <div id="gMsg" style="color:#6D8781;font-size:.82rem;margin-top:10px;min-height:1em"></div>
-    </div>
-  </div>
-
   <main>
     <!-- ============ DASHBOARD ============ -->
     <section class="page active" id="page-dash">
@@ -248,11 +237,12 @@ tbody tr:hover{background:var(--tint2)}
 
 <div class="toast" id="toastEl" role="status"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
+<script type="module">
+import { getSupabaseClient } from "/src/lib/supabase.js";
+import { requireRole } from "/src/lib/auth-guard.js";
+
 /* ================================================================
-   DATA LAYER — swap this adapter for Supabase in Bolt:
-   const db = supabase.createClient(URL, ANON_KEY)
+   DATA LAYER — Supabase-backed (see src/lib/supabase.js).
    Every function below maps 1:1 to a table/query in schema.sql.
    ================================================================ */
 const RULES={v:'v2026.05',stcFactor:6.8,stcPrice:37,solarStcPerKw:34,tiers:[[14,1],[28,.6],[50,.15]],commissionPerStc:1.10,seatPrice:200};
@@ -265,9 +255,7 @@ const STAGE_LABEL={captured:'New',contacted:'AI contacted',qualified:'Qualified'
 const STAGE_COLOR={captured:['#E3EEF6','#1F5C8C'],contacted:['#E3EEF6','#1F5C8C'],qualified:['#FFF3D6','#7A5A00'],appointment_set:['#FFF3D6','#7A5A00'],inspected:['#E8F1EA','#0F2E27'],designed:['#E8F1EA','#0F2E27'],quoted:['#E2F2EA','#177A53'],customer_chose:['#E2F2EA','#177A53'],signed:['#177A53','#fff'],nurture:['#F0F5F0','#6D8781'],dead:['#FBEAE6','#C2452D']};
 
 /* ---- live Supabase data layer (staff-authenticated) — maps to schema.sql ---- */
-const SB_URL='https://vbpzigwgfmchdpvxetge.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicHppZ3dnZm1jaGRwdnhldGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1MzE1NzUsImV4cCI6MjA5OTEwNzU3NX0.Iyc8r8ih8J2NL2gBlXNbJnjK38t_kPYYfjQvegqcX0o';
-const db = supabase.createClient(SB_URL, SB_KEY);
+const db = getSupabaseClient();
 const HR=3600e3;
 
 let leads=[], jobs=[], deals=[], CAMPS=[];
@@ -483,16 +471,20 @@ document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>
 }));
 
 function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps(); }
-async function boot(){ await loadData(); renderAll(); const g=document.getElementById('gate'); if(g) g.style.display='none'; }
-function showGate(msg){ const g=document.getElementById('gate'); if(g){ g.style.display='flex'; } if(msg) document.getElementById('gMsg').textContent=msg; }
-async function sendLink(){
-  const email=(document.getElementById('gEmail').value||'').trim(); if(!email) return;
-  const { error } = await db.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.href.split('#')[0] } });
-  document.getElementById('gMsg').textContent = error ? error.message : 'Check your email for the secure sign-in link.';
-}
-async function signOut(){ await db.auth.signOut(); location.reload(); }
-db.auth.onAuthStateChange((_e,session)=>{ if(session) boot(); });
-db.auth.getSession().then(({data})=>{ if(data.session) boot(); else showGate(); });
+async function boot(){ await loadData(); renderAll(); }
+async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
+
+// Inline onclick="..." handlers in the markup above reach into this module's
+// scope via window — top-level functions in a module script are NOT global
+// by default (unlike a classic <script>), so each one used from markup must
+// be exposed explicitly here.
+window.toast = toast;
+window.openDrawer = openDrawer;
+window.closeDrawer = closeDrawer;
+window.signOut = signOut;
+
+const auth = await requireRole(['admin'], { loginPage: '/login.html' });
+if (auth) boot();
 </script>
 </body>
 </html>
