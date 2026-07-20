@@ -334,14 +334,17 @@ function estSystem(bill,type){
 const EVLABEL={
   'lead.captured':['Lead captured','From the funnel · consent recorded',''],
   'consent.granted':['Consent stored','Collection notice + privacy policy accepted',''],
-  'assessment.booked':['Inspection booked','Free home assessment slot chosen','ai'],
+  'assessment.booked':['Visit booked','Slot chosen','ai'],
+  'inspection.consultant_assigned':['Consultant assigned','',''],
+  'inspection.completed':['Visit completed','',''],
   'lead.state_changed':['Stage changed','','']
 };
 function evToTl(e,nowMs){
   const m=EVLABEL[e.event_type]||[e.event_type,'',''];
   let b=m[1];
   if(e.event_type==='lead.state_changed'&&e.payload) b=(e.payload.from||'?')+' → '+(e.payload.to||'?');
-  if(e.event_type==='assessment.booked'&&e.payload&&e.payload.slot) b=e.payload.slot;
+  if(e.event_type==='assessment.booked'&&e.payload) b=(e.payload.slot||'')+(e.payload.mode==='solarsafe'?' · Solarsafe':'');
+  if(e.event_type==='inspection.completed'&&e.payload){ const p=e.payload; b=`${p.pass||0} pass · ${p.minor||0} minor · ${p.major||0} major`; }
   return {t:m[0], b, cls:m[2], when:Math.max(1,Math.round((nowMs-new Date(e.created_at).getTime())/HR))};
 }
 

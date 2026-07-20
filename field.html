@@ -465,9 +465,10 @@ async function completeJob(){
   const d=store[curJob.id]||{}; const fs=flatSteps(curJob);
   const counts={pass:0,minor:0,major:0,na:0};
   fs.forEach(s=>{const a=(d[s.key]||{}).assess;if(a)counts[a]++});
-  const { error } = await db.from('inspections').update({completed_at:new Date().toISOString()}).eq('id',curJob.id);
+  // Atomic: sets completed_at, logs the outcome, and (presale only) advances
+  // the lead to 'inspected' so HQ's pipeline moves it on to the design queue.
+  const { error } = await db.rpc('complete_inspection',{p_inspection_id:curJob.id,p_counts:counts,p_staff_id:MY_STAFF_ID});
   if(error){ toast('Could not complete: '+error.message); return; }
-  await db.from('events').insert({site_id:curJob.siteId,lead_id:curJob.leadId,actor_type:'staff',actor_id:MY_STAFF_ID,event_type:'inspection.completed',payload:counts});
   $('doneSummary').textContent=`${curJob.ref} · ${fs.length} steps · ${counts.pass} pass · ${counts.minor} minor · ${counts.major} major`;
   showView('v-done');
 }
