@@ -193,6 +193,13 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
 .f-input{width:100%;border:1.5px solid var(--line-2);border-radius:var(--radius-sm);background:var(--panel);padding:15px 16px;font-size:1rem;margin-bottom:14px}
 .f-input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
 .f-label{display:block;font-size:.84rem;font-weight:600;margin-bottom:8px;color:var(--ink-2)}
+/* Google Places autocomplete dropdown (injected into <body>, styled to match) */
+.pac-container{border:1.5px solid var(--line-2);border-radius:var(--radius-sm);margin-top:4px;box-shadow:var(--shadow-lg);font-family:var(--body);overflow:hidden}
+.pac-item{padding:11px 14px;font-size:.92rem;border-top-color:var(--line)}
+.pac-item:first-child{border-top:none}
+.pac-item-query{font-size:.92rem;color:var(--ink)}
+.pac-matched{font-weight:600}
+.pac-icon{display:none}
 .fun-nav{display:flex;justify-content:space-between;margin-top:34px;gap:12px}
 .link-back{background:none;border:none;color:var(--ink-2);font-size:.92rem;font-weight:500;display:flex;align-items:center;gap:6px;padding:10px 6px}
 .link-back:hover{color:var(--ink)}
@@ -739,6 +746,7 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
 
 <script type="module">
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
+import { attachAddressAutocomplete } from "/src/lib/address-autocomplete.js";
 
 /* =============== data =============== */
 const RULES = { v:'v2026.05', stcFactor:6.8, stcPrice:37, tiers:[[14,1],[28,.6],[50,.15]] };
@@ -769,7 +777,7 @@ const INSTALLERS=[
 const BASE={ solarPerKw:1350, solarFixed:1600, batPerKwh:820, batFixed:2800 };
 
 /* =============== state =============== */
-const S={ postcode:'', goal:'', address:'', own:'', roof:'', storeys:'', bill:800, extras:[], sysSize:'', backup:'', timeline:'', name:'', email:'', mobile:'', picks:new Set(), sort:'value', offers:[] };
+const S={ postcode:'', goal:'', address:'', lat:null, lng:null, placeId:null, own:'', roof:'', storeys:'', bill:800, extras:[], sysSize:'', backup:'', timeline:'', name:'', email:'', mobile:'', picks:new Set(), sort:'value', offers:[] };
 
 /* =============== Supabase lead capture (server-side RPC into the platform schema) =============== */
 const SB_URL=SUPABASE_URL;
@@ -792,7 +800,7 @@ async function saveLead(){
   const isCom=S.goal==='commercial';
   const payload={
     name:S.name||null, email:S.email||null, mobile:S.mobile||null,
-    postcode:S.postcode||null, address:S.address||null,
+    postcode:S.postcode||null, address:S.address||null, lat:S.lat, lng:S.lng, place_id:S.placeId,
     goal:S.goal||null, own:S.own||null, roof:S.roof||null, storeys:S.storeys||null,
     bill:(typeof S.bill==='number'?String(S.bill):null),
     timeline:S.timeline||null, extras:(S.extras||[]),
@@ -903,6 +911,9 @@ document.getElementById('fAddress').addEventListener('input',e=>{
     const sq=60+ (e.target.value.length*7)%55;
     document.getElementById('roofMeta').textContent=`≈ ${sq} m² usable · N/NW aspect · low shading`;
   }
+});
+attachAddressAutocomplete(document.getElementById('fAddress'), {
+  onPlaceSelected:(p)=>{ S.lat=p.lat; S.lng=p.lng; S.placeId=p.placeId; }
 });
 function stepAddress(){
   const v=document.getElementById('fAddress').value.trim();

@@ -73,6 +73,13 @@ tbody tr:hover{background:var(--tint2)}
 .chip{border:1.5px solid var(--line2);background:var(--panel);border-radius:999px;padding:6px 13px;font-size:.78rem;font-weight:600;color:var(--ink2)}
 .chip.sel{background:var(--ink);border-color:var(--ink);color:#fff}
 .search{border:1.5px solid var(--line2);border-radius:999px;padding:7px 14px;font-size:.82rem;background:var(--panel);min-width:200px}
+/* Google Places autocomplete dropdown (injected into <body>, styled to match) */
+.pac-container{border:1.5px solid var(--line2);border-radius:10px;margin-top:4px;box-shadow:0 8px 24px rgba(15,46,39,.18);font-family:'Instrument Sans',sans-serif;overflow:hidden}
+.pac-item{padding:9px 12px;font-size:.82rem;border-top-color:var(--line)}
+.pac-item:first-child{border-top:none}
+.pac-item-query{font-size:.82rem;color:var(--ink)}
+.pac-matched{font-weight:600}
+.pac-icon{display:none}
 
 /* pipeline */
 .pipe{display:flex;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);margin-bottom:20px}
@@ -290,6 +297,7 @@ tbody tr:hover{background:var(--tint2)}
 <script type="module">
 import { getSupabaseClient } from "/src/lib/supabase.js";
 import { requireRole } from "/src/lib/auth-guard.js";
+import { attachAddressAutocomplete } from "/src/lib/address-autocomplete.js";
 
 /* ================================================================
    DATA LAYER — Supabase-backed (see src/lib/supabase.js).
@@ -454,6 +462,9 @@ function toggleNewLeadForm(){
   f.style.display=show?'block':'none';
   if(show){ $('nlErr').textContent=''; }
 }
+attachAddressAutocomplete($('nlAddress'), {
+  onPlaceSelected:(p)=>{ if(p.postcode) $('nlPostcode').value=p.postcode; }
+});
 async function submitNewLead(){
   const name=$('nlName').value.trim(), email=$('nlEmail').value.trim(), mobile=$('nlMobile').value.trim();
   const postcode=$('nlPostcode').value.trim(), address=$('nlAddress').value.trim();

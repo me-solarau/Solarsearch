@@ -54,6 +54,13 @@ main{flex:1}
 .f-label{display:block;font-size:.84rem;font-weight:600;margin:0 0 8px;color:var(--ink-2)}
 .f-input{width:100%;border:1.5px solid var(--line-2);border-radius:var(--radius-sm);background:var(--panel);padding:14px 16px;font-size:1rem;margin-bottom:18px}
 .f-input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+/* Google Places autocomplete dropdown (injected into <body>, styled to match) */
+.pac-container{border:1.5px solid var(--line-2);border-radius:var(--radius-sm);margin-top:4px;box-shadow:var(--shadow-lg);font-family:var(--body);overflow:hidden}
+.pac-item{padding:11px 14px;font-size:.92rem;border-top-color:var(--line)}
+.pac-item:first-child{border-top:none}
+.pac-item-query{font-size:.92rem;color:var(--ink)}
+.pac-matched{font-weight:600}
+.pac-icon{display:none}
 .bill-line{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
 .bill-line output{font-family:var(--mono);font-weight:700;font-size:1.15rem}
 input[type=range]{width:100%;appearance:none;-webkit-appearance:none;height:6px;border-radius:99px;background:linear-gradient(to right,var(--amber) 0%,var(--amber) var(--fill,50%),var(--line) var(--fill,50%));margin-bottom:20px}
@@ -242,7 +249,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 
 <div class="toast" id="toastEl" role="status"></div>
 
-<script>
+<script type="module">
+import { attachAddressAutocomplete } from "/src/lib/address-autocomplete.js";
+
 /* ---------- rebate rules (same engine as main site) ---------- */
 const RULES={v:'v2026.05',stcFactor:6.8,stcPrice:37,tiers:[[14,1],[28,.6],[50,.15]]};
 function batteryRebate(kwh){let stc=0,prev=0;for(const[cap,rate]of RULES.tiers){const span=Math.max(0,Math.min(kwh,cap)-prev);stc+=span*RULES.stcFactor*rate;prev=cap;if(kwh<=cap)break}return Math.floor(stc)*RULES.stcPrice}
@@ -252,7 +261,7 @@ function solarRebate(kw){return Math.floor(kw*34)*RULES.stcPrice}
 const M={panelW:.44,costPerKw:1350,fixed:1600,batKwh:13.5,batCost:2800+820*13.5,
   yieldPerKwDay:3.9,tariff:.32,fit:.05,selfUse:.40,selfUseBat:.75,loanRate:.07,loanYears:5};
 
-const S={addr:'',bill:800,panels:14,maxPanels:20,bat:false,shade:'low'};
+const S={addr:'',lat:null,lng:null,bill:800,panels:14,maxPanels:20,bat:false,shade:'low'};
 
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
@@ -264,7 +273,11 @@ let toastT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.ad
 const bill=$('bill');
 bill.addEventListener('input',()=>{S.bill=+bill.value;$('billOut').textContent='$'+S.bill;paintRange(bill)});
 paintRange(bill);
-$('addr').addEventListener('keydown',e=>{if(e.key==='Enter')startScan()});
+$('addr').addEventListener('keydown',e=>{
+  // Skip if Enter is being used to accept a Places suggestion (dropdown open).
+  if(e.key==='Enter' && e.target.getAttribute('aria-expanded')!=='true') startScan();
+});
+attachAddressAutocomplete($('addr'), { onPlaceSelected:(p)=>{ S.lat=p.lat; S.lng=p.lng; } });
 
 function hashStr(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return h}
 
@@ -367,6 +380,13 @@ function resetApp(){
   $('scanMeta').textContent='MAPPING ROOF…';
   window.scrollTo({top:0});
 }
+
+// Module scripts don't leak to global scope by default — expose the
+// functions referenced from onclick="" attributes in the markup above.
+window.startScan = startScan;
+window.resetApp = resetApp;
+window.toast = toast;
+window.handoff = handoff;
 </script>
 </body>
 </html>
