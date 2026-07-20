@@ -737,7 +737,9 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
 
 <div class="toast" id="toast" role="status"></div>
 
-<script>
+<script type="module">
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
+
 /* =============== data =============== */
 const RULES = { v:'v2026.05', stcFactor:6.8, stcPrice:37, tiers:[[14,1],[28,.6],[50,.15]] };
 
@@ -770,8 +772,8 @@ const BASE={ solarPerKw:1350, solarFixed:1600, batPerKwh:820, batFixed:2800 };
 const S={ postcode:'', goal:'', address:'', own:'', roof:'', storeys:'', bill:800, extras:[], sysSize:'', backup:'', timeline:'', name:'', email:'', mobile:'', picks:new Set(), sort:'value', offers:[] };
 
 /* =============== Supabase lead capture (server-side RPC into the platform schema) =============== */
-const SB_URL='https://vbpzigwgfmchdpvxetge.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicHppZ3dnZm1jaGRwdnhldGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1MzE1NzUsImV4cCI6MjA5OTEwNzU3NX0.Iyc8r8ih8J2NL2gBlXNbJnjK38t_kPYYfjQvegqcX0o';
+const SB_URL=SUPABASE_URL;
+const SB_KEY=SUPABASE_ANON_KEY;
 const QS=new URLSearchParams(location.search);
 S.leadSaved=false; S.ss_ref=null; S.leadId=null; S.siteId=null;
 function valOf(id){ const el=document.getElementById(id); return el&&el.value?el.value.trim():null; }
