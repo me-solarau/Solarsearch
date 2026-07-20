@@ -483,8 +483,10 @@ window.openDrawer = openDrawer;
 window.closeDrawer = closeDrawer;
 window.signOut = signOut;
 
-const auth = await requireRole(['admin'], { loginPage: '/login.html' });
-if (auth) boot();
+(async () => {
+  const auth = await requireRole(['admin'], { loginPage: '/login.html' });
+  if (auth) boot();
+})();
 </script>
 </body>
 </html>
