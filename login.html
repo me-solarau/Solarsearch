@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — Solarsearch</title>
+<style>
+:root{
+  --paper:#F7F9F6; --panel:#FFFFFF; --tint:#E8F1EA;
+  --ink:#0F2E27; --ink-2:#41615A; --ink-3:#6D8781;
+  --line:#DBE5DE; --line-2:#C6D5CC;
+  --amber:#FFB100; --amber-deep:#DE8F00;
+  --green:#177A53; --green-soft:#E2F2EA;
+  --red:#C2452D; --red-soft:#FBEAE6;
+  --display:'Bricolage Grotesque',sans-serif;
+  --body:'Instrument Sans',sans-serif;
+  --radius:14px;
+  --shadow-lg:0 2px 4px rgba(15,46,39,.06),0 24px 60px -18px rgba(15,46,39,.24);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:32px}
+h1{font-family:var(--display);font-size:1.4rem;margin-bottom:4px}
+p.sub{color:var(--ink-3);font-size:.9rem;margin-bottom:24px}
+label{display:block;font-size:.82rem;font-weight:600;margin-bottom:6px;margin-top:16px}
+input{width:100%;padding:10px 12px;border:1px solid var(--line-2);border-radius:9px;font-family:inherit;font-size:.95rem}
+input:focus-visible{outline:3px solid var(--amber);outline-offset:1px}
+button{width:100%;margin-top:22px;padding:12px;border:none;border-radius:9px;background:var(--ink);color:#fff;font-weight:700;font-size:.95rem;cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+button:hover:not(:disabled){background:var(--green)}
+.msg{margin-top:14px;padding:10px 12px;border-radius:9px;font-size:.85rem}
+.msg.error{background:var(--red-soft);color:var(--red)}
+.msg.ok{background:var(--green-soft);color:var(--green)}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Solarsearch</h1>
+  <p class="sub">Staff / installer / retailer / sales rep sign-in.</p>
+  <form id="loginForm">
+    <label for="email">Email</label>
+    <input id="email" type="email" required autocomplete="username">
+    <label for="password">Password</label>
+    <input id="password" type="password" required autocomplete="current-password">
+    <button id="submitBtn" type="submit">Sign in</button>
+  </form>
+  <div id="msg"></div>
+</div>
+
+<script type="module">
+import { getSupabaseClient } from "/src/lib/supabase.js";
+import { homeForRole } from "/src/lib/auth-guard.js";
+
+const db = getSupabaseClient();
+const form = document.getElementById("loginForm");
+const msgEl = document.getElementById("msg");
+const submitBtn = document.getElementById("submitBtn");
+const nextParam = new URLSearchParams(location.search).get("next");
+
+function showMsg(text, kind) {
+  msgEl.textContent = text;
+  msgEl.className = `msg ${kind}`;
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  submitBtn.disabled = true;
+  showMsg("Signing in…", "ok");
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  if (error || !data.session) {
+    showMsg(error?.message || "Sign-in failed.", "error");
+    submitBtn.disabled = false;
+    return;
+  }
+
+  const { data: roleRow } = await db
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", data.session.user.id)
+    .single();
+
+  if (!roleRow?.role) {
+    showMsg("Signed in, but no role is assigned to this account yet — contact an admin.", "error");
+    await db.auth.signOut();
+    submitBtn.disabled = false;
+    return;
+  }
+
+  location.href = nextParam || homeForRole(roleRow.role);
+});
+</script>
+</body>
+</html>

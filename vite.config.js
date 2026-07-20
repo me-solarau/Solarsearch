@@ -13,7 +13,8 @@ export default defineConfig({
         choose: resolve(__dirname, 'choose.html'),
         solarsafe: resolve(__dirname, 'solarsafe.html'),
         privacy: resolve(__dirname, 'privacy.html'),
-        collection: resolve(__dirname, 'collection-notice.html')
+        collection: resolve(__dirname, 'collection-notice.html'),
+        login: resolve(__dirname, 'login.html')
       }
     }
   }
