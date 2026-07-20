@@ -1027,6 +1027,24 @@ function toast(msg){
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape' && funnel.classList.contains('open')) closeFunnel();
 });
+
+// Inline onclick="..." handlers in the markup above reach into this module's
+// scope via window — top-level functions in a module script are NOT global
+// by default (unlike a classic <script>), so each one used from markup must
+// be exposed explicitly here. Same fix as hq.html's Phase 2 commit; this
+// file needed it too since it was converted to type="module" in Phase 0.
+window.openFunnel = openFunnel;
+window.closeFunnel = closeFunnel;
+window.goBack = goBack;
+window.stepPostcode = stepPostcode;
+window.stepAddress = stepAddress;
+window.stepProperty = stepProperty;
+window.stepEnergy = stepEnergy;
+window.stepBattery = stepBattery;
+window.stepContact = stepContact;
+window.stepOtp = stepOtp;
+window.stepCommercial = stepCommercial;
+window.bookSlot = bookSlot;
 </script>
 </body>
 </html>
