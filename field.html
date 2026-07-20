@@ -113,7 +113,7 @@ textarea:focus{outline:none;border-color:var(--ink)}
 <div class="top">
   <button class="back" id="topBack" onclick="navBack()" style="display:none">‹</button>
   <span class="logo">solar<em>search</em>&nbsp;<span style="font-weight:600;color:#9FC0B4;font-size:.72rem">FIELD</span></span>
-  <span class="tag" id="topTag">INSPECTOR ONE</span>
+  <span class="tag" id="topTag">…</span>
 </div>
 <div class="offline-pill" id="offlinePill">OFFLINE — CAPTURES QUEUED, WILL SYNC</div>
 
@@ -182,7 +182,10 @@ textarea:focus{outline:none;border-color:var(--ink)}
 
 <div class="toast" id="toastEl" role="status"></div>
 
-<script>
+<script type="module">
+import { getSupabaseClient } from "/src/lib/supabase.js";
+import { requireRole } from "/src/lib/auth-guard.js";
+
 /* ================================================================
    PHOTO PROTOCOL — JSON-driven (PRD F-2). Edit steps without code.
    modes: presale | safety | battery_ready | battery_installed
@@ -227,18 +230,67 @@ const PROTOCOL=[
  ]},
 ];
 
-/* modes per job type: presale = presale; solarsafe jobs pick safety +/- battery variants */
-const DEMO_JOBS=[
- {id:1, ref:'SS-1044', addr:'14 Banksia St, Merewether 2291', customer:'Sarah Nguyen', time:'9:40 am', mode:'presale',   modes:['presale'], label:'Pre-sale inspection'},
- {id:2, ref:'SS-1046', addr:'8 Kilaben Rd, Warners Bay 2282', customer:'Mark Wilson',  time:'11:20 am', mode:'solarsafe', modes:['safety','battery_installed'], label:'Solarsafe — safety + installed battery'},
- {id:3, ref:'SS-1047', addr:'22 Wollombi Rd, Cessnock 2325',  customer:'Lena Patel',   time:'1:40 pm',  mode:'solarsafe', modes:['safety','battery_ready'], label:'Solarsafe — battery-ready check'},
-];
+/* modes per job type: presale = presale; solarsafe jobs pick safety +/- battery variants,
+   inferred from the reason the customer booked (recorded in inspections.notes.reason by
+   solarsafe.html's booking step). */
+const REASON_LABEL={battery:'Battery-ready check',batteryinstalled:'Installed battery check',safety:'Safety & compliance review',prepurchase:'Pre-purchase check',newinstall:'New install verification',issue:'Fault investigation'};
+function modesForRow(row){
+  if(row.mode==='presale') return ['presale'];
+  const reason=row.notes&&row.notes.reason;
+  if(reason==='battery') return ['safety','battery_ready'];
+  if(reason==='batteryinstalled') return ['safety','battery_installed'];
+  return ['safety'];
+}
+function labelForRow(row){
+  if(row.mode==='presale') return 'Pre-sale inspection';
+  const reason=row.notes&&row.notes.reason;
+  return 'Solarsafe — '+(REASON_LABEL[reason]||'inspection');
+}
 
 /* ================= state ================= */
 const $=id=>document.getElementById(id);
 let toastT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400)}
-const store={};   // jobId -> {stepKey:{photo,assess,note}}
+const db=getSupabaseClient();
+let MY_STAFF_ID=null, MY_NAME='Field';
+let JOBS=[];
+const store={};   // inspectionId -> {stepKey:{photo,photoRowId,assess,note}}
 let curJob=null, curSteps=[], curIx=0, navStack=['v-jobs'];
+
+/* ================= data layer — maps to schema.sql (inspections/sites/leads/photos) ================= */
+async function loadJobs(){
+  let q=db.from('inspections')
+    .select('id,site_id,lead_id,mode,notes,scheduled_at,inspector_id,sites(ss_ref,address),leads(customers(full_name))')
+    .is('completed_at',null)
+    .order('scheduled_at',{ascending:true,nullsFirst:false});
+  q = MY_STAFF_ID ? q.or(`inspector_id.eq.${MY_STAFF_ID},inspector_id.is.null`) : q.is('inspector_id',null);
+  const { data, error } = await q;
+  if(error){ toast('Load error: '+error.message); JOBS=[]; return; }
+  JOBS=(data||[]).map(r=>({
+    id:r.id, siteId:r.site_id, leadId:r.lead_id,
+    ref:(r.sites&&r.sites.ss_ref)||'—', addr:(r.sites&&r.sites.address)||'(no address)',
+    customer:(r.leads&&r.leads.customers&&r.leads.customers.full_name)||'(no name)',
+    time:r.scheduled_at?new Date(r.scheduled_at).toLocaleTimeString('en-AU',{hour:'numeric',minute:'2-digit'}):((r.notes&&r.notes.slot)||'Unscheduled'),
+    mode:r.mode, notes:r.notes||{}, modes:modesForRow(r), label:labelForRow(r),
+  }));
+  await Promise.all(JOBS.map(loadJobPhotos));
+}
+async function loadJobPhotos(job){
+  const { data, error } = await db.from('photos')
+    .select('id,step_key,storage_path,assessment,note,created_at')
+    .eq('inspection_id',job.id).order('created_at',{ascending:false});
+  if(error||!data)return;
+  const seen={};
+  for(const p of data){
+    if(seen[p.step_key])continue; // most-recent-first: keep only the latest capture per step
+    seen[p.step_key]=true;
+    let url=null;
+    if(p.storage_path){
+      const { data:signed } = await db.storage.from('inspection-photos').createSignedUrl(p.storage_path,3600);
+      url=signed?signed.signedUrl:null;
+    }
+    (store[job.id]=store[job.id]||{})[p.step_key]={photo:url,photoRowId:p.id,assess:p.assessment,note:p.note||''};
+  }
+}
 
 function stepsFor(job){
   const out=[];
@@ -272,9 +324,10 @@ function goJobs(){navStack=['v-jobs'];showView('v-jobs',false);renderJobs()}
 
 function renderJobs(){
   $('jobsDate').textContent=new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'});
-  $('jobList').innerHTML=DEMO_JOBS.map(j=>{
+  if(!JOBS.length){ $('jobList').innerHTML='<p class="sub" style="margin-top:14px">No open jobs assigned right now.</p>'; return; }
+  $('jobList').innerHTML=JOBS.map(j=>{
     const p=jobProgress(j);
-    return `<button class="job" onclick="openJob(${j.id})">
+    return `<button class="job" onclick="openJob('${j.id}')">
       <div class="row1"><div><div class="ref">${j.ref} · ${j.time}</div><div class="addr">${j.addr}</div></div>
       <span class="mode-pill ${j.mode}">${j.mode==='presale'?'PRE-SALE':'SOLARSAFE'}</span></div>
       <div class="meta"><span>${j.customer}</span><span>${j.label}</span><span class="mono">${p.done}/${p.total} steps</span></div>
@@ -284,7 +337,7 @@ function renderJobs(){
 }
 
 function openJob(id){
-  curJob=DEMO_JOBS.find(j=>j.id===id);
+  curJob=JOBS.find(j=>j.id===id); if(!curJob)return;
   $('jRef').textContent=curJob.ref+' · '+curJob.time;
   $('jAddr').textContent=curJob.addr;
   $('jMeta').textContent=curJob.customer+' · '+curJob.label;
@@ -349,13 +402,28 @@ function renderPhoto(url){
 function wireCam(){
   const inp=$('camInput'), z=$('photoZone');
   z.onclick=e=>{if(e.target.closest('.retake'))return;inp.click()};
-  inp.onchange=()=>{
+  inp.onchange=async()=>{
     const f=inp.files[0]; if(!f)return;
-    const url=URL.createObjectURL(f);
-    ensure(curSteps[curIx].key).photo=url;
-    renderPhoto(url);
-    toast(navigator.onLine?'Photo captured':'Photo captured — queued (offline)');
-    /* wire to API: upload to supabase storage; insert photos row {inspection_id, step_key, taken_at, geotag} */
+    const key=curSteps[curIx].key;
+    const localUrl=URL.createObjectURL(f);
+    ensure(key).photo=localUrl;
+    renderPhoto(localUrl);
+    if(!navigator.onLine){ toast('Photo captured — queued (offline)'); return; } /* offline sync queue: not built yet (F-9) */
+    toast('Uploading…');
+    let lat=null, lng=null;
+    try{
+      const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:4000}));
+      lat=pos.coords.latitude; lng=pos.coords.longitude;
+    }catch(e){ /* geolocation denied/unavailable — capture proceeds without it */ }
+    const path=`${curJob.id}/${key}-${Date.now()}.jpg`;
+    const { error:upErr } = await db.storage.from('inspection-photos').upload(path,f,{contentType:f.type||'image/jpeg'});
+    if(upErr){ toast('Upload failed: '+upErr.message); return; }
+    const { data:row, error:insErr } = await db.from('photos').insert({
+      inspection_id:curJob.id, step_key:key, storage_path:path, lat, lng, taken_at:new Date().toISOString()
+    }).select().single();
+    if(insErr){ toast('Save failed: '+insErr.message); return; }
+    ensure(key).photoRowId=row.id;
+    toast('Photo saved');
   };
 }
 function retake(){$('camInput').click()}
@@ -364,30 +432,44 @@ function setAssess(a){
   ensure(curSteps[curIx].key).assess=a;
   document.querySelectorAll('.as-btn').forEach(b=>{b.className='as-btn'+(a===b.dataset.as?' sel-'+a:'')});
 }
-function saveStep(next){
+async function saveStep(next){
   const s=curSteps[curIx], e=ensure(s.key);
   e.note=$('cNote').value.trim();
   if(!e.assess)return toast('Pick an assessment first');
   if((e.assess==='minor'||e.assess==='major')&&!e.note)return toast('MINOR/MAJOR needs an observation note');
   if(e.assess!=='na'&&!e.photo)return toast('Photo required (or mark N/A)');
+  if(e.photoRowId){
+    const { error } = await db.from('photos').update({assessment:e.assess,note:e.note||null}).eq('id',e.photoRowId);
+    if(error) toast('Save failed: '+error.message);
+  }else{
+    // N/A steps have no photo — the assessment is still recorded as its own row.
+    const { data:row, error } = await db.from('photos').insert({
+      inspection_id:curJob.id, step_key:s.key, storage_path:null, taken_at:new Date().toISOString(),
+      assessment:e.assess, note:e.note||null
+    }).select().single();
+    if(error) toast('Save failed: '+error.message); else e.photoRowId=row.id;
+  }
   if(next&&curIx<curSteps.length-1){curIx++;loadStep();window.scrollTo({top:0})}
   else{renderChecklist();showView('v-job',false);navStack.pop()}
 }
 
 /* ================= convert + complete ================= */
-function convertLead(){
+async function convertLead(){
   if(!$('convertConsent').checked)return toast('Customer consent box first');
-  toast('Quote lead created — enters pipeline at Inspected. (wire: clone site → leads)');
+  const { data, error } = await db.rpc('convert_solarsafe_lead',{p_inspection_id:curJob.id,p_staff_id:MY_STAFF_ID});
+  if(error){ toast('Conversion failed: '+error.message); return; }
+  toast('Quote lead created — '+(data&&data.ss_ref?data.ss_ref:'')+' — enters the pipeline at Inspected');
   $('convertConsent').checked=false;
-  /* wire to API: insert lead {site_id, lead_type per findings, state:'inspected', source:'solarsafe_conversion', consent v3.2} */
 }
-function completeJob(){
+async function completeJob(){
   const d=store[curJob.id]||{}; const fs=flatSteps(curJob);
   const counts={pass:0,minor:0,major:0,na:0};
   fs.forEach(s=>{const a=(d[s.key]||{}).assess;if(a)counts[a]++});
+  const { error } = await db.from('inspections').update({completed_at:new Date().toISOString()}).eq('id',curJob.id);
+  if(error){ toast('Could not complete: '+error.message); return; }
+  await db.from('events').insert({site_id:curJob.siteId,lead_id:curJob.leadId,actor_type:'staff',actor_id:MY_STAFF_ID,event_type:'inspection.completed',payload:counts});
   $('doneSummary').textContent=`${curJob.ref} · ${fs.length} steps · ${counts.pass} pass · ${counts.minor} minor · ${counts.major} major`;
   showView('v-done');
-  /* wire to API: update inspections set completed_at=now(); event 'inspection.completed' */
 }
 
 /* ================= offline ================= */
@@ -396,7 +478,28 @@ window.addEventListener('online',()=>{setOnline();toast('Back online — syncing
 window.addEventListener('offline',setOnline);
 setOnline();
 
-renderJobs();
+// Module scripts don't leak to global scope by default — expose the
+// functions referenced from onclick="" attributes in the markup above
+// (and from HTML generated at render time, e.g. renderJobs()/renderPhoto()).
+window.navBack = navBack;
+window.goJobs = goJobs;
+window.openJob = openJob;
+window.openStep = openStep;
+window.retake = retake;
+window.setAssess = setAssess;
+window.saveStep = saveStep;
+window.convertLead = convertLead;
+window.completeJob = completeJob;
+
+(async () => {
+  const auth = await requireRole(['admin'], { loginPage: '/login.html' });
+  if (!auth) return;
+  const { data:me } = await db.from('staff').select('id,full_name').eq('auth_uid',auth.session.user.id).single();
+  if(me){ MY_STAFF_ID=me.id; MY_NAME=me.full_name; }
+  $('topTag').textContent=(MY_NAME||'Field').toUpperCase();
+  await loadJobs();
+  renderJobs();
+})();
 </script>
 </body>
 </html>

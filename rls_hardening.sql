@@ -51,6 +51,19 @@ end $$;
 -- staff can read their own row (needed by the RLS staff-check subquery)
 create policy staff_self_read on public.staff for select to authenticated using (auth_uid = auth.uid());
 
+-- any active staff member can read the full staff directory (needed to list
+-- consultants/inspectors for assignment in hq.html) — self-read alone can't
+-- serve that, since it only ever returns the requester's own row.
+create policy staff_directory_read on public.staff for select to authenticated
+  using (exists (select 1 from staff s where s.auth_uid = auth.uid() and s.active));
+
+-- private storage bucket for field.html's photo captures
+insert into storage.buckets (id, name, public) values ('inspection-photos', 'inspection-photos', false)
+  on conflict (id) do nothing;
+create policy staff_inspection_photos_all on storage.objects for all to authenticated
+  using (bucket_id = 'inspection-photos' and exists (select 1 from staff s where s.auth_uid = auth.uid() and s.active))
+  with check (bucket_id = 'inspection-photos' and exists (select 1 from staff s where s.auth_uid = auth.uid() and s.active));
+
 -- non-sensitive reference data: readable by signed-in staff/apps
 create policy ref_read_regions          on public.regions          for select to authenticated using (true);
 create policy ref_read_region_postcodes on public.region_postcodes for select to authenticated using (true);

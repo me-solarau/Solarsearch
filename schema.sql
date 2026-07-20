@@ -122,7 +122,7 @@ create table staff (
   id        uuid primary key default uuid_generate_v4(),
   auth_uid  uuid unique,                          -- supabase auth.users id
   full_name text not null,
-  role      text not null check (role in ('admin','hq_ops','inspector','designer','compliance_reviewer')),
+  role      text not null check (role in ('admin','hq_ops','consultant','inspector','designer','compliance_reviewer')), -- consultant = presale/sales visits, inspector = Solarsafe compliance inspections
   regions   uuid[] default '{}',                  -- RBAC region scoping (§17.5)
   active    boolean not null default true
 );
@@ -241,11 +241,13 @@ create table photos (
   id            uuid primary key default uuid_generate_v4(),
   inspection_id uuid not null references inspections(id) on delete cascade,
   step_key      text not null,                    -- 'roof_north','switchboard_exterior','battery_location',...
-  storage_path  text not null,                    -- supabase storage object
+  storage_path  text,                             -- supabase storage object; null for an N/A-assessed step (no photo)
   lat           double precision,
   lng           double precision,
   taken_at      timestamptz not null,
   quality_flags text[] default '{}',
+  assessment    text check (assessment in ('pass','minor','major','na')),
+  note          text,                              -- observation note (required by field.html for minor/major)
   created_at    timestamptz not null default now()
 );
 

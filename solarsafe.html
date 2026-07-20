@@ -531,11 +531,43 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
 
 <script type="module">
 import { attachAddressAutocomplete } from "/src/lib/address-autocomplete.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
 
 const S={postcode:'',reason:'',sysAge:'',address:'',lat:null,lng:null,name:'',email:'',mobile:'',slot:''};
 const $=id=>document.getElementById(id);
 let toastT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600)}
 function err(id,m){$(id).textContent=m}
+
+/* =============== Supabase lead capture + booking (same RPCs the main funnel uses) =============== */
+S.leadSaved=false; S.leadId=null; S.siteId=null; S.ssRef=null;
+async function sbRpc(fn,args){
+  try{
+    const res=await fetch(SUPABASE_URL+'/rest/v1/rpc/'+fn,{
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify(args)
+    });
+    if(!res.ok) return null;
+    return await res.json();
+  }catch(e){ return null; }
+}
+async function saveLead(){
+  const payload={
+    name:S.name||null, email:S.email||null, mobile:S.mobile||null,
+    postcode:S.postcode||null, address:S.address||null, lat:S.lat, lng:S.lng,
+    goal:'solarsafe',
+    consent_privacy:!!(document.getElementById('consentPrivacy')||{}).checked,
+    consent_version:'collection-notice-2026-07',
+    source_platform:'solarsafe',
+  };
+  const r=await sbRpc('capture_lead',{payload});
+  if(r&&r.ss_ref){ S.ssRef=r.ss_ref; S.leadId=r.lead_id; S.siteId=r.site_id; S.leadSaved=true; }
+  return r;
+}
+async function bookAssessment(slot){
+  if(!S.leadId||!S.siteId) return null;
+  return sbRpc('book_assessment',{p_lead_id:S.leadId,p_site_id:S.siteId,p_slot:slot,p_mode:'solarsafe',p_reason:S.reason||null});
+}
 
 /* hero */
 $('heroForm').addEventListener('submit',e=>{
@@ -599,6 +631,7 @@ function stepContact(){
   err('errContact','');
   demoCode=String(Math.floor(100000+Math.random()*900000));
   $('demoCode').textContent=demoCode; $('otpPhone').textContent=S.mobile;
+  S.leadPromise=saveLead(); /* persist the lead while the customer keys in the OTP; awaited before booking */
   show('otp');
 }
 const otpInputs=[...document.querySelectorAll('#otpRow input')];
@@ -621,11 +654,13 @@ function renderSlots(){
   }
   $('slotList').innerHTML=out.map(s=>`<button class="opt" onclick="bookSlot('${s.label}','${s.time}')"><span class="oi">📅</span><span>${s.label}<small>${s.time} · 20 minutes · $249 after the visit</small></span></button>`).join('');
 }
-function bookSlot(day,time){
+async function bookSlot(day,time){
   S.slot=day+' at '+time;
   $('bookedWhen').textContent=S.slot+' — '+S.address;
   show('booked'); $('progBar').style.width='100%';
-  /* wire to API: POST /inspections {mode:'solarsafe', reason:S.reason, ...} */
+  await S.leadPromise;
+  const r=await bookAssessment(S.slot);
+  if(!r){ toast('Booking saved locally — we\'ll confirm by SMS shortly'); }
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&funnel.classList.contains('open'))closeFunnel()});
 

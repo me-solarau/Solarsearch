@@ -48,4 +48,4 @@ values ('33333333-3333-3333-3333-333333333333','Hunter 2026', now(),
 -- HQ admin (link auth_uid after first login)
 insert into staff (full_name, role, regions) values
  ('Johan (Admin)','admin', array['11111111-1111-1111-1111-111111111111']::uuid[]),
- ('Inspector One','inspector', array['11111111-1111-1111-1111-111111111111']::uuid[]);
+ ('Consultant One','consultant', array['11111111-1111-1111-1111-111111111111']::uuid[]);

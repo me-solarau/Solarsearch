@@ -1,10 +1,47 @@
--- ============================================================================
--- SOLARSEARCH — public capture RPCs (run AFTER schema.sql + seed.sql)
--- These let the anonymous public funnel write into the staff-only schema
--- safely: SECURITY DEFINER creates customer + site + lead + events under RLS.
--- ============================================================================
+-- Add 'consultant' as a staff role for presale/sales visits, distinct from
+-- 'inspector' (genuine Solarsafe compliance inspections).
+alter table public.staff drop constraint staff_role_check;
+alter table public.staff add constraint staff_role_check
+  check (role in ('admin','hq_ops','consultant','inspector','designer','compliance_reviewer'));
 
--- Public lead capture: customer + site + lead(captured) + events.
+-- The only non-admin demo staff row was standing in for presale visits —
+-- relabel it to match (it has no auth_uid, so nothing else references it by role).
+update public.staff set full_name = 'Consultant One', role = 'consultant'
+  where full_name = 'Inspector One' and role = 'inspector';
+
+-- book_assessment: let callers say which inspection mode + why. Previously
+-- every call hardcoded mode='presale' regardless of caller, so
+-- solarsafe.html's booking step (once wired) had no way to create a real
+-- 'solarsafe' inspection row. p_mode/p_reason default so index.html's
+-- existing 3-arg call is unaffected. (Replaces the 3-arg function outright —
+-- CREATE OR REPLACE with a longer arg list creates an overload rather than
+-- replacing, so the old 3-arg signature is dropped explicitly first.)
+drop function if exists public.book_assessment(uuid, uuid, text);
+
+create or replace function public.book_assessment(p_lead_id uuid, p_site_id uuid, p_slot text, p_mode text default 'presale', p_reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_mode not in ('presale','solarsafe') then
+    raise exception 'invalid inspection mode: %', p_mode;
+  end if;
+  insert into inspections (site_id, lead_id, mode, notes)
+  values (p_site_id, p_lead_id, p_mode,
+    jsonb_strip_nulls(jsonb_build_object('slot', p_slot, 'booked_via', 'funnel', 'reason', p_reason)));
+  update leads set state='appointment_set' where id = p_lead_id and state <> 'appointment_set';
+  insert into events (site_id, lead_id, actor_type, event_type, payload)
+  values (p_site_id, p_lead_id, 'customer', 'assessment.booked', jsonb_build_object('slot', p_slot, 'mode', p_mode));
+end $$;
+
+revoke all on function public.book_assessment(uuid,uuid,text,text,text) from public;
+grant execute on function public.book_assessment(uuid,uuid,text,text,text) to anon, authenticated;
+
+-- capture_lead: recognise goal:'solarsafe' (solarsafe.html's funnel) instead
+-- of silently falling through to the solar_battery default and mislabelling
+-- every Solarsafe lead as a solar sales lead.
 create or replace function public.capture_lead(payload jsonb)
 returns jsonb
 language plpgsql
@@ -84,60 +121,5 @@ begin
   return jsonb_build_object('ss_ref', v_ss, 'lead_id', v_lead_id, 'site_id', v_site_id);
 end $$;
 
--- Booking: inspection + advance lead state (auto-logs via trigger) + event.
--- p_mode/p_reason let callers create either a 'presale' (index.html) or
--- 'solarsafe' (solarsafe.html) inspection; p_reason records why the
--- customer booked (feeds field.html's protocol-mode selection).
-create or replace function public.book_assessment(p_lead_id uuid, p_site_id uuid, p_slot text, p_mode text default 'presale', p_reason text default null)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if p_mode not in ('presale','solarsafe') then
-    raise exception 'invalid inspection mode: %', p_mode;
-  end if;
-  insert into inspections (site_id, lead_id, mode, notes)
-  values (p_site_id, p_lead_id, p_mode,
-    jsonb_strip_nulls(jsonb_build_object('slot', p_slot, 'booked_via', 'funnel', 'reason', p_reason)));
-  update leads set state='appointment_set' where id = p_lead_id and state <> 'appointment_set';
-  insert into events (site_id, lead_id, actor_type, event_type, payload)
-  values (p_site_id, p_lead_id, 'customer', 'assessment.booked', jsonb_build_object('slot', p_slot, 'mode', p_mode));
-end $$;
-
--- field.html's "Create quote lead from this inspection" button (Solarsafe
--- jobs only): clones the existing site/customer into a new sales lead
--- rather than re-running capture_lead (which would duplicate rows that
--- already exist from the original Solarsafe booking).
-create or replace function public.convert_solarsafe_lead(p_inspection_id uuid, p_staff_id uuid default null)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_site_id uuid; v_orig_lead_id uuid; v_customer_id uuid; v_new_lead_id uuid; v_ss text; v_consents jsonb;
-begin
-  select i.site_id, i.lead_id into v_site_id, v_orig_lead_id from inspections i where i.id = p_inspection_id;
-  if v_site_id is null then raise exception 'inspection not found'; end if;
-  select customer_id, consents into v_customer_id, v_consents from leads where id = v_orig_lead_id;
-  select ss_ref into v_ss from sites where id = v_site_id;
-
-  insert into leads (site_id, customer_id, state, lead_type, source_platform, consents)
-  values (v_site_id, v_customer_id, 'captured', 'solar_battery', 'solarsafe_conversion', coalesce(v_consents,'[]'::jsonb))
-  returning id into v_new_lead_id;
-
-  insert into events (site_id, lead_id, actor_type, actor_id, event_type, payload)
-  values (v_site_id, v_new_lead_id, 'staff', p_staff_id::text, 'lead.captured',
-    jsonb_build_object('ss_ref', v_ss, 'source_platform', 'solarsafe_conversion', 'from_inspection', p_inspection_id));
-
-  return jsonb_build_object('ss_ref', v_ss, 'lead_id', v_new_lead_id);
-end $$;
-
 revoke all on function public.capture_lead(jsonb) from public;
-revoke all on function public.book_assessment(uuid,uuid,text,text,text) from public;
-revoke all on function public.convert_solarsafe_lead(uuid,uuid) from public;
 grant execute on function public.capture_lead(jsonb) to anon, authenticated;
-grant execute on function public.book_assessment(uuid,uuid,text,text,text) to anon, authenticated;
-grant execute on function public.convert_solarsafe_lead(uuid,uuid) to authenticated;

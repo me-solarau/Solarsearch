@@ -672,7 +672,7 @@ function openDrawer(id){
     captured:['AI contact now|ai','Sell raw lead|raw','Mark dead|dead'],
     contacted:['View AI transcript|tx','Take over conversation|human'],
     qualified:['Book inspection|book','Sell as appointment|appt'],
-    appointment_set:['Reschedule|resch','Assign inspector|insp'],
+    appointment_set:['Reschedule|resch','Assign consultant|consult'],
     inspected:['Open design queue|design'],
     designed:['Sell seats / open board|seats'],
     quoted:['View customer board link|link','Nudge customer (SMS)|nudge'],
@@ -680,7 +680,11 @@ function openDrawer(id){
     signed:['View signed PDF|pdf','Raise invoice|inv','Create connection application|conn'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
-  $('dActions').innerHTML=acts.map(a=>{const[t]=a.split('|');return `<button class="btn btn-ink btn-sm" onclick="toast('${t} — wire to API')">${t}</button>`}).join('')||'<span class="src">No actions at this stage</span>';
+  $('dActions').innerHTML=acts.map(a=>{
+    const[t,k]=a.split('|');
+    const onclick=k==='consult'?`openAssignConsultant('${l.uuid}')`:`toast('${t} — wire to API')`;
+    return `<button class="btn btn-ink btn-sm" onclick="${onclick}">${t}</button>`;
+  }).join('')||'<span class="src">No actions at this stage</span>';
   $('dDetails').innerHTML=`
     <dt>Bill / quarter</dt><dd class="mono">${fmt$(l.bill)}</dd>
     <dt>Timeline</dt><dd>${l.timeline.replace(/_/g,'–')}</dd>
@@ -696,6 +700,28 @@ function openDrawer(id){
 }
 function closeDrawer(){$('drawer').classList.remove('open');$('drawerBack').classList.remove('open')}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer()});
+
+/* ================= assign consultant (appointment_set -> inspection.inspector_id) ================= */
+async function openAssignConsultant(leadId){
+  const { data:staffRows, error } = await db.from('staff').select('id,full_name').eq('role','consultant').eq('active',true).order('full_name');
+  if(error){ toast('Could not load consultants: '+error.message); return; }
+  if(!staffRows||!staffRows.length){ toast('No active consultants on staff yet'); return; }
+  $('dActions').innerHTML=`
+    <select id="consultantSelect" style="width:100%;padding:9px 10px;border:1.5px solid var(--line2);border-radius:8px;margin-bottom:8px">
+      ${staffRows.map(s=>`<option value="${s.id}">${s.full_name}</option>`).join('')}
+    </select>
+    <button class="btn btn-ink btn-sm" onclick="confirmAssignConsultant('${leadId}')">Confirm assignment</button>`;
+}
+async function confirmAssignConsultant(leadId){
+  const staffId=$('consultantSelect').value;
+  const { data:insp, error:findErr } = await db.from('inspections').select('id').eq('lead_id',leadId).order('created_at',{ascending:false}).limit(1).maybeSingle();
+  if(findErr||!insp){ toast('No inspection found for this lead yet'); return; }
+  const { error:updErr } = await db.from('inspections').update({ inspector_id:staffId }).eq('id',insp.id);
+  if(updErr){ toast('Assign failed: '+updErr.message); return; }
+  await db.from('events').insert({ lead_id:leadId, actor_type:'staff', actor_id:MY_STAFF_ID, event_type:'inspection.consultant_assigned', payload:{ staff_id:staffId } });
+  toast('Consultant assigned');
+  await loadData(); renderAll(); closeDrawer();
+}
 
 /* ================= nav ================= */
 document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>{
@@ -725,6 +751,8 @@ window.setEntityStatus = setEntityStatus;
 window.verifyDoc = verifyDoc;
 window.toggleNewLeadForm = toggleNewLeadForm;
 window.submitNewLead = submitNewLead;
+window.openAssignConsultant = openAssignConsultant;
+window.confirmAssignConsultant = confirmAssignConsultant;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });
