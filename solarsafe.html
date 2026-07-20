@@ -502,8 +502,8 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
         <div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <h2>Inspection booked</h2>
         <p id="bookedWhen" style="font-weight:700;color:var(--ink)">—</p>
-        <p>Confirmation is on its way by SMS. What happens next: 20-minute guided inspection → assessment against the standards → an accredited assessor reviews and signs → your report lands by email with every finding photographed and referenced.</p>
-        <p style="font-size:.85rem;color:var(--ink-3)">Need to change the time? Use the link in your SMS.</p>
+        <p>Your confirmation is on its way by email. What happens next: 20-minute guided inspection → assessment against the standards → an accredited assessor reviews and signs → your report lands by email with every finding photographed and referenced.</p>
+        <p style="font-size:.85rem;color:var(--ink-3)">Need to change the time? Use the link in your confirmation email.</p>
         <button class="btn btn-ghost" style="margin-top:18px" onclick="closeFunnel()">Back to Solarsafe</button>
       </div>
     </section>
@@ -550,7 +550,17 @@ async function saveLead(){
 }
 async function bookAssessment(slot){
   if(!S.leadId||!S.siteId) return null;
-  return sbRpc('book_assessment',{p_lead_id:S.leadId,p_site_id:S.siteId,p_slot:slot,p_mode:'solarsafe',p_reason:S.reason||null});
+  const r=await sbRpc('book_assessment',{p_lead_id:S.leadId,p_site_id:S.siteId,p_slot:slot,p_mode:'solarsafe',p_reason:S.reason||null});
+  sendBookingEmail(); // fire-and-forget confirmation email; never blocks the booking
+  return r;
+}
+function sendBookingEmail(){
+  if(!S.leadId) return;
+  fetch(SUPABASE_URL+'/functions/v1/send-booking-confirmation',{
+    method:'POST',
+    headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({lead_id:S.leadId})
+  }).catch(()=>{});
 }
 
 /* hero */
@@ -629,7 +639,7 @@ async function bookSlot(day,time){
   show('booked'); $('progBar').style.width='100%';
   await S.leadPromise;
   const r=await bookAssessment(S.slot);
-  if(!r){ toast('Booking saved locally — we\'ll confirm by SMS shortly'); }
+  if(!r){ toast('Booking saved — we\'ll confirm by email shortly'); }
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&funnel.classList.contains('open'))closeFunnel()});
 

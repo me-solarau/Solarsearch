@@ -708,8 +708,8 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
         <div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <h2>You're booked</h2>
         <p id="bookedWhen" style="font-weight:700;color:var(--ink)">—</p>
-        <p>We've texted a confirmation. Here's what happens next: our consultant visits (20 min) → we design your system from real site evidence → up to three accredited installers price the identical design → you choose on your private link. Your rebate is locked at your installation date.</p>
-        <p style="font-size:.85rem;color:var(--ink3)">Need to change the time? Use the link in your SMS.</p>
+        <p>We've emailed your confirmation. Here's what happens next: our consultant visits (20 min) → we design your system from real site evidence → up to three accredited installers price the identical design → you choose on your private link. Your rebate is locked at your installation date.</p>
+        <p style="font-size:.85rem;color:var(--ink3)">Need to change the time? Use the link in your confirmation email.</p>
         <button class="btn btn-ghost" style="margin-top:18px" onclick="closeFunnel()">Back to Solarsearch</button>
       </div>
     </section>
@@ -820,7 +820,17 @@ async function saveLead(){
 }
 async function bookAssessment(slot){
   if(!S.leadId||!S.siteId) return null;
-  return sbRpc('book_assessment',{p_lead_id:S.leadId,p_site_id:S.siteId,p_slot:slot});
+  const r=await sbRpc('book_assessment',{p_lead_id:S.leadId,p_site_id:S.siteId,p_slot:slot});
+  sendBookingEmail(); // fire-and-forget confirmation email; never blocks the booking
+  return r;
+}
+function sendBookingEmail(){
+  if(!S.leadId) return;
+  fetch(SB_URL+'/functions/v1/send-booking-confirmation',{
+    method:'POST',
+    headers:{apikey:SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({lead_id:S.leadId})
+  }).catch(()=>{});
 }
 
 /* =============== staircase svg =============== */
