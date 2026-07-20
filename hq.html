@@ -139,6 +139,7 @@ tbody tr:hover{background:var(--tint2)}
     <button class="nav-btn" data-page="board"><span class="ic">▦</span><span class="lbl">Site Quoted board</span></button>
     <button class="nav-btn" data-page="deals"><span class="ic">✓</span><span class="lbl">Deals & commissions</span></button>
     <button class="nav-btn" data-page="campaigns"><span class="ic">▲</span><span class="lbl">Campaigns</span></button>
+    <button class="nav-btn" data-page="vetting"><span class="ic">⚑</span><span class="lbl">Vetting</span></button>
     <div class="foot">HUNTER PILOT · RULES v2026.05<br>LIVE DATA</div>
   </aside>
 
@@ -217,6 +218,24 @@ tbody tr:hover{background:var(--tint2)}
       </table></div>
       <p style="font-family:var(--mono);font-size:.66rem;color:var(--ink3);margin-top:10px;letter-spacing:.05em">CPSD = COST PER SIGNED DEAL — THE NORTH STAR (PRD §12). OFFLINE CONVERSION UPLOAD: PHASE 2.</p>
     </section>
+
+    <!-- ============ VETTING ============ -->
+    <section class="page" id="page-vetting">
+      <div class="page-head">
+        <div><span class="eyebrow">Retailers · installers · sales reps</span><h1>Vetting</h1></div>
+        <span class="demo-tag">MANUAL VERIFY — ABR/TWILIO AUTO-CHECK DEFERRED</span>
+      </div>
+      <div class="eyebrow" style="margin-bottom:8px">Retailer applications — pending</div>
+      <div class="card" style="margin-bottom:20px"><table>
+        <thead><tr><th>Company</th><th>Contact</th><th>Regions</th><th>Submitted</th></tr></thead>
+        <tbody id="applicationRows"></tbody>
+      </table></div>
+      <div class="eyebrow" style="margin-bottom:8px">Accounts under vetting</div>
+      <div class="card"><table>
+        <thead><tr><th>Type</th><th>Name</th><th>Status</th><th>Docs</th><th>Created</th></tr></thead>
+        <tbody id="vettingRows"></tbody>
+      </table></div>
+    </section>
   </main>
 </div>
 
@@ -229,10 +248,10 @@ tbody tr:hover{background:var(--tint2)}
     <h2 id="dName">—</h2>
     <div class="meta" id="dMeta">—</div>
   </div>
-  <div class="d-sec"><h3>Actions</h3><div class="actions" id="dActions"></div></div>
-  <div class="d-sec"><h3>Details</h3><dl class="d-grid" id="dDetails"></dl></div>
-  <div class="d-sec"><h3>Attribution</h3><dl class="d-grid" id="dAttr"></dl></div>
-  <div class="d-sec"><h3>Timeline — from the event log</h3><div class="tl" id="dTimeline"></div></div>
+  <div class="d-sec"><h3 id="dActionsLabel">Actions</h3><div class="actions" id="dActions"></div></div>
+  <div class="d-sec"><h3 id="dDetailsLabel">Details</h3><dl class="d-grid" id="dDetails"></dl></div>
+  <div class="d-sec" id="dAttrSec"><h3 id="dAttrLabel">Attribution</h3><dl class="d-grid" id="dAttr"></dl></div>
+  <div class="d-sec" id="dTimelineSec"><h3 id="dTimelineLabel">Timeline — from the event log</h3><div class="tl" id="dTimeline"></div></div>
 </aside>
 
 <div class="toast" id="toastEl" role="status"></div>
@@ -259,6 +278,10 @@ const db = getSupabaseClient();
 const HR=3600e3;
 
 let leads=[], jobs=[], deals=[], CAMPS=[];
+let retailerApps=[], retailers=[], salesReps=[], installersList=[], vettingDocs=[];
+let MY_STAFF_ID=null;
+const VETTING_STATUSES=['registered','docs_submitted','under_review','conditionally_active','suspended','rejected'];
+const DOC_TYPE_LABEL={abn:'ABN',netcc:'NETCC number',saa:'SAA accreditation',electrical_licence:'Electrical licence',public_liability:'Public liability',workers_comp:'Workers comp',police_check:'Police check',id:'ID document'};
 
 function calcScore(bill,type,timeline){
   const tw={asap:22,'1_3_months':14,'3_6_months':6,researching:0}[timeline]||0;
@@ -313,6 +336,23 @@ async function loadData(){
   deals=leads.filter(l=>l.state==='signed').map(l=>({...l,installer:'—',stc:totalStc(l.kw,l.kwh),commission:totalStc(l.kw,l.kwh)*RULES.commissionPerStc,invoice:'pending'}));
   const { data:C } = await db.from('campaigns').select('name,platform,status,daily_budget_cents');
   CAMPS=(C||[]).map(c=>({name:c.name,plat:c.platform,status:c.status,spend:Math.round((c.daily_budget_cents||0)/100),leads:0,signed:0}));
+
+  const { data:RA } = await db.from('retailer_applications').select('*').eq('status','pending').order('created_at',{ascending:false});
+  retailerApps=RA||[];
+  const { data:RET } = await db.from('retailers').select('*').order('created_at',{ascending:false});
+  retailers=RET||[];
+  const { data:SR } = await db.from('sales_reps').select('*').order('created_at',{ascending:false});
+  salesReps=SR||[];
+  const { data:INS } = await db.from('installers').select('*').order('created_at',{ascending:false});
+  installersList=INS||[];
+  const { data:VD } = await db.from('vetting_documents').select('*').order('created_at',{ascending:false});
+  vettingDocs=VD||[];
+
+  const { data:{ user } } = await db.auth.getUser();
+  if(user){
+    const { data:me } = await db.from('staff').select('id').eq('auth_uid',user.id).single();
+    MY_STAFF_ID = me ? me.id : null;
+  }
 }
 
 /* ================= render helpers ================= */
@@ -427,9 +467,135 @@ function renderCamps(){
     <td class="mono" style="font-weight:700;color:${c.signed&&c.spend/c.signed<300?'var(--green)':'var(--ink)'}">${c.signed?fmt$(c.spend/c.signed):'—'}</td></tr>`).join('');
 }
 
-/* ================= drawer ================= */
+/* ================= vetting ================= */
+function docsFor(ownerType,ownerId){ return vettingDocs.filter(d=>d.owner_type===ownerType&&d.owner_id===ownerId); }
+function docSummary(ownerType,ownerId){
+  const docs=docsFor(ownerType,ownerId);
+  if(!docs.length) return '<span class="src">No documents</span>';
+  const verified=docs.filter(d=>d.status==='verified').length;
+  return `${verified}/${docs.length} verified`;
+}
+function renderVetting(){
+  $('applicationRows').innerHTML=retailerApps.map(a=>`<tr onclick="openApplicationDrawer('${a.id}')">
+    <td><b>${a.company_name}</b><div class="src">${a.abn||'—'}</div></td>
+    <td>${a.contact_name||'—'}<div class="src">${a.contact_email||''}</div></td>
+    <td class="src">${(a.regions||[]).join(', ')||'—'}</td>
+    <td class="mono">${new Date(a.created_at).toLocaleDateString('en-AU')}</td></tr>`).join('')
+    ||'<tr><td colspan="4" class="empty">No pending applications</td></tr>';
+
+  const entities=[
+    ...retailers.filter(r=>VETTING_STATUSES.includes(r.status)).map(r=>({kind:'retailer',id:r.id,name:r.company_name,status:r.status,created_at:r.created_at})),
+    ...salesReps.filter(s=>VETTING_STATUSES.includes(s.status)).map(s=>({kind:'sales_rep',id:s.id,name:s.full_name,status:s.status,created_at:s.created_at})),
+    ...installersList.filter(i=>i.status==='pending').map(i=>({kind:'installer',id:i.id,name:i.company_name,status:i.status,created_at:i.created_at})),
+  ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const KIND_LABEL={retailer:'Retailer',sales_rep:'Sales rep',installer:'Installer'};
+  $('vettingRows').innerHTML=entities.map(e=>`<tr onclick="openEntityDrawer('${e.kind}','${e.id}')">
+    <td class="src">${KIND_LABEL[e.kind]}</td>
+    <td><b>${e.name}</b></td>
+    <td><span class="pill" style="background:var(--tint2);color:var(--ink2)">${e.status}</span></td>
+    <td class="src">${docSummary(e.kind,e.id)}</td>
+    <td class="mono">${new Date(e.created_at).toLocaleDateString('en-AU')}</td></tr>`).join('')
+    ||'<tr><td colspan="5" class="empty">Nothing awaiting vetting</td></tr>';
+}
+
+async function convertApplication(id){
+  const a=retailerApps.find(x=>x.id===id); if(!a)return;
+  const { data:ret, error } = await db.from('retailers').insert({
+    company_name:a.company_name, abn:a.abn, contact_name:a.contact_name,
+    contact_email:a.contact_email, contact_phone:a.contact_phone,
+  }).select().single();
+  if(error){ toast('Convert failed: '+error.message); return; }
+  await db.from('retailer_applications').update({status:'converted'}).eq('id',id);
+  toast('Converted to retailer — now in Accounts under vetting');
+  closeDrawer(); await loadData(); renderVetting();
+}
+async function rejectApplication(id){
+  const { error } = await db.from('retailer_applications').update({status:'rejected'}).eq('id',id);
+  if(error){ toast('Reject failed: '+error.message); return; }
+  toast('Application rejected'); closeDrawer(); await loadData(); renderVetting();
+}
+const ENTITY_TABLE={retailer:'retailers',sales_rep:'sales_reps',installer:'installers'};
+async function setEntityStatus(kind,id,status){
+  const { error } = await db.from(ENTITY_TABLE[kind]).update({status}).eq('id',id);
+  if(error){ toast('Update failed: '+error.message); return; }
+  toast('Status set to '+status); closeDrawer(); await loadData(); renderVetting();
+}
+async function verifyDoc(docId,status){
+  const { error } = await db.from('vetting_documents').update({
+    status, verified_by:MY_STAFF_ID, verified_at:new Date().toISOString(),
+  }).eq('id',docId);
+  if(error){ toast('Doc update failed: '+error.message); return; }
+  await loadData();
+  const doc=vettingDocs.find(d=>d.id===docId);
+  if(doc) openEntityDrawer(doc.owner_type,doc.owner_id); else renderVetting();
+}
+
+function openApplicationDrawer(id){
+  const a=retailerApps.find(x=>x.id===id); if(!a)return;
+  $('dAttrSec').style.display='none'; $('dTimelineSec').style.display='none';
+  $('dRef').textContent='RETAILER APPLICATION';
+  $('dName').textContent=a.company_name;
+  $('dMeta').textContent=`${a.contact_email||'—'} · ${(a.regions||[]).join(', ')||'no regions given'}`;
+  $('dActionsLabel').textContent='Actions';
+  $('dActions').innerHTML=`
+    <button class="btn btn-ink btn-sm" onclick="convertApplication('${a.id}')">Convert to retailer</button>
+    <button class="btn btn-ghost btn-sm" onclick="rejectApplication('${a.id}')">Reject</button>`;
+  $('dDetailsLabel').textContent='Application';
+  $('dDetails').innerHTML=`
+    <dt>ABN</dt><dd class="mono">${a.abn||'—'}</dd>
+    <dt>Contact name</dt><dd>${a.contact_name||'—'}</dd>
+    <dt>Phone</dt><dd class="mono">${a.contact_phone||'—'}</dd>
+    <dt>Message</dt><dd style="grid-column:1/-1">${a.message||'—'}</dd>`;
+  $('drawer').classList.add('open');$('drawerBack').classList.add('open');
+}
+
+function openEntityDrawer(kind,id){
+  const table={retailer:retailers,sales_rep:salesReps,installer:installersList}[kind];
+  const e=table.find(x=>x.id===id); if(!e)return;
+  $('dAttrSec').style.display=''; $('dTimelineSec').style.display='none';
+  const name=e.company_name||e.full_name;
+  const KIND_LABEL={retailer:'RETAILER',sales_rep:'SALES REP',installer:'INSTALLER'};
+  $('dRef').textContent=KIND_LABEL[kind]+' · '+e.status;
+  $('dName').textContent=name;
+  $('dMeta').textContent=e.contact_email||e.email||'—';
+
+  const allStatuses=['registered','docs_submitted','under_review','approved','conditionally_active','active','suspended','rejected'];
+  const validForKind = kind==='installer' ? ['pending','approved','suspended','offboarded'] : allStatuses;
+  $('dActionsLabel').textContent='Set status';
+  $('dActions').innerHTML=validForKind.map(s=>
+    `<button class="btn ${s===e.status?'btn-amber':'btn-ghost'} btn-sm" onclick="setEntityStatus('${kind}','${e.id}','${s}')">${s}</button>`
+  ).join('');
+
+  $('dDetailsLabel').textContent='Details';
+  const detailRows = kind==='retailer'
+    ? `<dt>ABN</dt><dd class="mono">${e.abn||'—'}</dd><dt>NETCC</dt><dd class="mono">${e.netcc_number||'—'}</dd><dt>Electrical licence</dt><dd class="mono">${e.electrical_licence_no||'—'} (${e.electrical_licence_state||'—'})</dd>`
+    : kind==='sales_rep'
+    ? `<dt>Phone</dt><dd class="mono">${e.phone||'—'}</dd><dt>Police check</dt><dd class="mono">${e.police_check_ref||'—'}</dd><dt>Expiry</dt><dd class="mono">${e.police_check_expiry||'—'}</dd>`
+    : `<dt>ABN</dt><dd class="mono">${e.abn||'—'}</dd><dt>SAA accreditation</dt><dd class="mono">${e.saa_accreditation||'—'}</dd><dt>Insurance expiry</dt><dd class="mono">${e.insurance_expiry||'—'}</dd>`;
+  $('dDetails').innerHTML=detailRows;
+
+  $('dAttrLabel').textContent='Documents';
+  const docs=docsFor(kind,e.id);
+  $('dAttr').innerHTML = docs.length ? docs.map(d=>`
+    <dt style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)">
+      <span>${DOC_TYPE_LABEL[d.doc_type]||d.doc_type} <span class="src">${d.expiry_date?'· expires '+d.expiry_date:''}</span></span>
+      <span>
+        <span class="pill" style="background:var(--tint2);color:var(--ink2);margin-right:6px">${d.status}</span>
+        <button class="btn btn-ghost btn-sm" onclick="verifyDoc('${d.id}','verified')">Verify</button>
+        <button class="btn btn-ghost btn-sm" onclick="verifyDoc('${d.id}','rejected')">Reject</button>
+      </span>
+    </dt>`).join('')
+    : '<dt style="grid-column:1/-1" class="src">No documents submitted yet — upload happens from the applicant\'s own portal (not built yet).</dt>';
+
+  $('drawer').classList.add('open');$('drawerBack').classList.add('open');
+}
+
+/* ================= drawer (leads) ================= */
 function openDrawer(id){
   const l=leads.find(x=>x.id===id)||deals.find(x=>x.id===id); if(!l)return;
+  $('dAttrSec').style.display=''; $('dTimelineSec').style.display='';
+  $('dActionsLabel').textContent='Actions'; $('dDetailsLabel').textContent='Details';
+  $('dAttrLabel').textContent='Attribution'; $('dTimelineLabel').textContent='Timeline — from the event log';
   $('dRef').textContent=l.ss+' · RULES '+RULES.v;
   $('dName').textContent=l.name;
   $('dMeta').textContent=`${l.suburb} ${l.pc} · ${l.type.replace('_',' + ')} · score ${l.score}`;
@@ -470,7 +636,7 @@ document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>
   $('page-'+b.dataset.page).classList.add('active');
 }));
 
-function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps(); }
+function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting(); }
 async function boot(){ await loadData(); renderAll(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
 
@@ -482,6 +648,12 @@ window.toast = toast;
 window.openDrawer = openDrawer;
 window.closeDrawer = closeDrawer;
 window.signOut = signOut;
+window.openApplicationDrawer = openApplicationDrawer;
+window.openEntityDrawer = openEntityDrawer;
+window.convertApplication = convertApplication;
+window.rejectApplication = rejectApplication;
+window.setEntityStatus = setEntityStatus;
+window.verifyDoc = verifyDoc;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });
