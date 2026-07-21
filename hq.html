@@ -145,6 +145,7 @@ tbody tr:hover{background:var(--tint2)}
     <button class="nav-btn" data-page="leads"><span class="ic">☰</span><span class="lbl">Lead inbox</span></button>
     <button class="nav-btn" data-page="board"><span class="ic">▦</span><span class="lbl">Site Quoted board</span></button>
     <button class="nav-btn" data-page="deals"><span class="ic">✓</span><span class="lbl">Deals & commissions</span></button>
+    <button class="nav-btn" data-page="fieldops"><span class="ic">◎</span><span class="lbl">Field ops</span></button>
     <button class="nav-btn" data-page="campaigns"><span class="ic">▲</span><span class="lbl">Campaigns</span></button>
     <button class="nav-btn" data-page="vetting"><span class="ic">⚑</span><span class="lbl">Vetting</span></button>
     <div class="foot">HUNTER PILOT · RULES v2026.05<br>LIVE DATA</div>
@@ -257,6 +258,24 @@ tbody tr:hover{background:var(--tint2)}
       <p style="font-family:var(--mono);font-size:.66rem;color:var(--ink3);margin-top:10px;letter-spacing:.05em">CPSD = COST PER SIGNED DEAL — THE NORTH STAR (PRD §12). OFFLINE CONVERSION UPLOAD: PHASE 2.</p>
     </section>
 
+    <!-- ============ FIELD OPS ============ -->
+    <section class="page" id="page-fieldops">
+      <div class="page-head">
+        <div><span class="eyebrow">Sales technician dispatch · guided photo capture</span><h1>Field ops</h1></div>
+      </div>
+      <div class="kpis" id="foKpis"></div>
+      <div class="eyebrow" style="margin:6px 0 8px">Active jobs — claimed, scheduled, in progress</div>
+      <div class="card"><table>
+        <thead><tr><th>Ref</th><th>Area</th><th>Technician</th><th>Status</th><th>When</th><th>Fee</th><th></th></tr></thead>
+        <tbody id="foActive"></tbody>
+      </table></div>
+      <div class="eyebrow" style="margin:20px 0 8px">Technician reliability</div>
+      <div class="card"><table>
+        <thead><tr><th>Technician</th><th>Claimed</th><th>Completed</th><th>No-access</th><th>Expired</th><th>Reliability</th></tr></thead>
+        <tbody id="foReps"></tbody>
+      </table></div>
+    </section>
+
     <!-- ============ VETTING ============ -->
     <section class="page" id="page-vetting">
       <div class="page-head">
@@ -357,6 +376,7 @@ const HR=3600e3;
 
 let leads=[], jobs=[], deals=[], CAMPS=[];
 let retailerApps=[], retailers=[], salesReps=[], installersList=[], vettingDocs=[];
+let assessmentsList=[], salesRepsAll=[];
 let MY_STAFF_ID=null;
 const VETTING_STATUSES=['registered','docs_submitted','under_review','conditionally_active','suspended','rejected'];
 const DOC_TYPE_LABEL={abn:'ABN',netcc:'NETCC number',saa:'SAA accreditation',electrical_licence:'Electrical licence',public_liability:'Public liability',workers_comp:'Workers comp',police_check:'Police check',id:'ID document'};
@@ -458,6 +478,10 @@ async function loadData(){
   installersList=INS||[];
   const { data:VD } = await db.from('vetting_documents').select('*').order('created_at',{ascending:false});
   vettingDocs=VD||[];
+  const { data:AS } = await db.from('assessments').select('id,status,outcome,scheduled_at,claim_expires_at,fee_cents,claimed_at,submitted_at,sales_rep_id,leads(sites(ss_ref,address,postcode)),sales_reps(full_name)').order('created_at',{ascending:false});
+  assessmentsList=AS||[];
+  const { data:SRALL } = await db.from('sales_reps').select('id,full_name,status').order('full_name');
+  salesRepsAll=SRALL||[];
 
   const { data:{ user } } = await db.auth.getUser();
   if(user){
@@ -683,6 +707,51 @@ async function submitOnboardTech(){
     ['tbName','tbEmail','tbPhone','tbPostcodes','tbPolice','tbPoliceExp'].forEach(id=>$(id).value='');
     toggleOnboardTechForm(); await loadData(); renderVetting();
   }catch(e){ $('tbErr').textContent='Failed: '+e.message; }
+}
+function renderFieldOps(){
+  const nowMs=Date.now();
+  const active=assessmentsList.filter(a=>['claimed','scheduled','in_progress'].includes(a.status));
+  const submittedToday=assessmentsList.filter(a=>a.submitted_at&&(nowMs-new Date(a.submitted_at).getTime())<86400e3).length;
+  const stuck=active.filter(a=>a.status==='claimed'&&a.claim_expires_at&&new Date(a.claim_expires_at).getTime()<nowMs+6*HR).length;
+  $('foKpis').innerHTML=[
+    ['Active jobs',active.length,''],['In progress',active.filter(a=>a.status==='in_progress').length,''],
+    ['Submitted 24h',submittedToday,''],['Claims near expiry',stuck,'<6h left'],
+  ].map(k=>`<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div><div class="d">${k[2]}</div></div>`).join('');
+  const when=a=>a.status==='claimed'?('exp '+(a.claim_expires_at?new Date(a.claim_expires_at).toLocaleString('en-AU',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'—')):(a.scheduled_at?new Date(a.scheduled_at).toLocaleString('en-AU',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'—');
+  $('foActive').innerHTML=active.map(a=>{
+    const site=(a.leads&&a.leads.sites)||{}; const rep=(a.sales_reps&&a.sales_reps.full_name)||'—';
+    const soon=a.status==='claimed'&&a.claim_expires_at&&new Date(a.claim_expires_at).getTime()<nowMs+6*HR;
+    return `<tr>
+      <td class="mono" style="font-size:.72rem;color:var(--amberd);font-weight:700">${site.ss_ref||'—'}</td>
+      <td>${(site.address||'').split(',').slice(-1)[0].trim()||'—'} ${site.postcode||''}</td>
+      <td>${rep}</td>
+      <td>${pill(a.status)}</td>
+      <td class="mono" style="font-size:.75rem;color:${soon?'var(--red)':'var(--ink2)'}">${when(a)}</td>
+      <td class="mono">${fmt$(Math.round((a.fee_cents||5000)/100))}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="releaseClaim('${a.id}')">Release</button></td></tr>`;
+  }).join('')||'<tr><td colspan="7" class="empty">No active field jobs</td></tr>';
+  // reliability per rep
+  const byRep={};
+  assessmentsList.forEach(a=>{
+    const n=(a.sales_reps&&a.sales_reps.full_name)||a.sales_rep_id||'—';
+    const r=byRep[n]=byRep[n]||{claimed:0,completed:0,no_access:0,expired:0};
+    r.claimed++;
+    if(a.outcome==='completed'||a.status==='completed')r.completed++;
+    if(a.outcome==='no_access'||a.status==='no_access')r.no_access++;
+    if(a.status==='cancelled'&&a.claim_expires_at&&new Date(a.claim_expires_at).getTime()<nowMs&&!a.submitted_at)r.expired++;
+  });
+  $('foReps').innerHTML=Object.entries(byRep).map(([n,r])=>{
+    const rel=r.claimed?Math.round(r.completed/r.claimed*100):0;
+    return `<tr><td><b>${n}</b></td><td class="mono">${r.claimed}</td><td class="mono">${r.completed}</td><td class="mono">${r.no_access}</td><td class="mono">${r.expired}</td>
+      <td class="mono" style="color:${rel>=70?'var(--green)':rel>=40?'var(--amberd)':'var(--red)'};font-weight:700">${rel}%</td></tr>`;
+  }).join('')||'<tr><td colspan="6" class="empty">No technician activity yet</td></tr>';
+}
+async function releaseClaim(aid){
+  if(!confirm('Release this job back to the pool? The claim is cancelled and any technician can grab it again.')) return;
+  const { error } = await db.from('assessments').update({status:'cancelled'}).eq('id',aid);
+  if(error){ toast('Release failed: '+error.message); return; }
+  await db.from('events').insert({actor_type:'staff',actor_id:MY_STAFF_ID,event_type:'assessment.released',payload:{assessment_id:aid}});
+  toast('Released to pool'); await loadData(); renderFieldOps();
 }
 function renderVetting(){
   $('applicationRows').innerHTML=retailerApps.map(a=>`<tr onclick="openApplicationDrawer('${a.id}')">
@@ -962,7 +1031,7 @@ document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>
   $('page-'+b.dataset.page).classList.add('active');
 }));
 
-function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting(); }
+function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps(); }
 async function boot(){ await loadData(); renderAll(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
 
@@ -980,6 +1049,7 @@ window.convertApplication = convertApplication;
 window.rejectApplication = rejectApplication;
 window.setEntityStatus = setEntityStatus;
 window.verifyDoc = verifyDoc;
+window.releaseClaim = releaseClaim;
 window.toggleNewLeadForm = toggleNewLeadForm;
 window.submitNewLead = submitNewLead;
 window.openAssignConsultant = openAssignConsultant;
