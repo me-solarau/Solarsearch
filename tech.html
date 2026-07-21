@@ -79,6 +79,7 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
 <div class="tabs" id="tabs">
   <button data-tab="pool" class="sel" onclick="switchTab('pool')">Job pool</button>
   <button data-tab="jobs" onclick="switchTab('jobs')">My jobs</button>
+  <button data-tab="avail" onclick="switchTab('avail')">Availability</button>
   <button data-tab="earnings" onclick="switchTab('earnings')">Earnings</button>
 </div>
 
@@ -94,6 +95,18 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
   <h1>My run sheet</h1>
   <div class="sub" id="jobsDate"></div>
   <div id="jobsList"></div>
+</section>
+
+<!-- AVAILABILITY -->
+<section class="view" id="v-avail">
+  <h1>Your availability</h1>
+  <div class="sub">When you can take jobs. Used to offer customers time windows that fit your run.</div>
+  <div class="card">
+    <label class="f-label">Base postcode (start of your day)</label>
+    <input class="f-input mono" id="avBase" inputmode="numeric" maxlength="4" placeholder="e.g. 2300" style="max-width:160px">
+    <div id="avDays" style="margin-top:8px"></div>
+  </div>
+  <div style="margin-top:16px"><button class="btn btn-safe btn-block" onclick="saveAvail()">Save availability</button></div>
 </section>
 
 <!-- EARNINGS -->
@@ -170,7 +183,7 @@ const $=id=>document.getElementById(id);
 let toastT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600)}
 const db=getSupabaseClient();
 const fmt$=c=>'$'+Math.round((c||0)/100).toLocaleString();
-let MY_NAME='Tech';
+let MY_NAME='Tech', MY_REP_ID=null;
 let navStack=['v-pool'], curTab='pool';
 
 /* ===== capture spec (scope §4) ===== */
@@ -213,7 +226,7 @@ function switchTab(t){
   curTab=t; navStack=['v-'+t];
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('sel',b.dataset.tab===t));
   showView('v-'+t,false);
-  if(t==='pool')loadPool(); else if(t==='jobs')loadJobs(); else loadEarnings();
+  if(t==='pool')loadPool(); else if(t==='jobs')loadJobs(); else if(t==='avail')loadAvail(); else loadEarnings();
 }
 function goJobs(){ switchTab('jobs'); }
 
@@ -433,6 +446,38 @@ async function submitJob(){
   showView('v-done');
 }
 
+/* ===== availability (§5.1 window-offering source) ===== */
+const DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+let availWindows={};
+async function loadAvail(){
+  const { data } = await db.from('technician_availability').select('base_postcode,windows').eq('sales_rep_id',MY_REP_ID).maybeSingle();
+  $('avBase').value=(data&&data.base_postcode)||'';
+  availWindows=(data&&data.windows)||{};
+  renderAvail();
+}
+function renderAvail(){
+  $('avDays').innerHTML=DAYS.map(([k,lbl])=>{
+    const w=(availWindows[k]&&availWindows[k][0])||['',''];
+    return `<div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+      <span style="width:38px;font-weight:600;font-size:.85rem">${lbl}</span>
+      <input type="time" class="f-input" style="flex:1" value="${w[0]||''}" onchange="setAvail('${k}',0,this.value)">
+      <span style="color:var(--ink3)">–</span>
+      <input type="time" class="f-input" style="flex:1" value="${w[1]||''}" onchange="setAvail('${k}',1,this.value)">
+    </div>`;
+  }).join('');
+}
+function setAvail(day,ix,val){
+  const w=(availWindows[day]&&availWindows[day][0])?[...availWindows[day][0]]:['',''];
+  w[ix]=val;
+  if(w[0]||w[1]) availWindows[day]=[w]; else delete availWindows[day];
+}
+async function saveAvail(){
+  const base=$('avBase').value.trim()||null;
+  const { error } = await db.from('technician_availability').upsert({sales_rep_id:MY_REP_ID,base_postcode:base,windows:availWindows,updated_at:new Date().toISOString()});
+  if(error){ toast('Save failed: '+error.message); return; }
+  toast('Availability saved');
+}
+
 /* ===== earnings ===== */
 async function loadEarnings(){
   // RLS (rep_own_assessments) scopes this to the signed-in technician's rows.
@@ -444,14 +489,14 @@ async function loadEarnings(){
 }
 
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail});
 window.$=$;
 
 (async () => {
   const auth = await requireRole(['sales_rep'], { loginPage: '/login.html' });
   if(!auth) return;
-  const { data:me } = await db.from('sales_reps').select('full_name').eq('user_id',auth.session.user.id).maybeSingle();
-  if(me&&me.full_name){ MY_NAME=me.full_name; $('topTag').textContent=me.full_name.split(' ')[0].toUpperCase(); }
+  const { data:me } = await db.from('sales_reps').select('id,full_name').eq('user_id',auth.session.user.id).maybeSingle();
+  if(me){ MY_REP_ID=me.id; if(me.full_name){ MY_NAME=me.full_name; $('topTag').textContent=me.full_name.split(' ')[0].toUpperCase(); } }
   loadPool();
 })();
 </script>
