@@ -10,6 +10,13 @@ generator currently running client-side in `tech.html`).
 
 ---
 
+> **Status: Part A is BUILT** (migration `0022_sms_scheduling_engine.sql`, five
+> `sms-*` Edge Functions, `tech-badge.html`, and the tech/HQ wiring). Decisions
+> locked in: numbered replies **+ keywords** (RESCHEDULE/CANCEL/STOP), reminders
+> via **Twilio Scheduled Messages**, windows generated **server-side** by the
+> `technician_windows` RPC. What's left is config, not code — Twilio secrets +
+> the inbound webhook (see `JOHAN_TODO.md` §2a). Part B (push) is still a plan.
+
 ## Part A — Twilio SMS scheduling engine (scope §3C, §5.1)
 
 ### What Johan provides first

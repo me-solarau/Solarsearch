@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Solarsearch technician</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F7F9F6;--panel:#fff;--tint:#E8F1EA;--ink:#0F2E27;--ink2:#41615A;--ink3:#6D8781;--line:#DBE5DE;--amber:#FFB100;--amberd:#DE8F00;--green:#177A53;--greens:#E2F2EA;--display:'Bricolage Grotesque',sans-serif;--body:'Instrument Sans',sans-serif;--mono:'Spline Sans Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+header{background:var(--ink);color:#fff;padding:16px 0}
+.wrap{max-width:520px;margin:0 auto;padding:0 20px}
+.logo{font-family:var(--display);font-weight:800;font-size:1.1rem}
+.logo em{font-style:normal;color:var(--amber)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px 24px;margin:28px 0;text-align:center}
+.ph{width:104px;height:104px;border-radius:50%;margin:0 auto 16px;object-fit:cover;background:var(--tint);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:2.2rem;color:var(--green)}
+h1{font-family:var(--display);font-size:1.5rem;font-weight:700}
+.role{color:var(--ink2);font-size:.92rem;margin-top:2px}
+.badges{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:18px 0 6px}
+.badge{background:var(--greens);color:var(--green);border:1px solid #BFE3D2;border-radius:99px;padding:6px 14px;font-size:.8rem;font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.note{color:var(--ink3);font-size:.82rem;margin-top:16px;line-height:1.5}
+.foot{color:var(--ink3);font-size:.74rem;text-align:center;padding:20px 0 40px}
+.err{text-align:center;color:var(--ink2);padding:40px 20px}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="logo">Solar<em>search</em></div></div></header>
+<div class="wrap">
+  <div id="app"><div class="err">Loading…</div></div>
+  <div class="foot">Solarsearch · a Me-Solar brand · ABN 95665045465</div>
+</div>
+<script type="module">
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
+const $=id=>document.getElementById(id);
+const REP=new URLSearchParams(location.search).get('rep');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function load(){
+  if(!REP){ $('app').innerHTML='<div class="err">This link is missing its code.</div>'; return; }
+  let d;
+  try{
+    const res=await fetch(SUPABASE_URL+'/rest/v1/rpc/tech_badge',{
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({p_rep:REP})
+    });
+    d=await res.json();
+  }catch(e){ $('app').innerHTML='<div class="err">We couldn\'t load this profile right now.</div>'; return; }
+  if(!d||!d.full_name){ $('app').innerHTML='<div class="err">This profile isn\'t available.</div>'; return; }
+
+  const initials=(d.full_name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const photo=d.photo_url
+    ? `<img class="ph" src="${esc(d.photo_url)}" alt="${esc(d.full_name)}">`
+    : `<div class="ph">${initials}</div>`;
+  const badges=[];
+  if(d.verified) badges.push('✓ Verified Solarsearch technician');
+  if(d.police_checked) badges.push('🛡 Police-checked');
+  if(d.accreditation) badges.push('⚡ '+esc(d.accreditation));
+  $('app').innerHTML=`
+    <div class="card">
+      ${photo}
+      <h1>${esc(d.full_name)}</h1>
+      <div class="role">Sales Technician · Home assessment</div>
+      <div class="badges">${badges.map(b=>`<span class="badge">${b}</span>`).join('')}</div>
+      <div class="note">This is the person coming to take the guided photos of your roof, switchboard and meter for your free solar design. No sales pitch, nothing to sign. If anyone else arrives, don't let them in — call us.</div>
+    </div>`;
+}
+load();
+</script>
+</body>
+</html>

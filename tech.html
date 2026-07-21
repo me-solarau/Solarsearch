@@ -272,7 +272,14 @@ function renderPool(){
 async function grab(leadId){
   const { data, error } = await db.rpc('grab_job',{p_lead_id:leadId});
   if(error){ toast(error.message); await loadPool(); return; }
-  toast('Grabbed — confirm a time with the customer within 48 h');
+  // Auto-offer windows by SMS the moment you grab (Uber-Eats style). Best-effort:
+  // if availability isn't set yet it silently no-ops and you text from the job.
+  if(data&&data.assessment_id){
+    db.functions.invoke('sms-offer-windows',{ body:{ assessment_id:data.assessment_id } })
+      .then(({data:r})=>{ if(r&&r.ok) toast('Grabbed — times texted to the customer'); })
+      .catch(()=>{});
+  }
+  toast('Grabbed — confirm a time within 48 h');
   switchTab('jobs');
 }
 
@@ -340,8 +347,13 @@ async function calcRun(){
     ${rate<30?'<div style="margin-top:8px;color:var(--red)">Low effective rate — consider releasing a job that adds a long detour.</div>':''}`;
 }
 
-function openJob(aid){
+async function openJob(aid){
   curJob=JOBS.find(j=>j.assessment_id===aid); if(!curJob)return;
+  // SMS scheduling state (rep can read their own assessment row)
+  try{
+    const { data:a } = await db.from('assessments').select('schedule_state,offered_windows,eta_sent_at').eq('id',aid).maybeSingle();
+    curJob.schedule_state=a&&a.schedule_state; curJob.offered_windows=(a&&a.offered_windows)||[]; curJob.eta_sent_at=a&&a.eta_sent_at;
+  }catch(_){ curJob.schedule_state=null; }
   $('jdRef').textContent=curJob.ss_ref;
   $('jdAddr').textContent=curJob.address||((curJob.suburb||'')+' '+(curJob.postcode||''));
   $('jdMeta').textContent=(curJob.lead_type||'').replace(/_/g,' + ')+' · '+fmt$(curJob.fee_cents);
@@ -352,13 +364,41 @@ function openJob(aid){
   if(curJob.scheduled_at) info.push(['Visit',fmtWhen(curJob.scheduled_at)]);
   $('jdInfo').innerHTML=info.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line);font-size:.9rem"><span style="color:var(--ink2)">${r[0]}</span><b class="mono">${r[1]}</b></div>`).join('').replace('border-top:1px solid var(--line)','border-top:none');
   const acts=[];
-  if(curJob.status==='claimed') acts.push(`<button class="btn btn-amber btn-sm" onclick="confirmTime()">Confirm visit time</button>`);
-  if(curJob.status==='scheduled') acts.push(`<button class="btn btn-safe btn-sm" onclick="startVisit()">Start visit</button>`);
+  if(curJob.status==='claimed'){
+    if(curJob.schedule_state==='offered'){
+      acts.push(`<div class="sub" style="width:100%;background:var(--tint2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:4px">📲 Times texted to the customer — awaiting their reply. They pick a slot and it books itself.</div>`);
+      acts.push(`<button class="btn btn-ghost btn-sm" onclick="offerBySms()">Re-send times</button>`);
+    }else{
+      acts.push(`<button class="btn btn-amber btn-sm" onclick="offerBySms()">Text customer the times</button>`);
+    }
+    acts.push(`<button class="btn btn-ghost btn-sm" onclick="confirmTime()">Confirm time manually</button>`);
+  }
+  if(curJob.status==='scheduled'){
+    acts.push(`<button class="btn btn-safe btn-sm" onclick="startVisit()">Start visit</button>`);
+    acts.push(curJob.eta_sent_at
+      ? `<button class="btn btn-ghost btn-sm" disabled>✓ On-my-way sent</button>`
+      : `<button class="btn btn-amber btn-sm" onclick="sendEta()">On my way</button>`);
+  }
   if(curJob.status==='in_progress') acts.push(`<button class="btn btn-safe btn-sm" onclick="openCapture()">Continue capture</button>`);
   if(curJob.customer_mobile) acts.push(`<a class="btn btn-ghost btn-sm" href="tel:${curJob.customer_mobile}">Call customer</a>`);
   if(curJob.address) acts.push(`<a class="btn btn-ghost btn-sm" href="https://maps.google.com/?q=${encodeURIComponent(curJob.address)}" target="_blank" rel="noopener">Navigate</a>`);
   $('jdActions').innerHTML=acts.join('');
   showView('v-job');
+}
+// SMS: offer route-efficient windows to the customer (server generates + sends)
+async function offerBySms(){
+  toast('Texting the customer…');
+  const { data, error } = await db.functions.invoke('sms-offer-windows',{ body:{ assessment_id:curJob.assessment_id } });
+  if(error||(data&&data.error)){ toast((data&&data.error)||error.message||'Could not send'); return; }
+  toast('Times sent — the customer books by replying'); await loadJobs(); openJob(curJob.assessment_id);
+}
+// SMS: "On my way" ETA to the customer
+async function sendEta(){
+  const v=prompt('Minutes away? (leave blank for "on the way now")','');
+  const body={ assessment_id:curJob.assessment_id }; if(v&&!isNaN(+v)) body.eta_minutes=+v;
+  const { data, error } = await db.functions.invoke('sms-eta',{ body });
+  if(error||(data&&data.error)){ toast((data&&data.error)||error.message||'Could not send'); return; }
+  toast('Customer notified you\'re on the way'); curJob.eta_sent_at=new Date().toISOString(); openJob(curJob.assessment_id);
 }
 
 /* ===== route-efficient window offering (§5.1) — offered by phone, no SMS here ===== */
@@ -600,7 +640,7 @@ async function loadEarnings(){
 }
 
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet});
 window.$=$;
 
 (async () => {

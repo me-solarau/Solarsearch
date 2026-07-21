@@ -13,6 +13,7 @@ export default defineConfig({
         choose: resolve(__dirname, 'choose.html'),
         sign: resolve(__dirname, 'sign.html'),
         tech: resolve(__dirname, 'tech.html'),
+        techbadge: resolve(__dirname, 'tech-badge.html'),
         pack: resolve(__dirname, 'pack.html'),
         solarsafe: resolve(__dirname, 'solarsafe.html'),
         privacy: resolve(__dirname, 'privacy.html'),

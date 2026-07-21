@@ -17,9 +17,34 @@ but not live. Deploy from the Supabase dashboard or CLI.)
 - [ ] `onboard-technician` — **required** for HQ → Vetting → "Onboard technician".
 - [ ] `validate-assessment-photo` — the Claude-vision photo check (§9.4). App
       falls back to auto-pass until this is live.
+- [ ] `sms-send`, `sms-offer-windows`, `sms-inbound`, `sms-reminder`, `sms-eta`
+      — the Twilio SMS scheduling engine (below). Deploy all five.
 
 Already deployed & live (no action): `send-booking-confirmation`,
 `send-quotes-ready`, `onboard-installer`.
+
+### 2a. Twilio SMS engine — turn it on
+The whole conversational scheduling loop is built (server generates windows →
+texts the customer → they reply 1/2/3 → it books itself → day-of reminder →
+"On my way"). To make it send for real:
+- [ ] Set Edge Function secrets: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and
+      `TWILIO_MESSAGING_SERVICE_SID` (a Messaging Service is required for the
+      scheduled day-of reminder; a bare `TWILIO_FROM_NUMBER` also works for
+      live sends but not scheduling). Optional: `PUBLIC_SITE_URL` (defaults to
+      `https://solarsearch.com.au`) for the trust-badge link in the intro SMS.
+- [ ] In the Twilio Console, set the Messaging Service **inbound webhook** to
+      the deployed `sms-inbound` URL
+      (`https://<project>.supabase.co/functions/v1/sms-inbound`), method POST.
+      The function verifies `X-Twilio-Signature` with your auth token, so only
+      Twilio can drive scheduling. If a proxy rewrites the URL and signatures
+      fail (Twilio error 57012), set the `SMS_INBOUND_URL` secret to the exact
+      public webhook URL.
+- [ ] (Recommended) A **server-restricted Google key** for Distance Matrix if
+      you later want travel-time-optimised windows; today the generator uses
+      availability + same-day clustering, no external key needed.
+- [ ] Optional: point a scheduler (pg_cron / GitHub Action) at `sms-reminder`
+      as a belt-and-braces backstop — the primary reminder already goes out as
+      a Twilio Scheduled Message at confirm time.
 
 ## 3. Apply the migrations that weren't applied
 - [ ] `supabase/migrations/0012_installer_self_read_policy.sql` — portal works
@@ -27,8 +52,13 @@ Already deployed & live (no action): `send-booking-confirmation`,
 - [ ] `supabase/migrations/0020_compliance_pack.sql` — the `compliance_pack`
       RPC that `pack.html` renders. Until applied, the "Compliance pack" action
       in HQ opens a page that can't load.
+- [ ] `supabase/migrations/0022_sms_scheduling_engine.sql` — the SMS engine's
+      data model: `sms_messages` log, assessment scheduling columns, the
+      `technician_windows` window generator, the service-role confirm/cancel/
+      reschedule RPCs, `customers.sms_opt_out`, and the public `tech_badge` RPC.
+      Required before the five `sms-*` functions do anything.
 
-Migrations `0001`–`0011` and `0013`–`0019` are already applied.
+Migrations `0001`–`0011`, `0013`–`0019`, and `0021` are already applied.
 
 ## 4. Verify config (probably already fine)
 - [ ] Vercel env (Production + Preview): `VITE_SUPABASE_URL`,
@@ -60,9 +90,10 @@ Nobody has run the full chain live yet — the sandbox can't reach the browser
 Report anything that breaks and Claude will fix it.
 
 ## 6. Still genuinely blocked (need your accounts / decisions — not code)
-- [ ] **Twilio SMS** — the scheduling engine's *logic* is built, but there's no
-      live SMS send here. Wire real Twilio creds to auto-text customers; today the
-      tech offers windows by phone.
+- [ ] **Twilio SMS** — now fully built end-to-end (5 functions + data model +
+      HQ/tech wiring). Only your Twilio creds + inbound webhook are left; see
+      §2a above. Until then the tech offers windows by phone (manual confirm
+      still works).
 - [ ] **Stripe Connect** — payout ledger + batching built; the actual transfer is
       stubbed. Connect Stripe to make `mark_payout_paid` move money.
 - [ ] **Business/legal (from the specs)**: WHS roof-access policy (ground + pole

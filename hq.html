@@ -373,6 +373,7 @@ tbody tr:hover{background:var(--tint2)}
   <div class="d-sec"><h3 id="dActionsLabel">Actions</h3><div class="actions" id="dActions"></div></div>
   <div class="d-sec"><h3 id="dDetailsLabel">Details</h3><dl class="d-grid" id="dDetails"></dl></div>
   <div class="d-sec" id="dAttrSec"><h3 id="dAttrLabel">Attribution</h3><dl class="d-grid" id="dAttr"></dl></div>
+  <div class="d-sec" id="dSmsSec" style="display:none"><h3>SMS thread</h3><div id="dSms" style="font-size:.82rem"></div></div>
   <div class="d-sec" id="dTimelineSec"><h3 id="dTimelineLabel">Timeline — from the event log</h3><div class="tl" id="dTimeline"></div></div>
 </aside>
 
@@ -966,7 +967,7 @@ function openDrawer(id){
     captured:['AI contact now|ai','Sell raw lead|raw','Mark dead|dead'],
     contacted:['View AI transcript|tx','Take over conversation|human'],
     qualified:['Book inspection|book','Sell as appointment|appt'],
-    appointment_set:['Reschedule|resch','Assign consultant|consult'],
+    appointment_set:['Text customer times|smsoffer','Reschedule|resch','Assign consultant|consult'],
     inspected:['Create design|design'],
     designed:['Open installer board|board'],
     quoted:['Email comparison to customer|notify','Copy customer board link|link'],
@@ -978,7 +979,7 @@ function openDrawer(id){
     closed:['Compliance pack|pack'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
-  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`, pack:`openPack('${l.chToken||''}')`};
+  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`, pack:`openPack('${l.chToken||''}')`, smsoffer:`smsOfferForLead('${l.uuid}')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
     const onclick=k&&k.startsWith('ps_')?`advancePostSale('${l.uuid}','${k.slice(3)}')`:(ACT_FN[k]||`toast('${t} — wire to API')`);
@@ -995,7 +996,31 @@ function openDrawer(id){
     <dt>Consent</dt><dd>v3.2 · stored</dd>
     <dt>Click ID</dt><dd class="mono" style="font-size:.72rem">fb.1.demo…</dd>`;
   $('dTimeline').innerHTML=[...l.events].reverse().map(e=>`<div class="tl-item ${e.cls}"><div class="t">${e.t}</div><div class="w">${age(e.when)} ago</div><div class="b">${e.b}</div></div>`).join('');
+  renderSmsThread(l.uuid);
   $('drawer').classList.add('open');$('drawerBack').classList.add('open');
+}
+async function renderSmsThread(leadId){
+  $('dSmsSec').style.display='none';
+  const { data } = await db.from('sms_messages').select('direction,body,status,kind,created_at').eq('lead_id',leadId).order('created_at',{ascending:true});
+  if(!data||!data.length) return;
+  $('dSms').innerHTML=data.map(m=>{
+    const mine=m.direction==='out';
+    return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin:6px 0">
+      <div style="max-width:80%;background:${mine?'var(--ink)':'var(--panel)'};color:${mine?'#fff':'var(--ink)'};border:1px solid var(--line);border-radius:12px;padding:8px 11px">
+        <div>${(m.body||'').replace(/[<&>]/g,c=>({'<':'&lt;','&':'&amp;','>':'&gt;'}[c]))}</div>
+        <div style="font-size:.66rem;opacity:.6;margin-top:3px">${mine?(m.kind||'out'):'reply'} · ${m.status||''} · ${age(m.created_at)} ago</div>
+      </div></div>`;
+  }).join('');
+  $('dSmsSec').style.display='';
+}
+async function smsOfferForLead(leadId){
+  // resolve the live assessment for this lead, then trigger the SMS offer
+  const { data:a } = await db.from('assessments').select('id,status').eq('lead_id',leadId).neq('status','cancelled').order('claimed_at',{ascending:false}).limit(1).maybeSingle();
+  if(!a){ toast('No technician has grabbed this job yet — nothing to schedule'); return; }
+  toast('Texting the customer…');
+  const { data:r, error } = await db.functions.invoke('sms-offer-windows',{ body:{ assessment_id:a.id } });
+  if(error||(r&&r.error)){ toast((r&&r.error)||error.message||'Could not send'); return; }
+  toast('Times texted to the customer'); openDrawer(leads.find(x=>x.uuid===leadId)?.id);
 }
 function closeDrawer(){$('drawer').classList.remove('open');$('drawerBack').classList.remove('open')}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer()});
@@ -1159,6 +1184,7 @@ window.toggleOnboardForm = toggleOnboardForm;
 window.submitOnboard = submitOnboard;
 window.toggleOnboardTechForm = toggleOnboardTechForm;
 window.submitOnboardTech = submitOnboardTech;
+window.smsOfferForLead = smsOfferForLead;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });

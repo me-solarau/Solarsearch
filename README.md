@@ -40,12 +40,16 @@ They coexist — one is guided photo capture, the other is a sales consultation.
 - Base: `schema.sql`, `seed.sql`, `platform_functions.sql`, `rls_hardening.sql`
   (run in that order for a fresh project).
 - Incremental changes already applied to the live project: `supabase/migrations/`
-  (`0001`–`0018`). **Not yet applied / declined this session:** `0012`
-  (installer self-read policy — portal works without it).
+  (`0001`–`0019`, `0021`). **Not yet applied / declined:** `0012` (installer
+  self-read policy — portal works without it), `0020` (compliance_pack RPC),
+  `0022` (Twilio SMS scheduling engine). See `JOHAN_TODO.md`.
 - Edge Functions in `supabase/functions/`: `send-booking-confirmation`,
   `send-quotes-ready` (Resend email); `onboard-installer`, `onboard-technician`
   (account provisioning); `validate-assessment-photo` (Claude-vision photo
-  check). **The onboarding + vision functions were not deployed this session —
+  check); `sms-send`, `sms-offer-windows`, `sms-inbound`, `sms-reminder`,
+  `sms-eta` (Twilio SMS scheduling engine — the customer books a visit by
+  replying to a text; `sms-inbound` is the Twilio webhook, signature-verified).
+  **The onboarding, vision, and sms-* functions were not deployed this session —
   deploy from the Supabase dashboard before those flows work.**
 
 ## Config the deployment needs
@@ -53,7 +57,9 @@ Vercel env (Production + Preview): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 `VITE_GOOGLE_MAPS_API_KEY` (Places + Distance Matrix/Routes enabled; restrict by
 referrer). Supabase Edge Function secrets: `RESEND_API_KEY` (booking + quotes
 emails), `ANTHROPIC_API_KEY` (live technician photo validation — auto-passes
-until set).
+until set), `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` /
+`TWILIO_MESSAGING_SERVICE_SID` (SMS scheduling — a Messaging Service is required
+for scheduled reminders), optional `PUBLIC_SITE_URL` (trust-badge link base).
 
 ## Conventions (do not break)
 - Rebate maths live in the `RULES` object in each page's script and in the
