@@ -224,3 +224,10 @@ grant execute on function public.open_board(uuid,uuid) to authenticated;
 -- buy_seat(uuid), link_installer_on_signup() + on_auth_user_created_installer
 -- are defined in migration 0011 — kept there as the single source of truth for
 -- this larger block rather than duplicated here.
+
+-- ============================================================================
+-- Customer choice (choose.html magic link). Token-gated, anon-callable
+-- SECURITY DEFINER RPCs — see supabase/migrations/0013_customer_choice.sql for
+-- the definitions of customer_board(uuid) and customer_choose(uuid,uuid,bool)
+-- and the leads.choice_token column they key on.
+-- ============================================================================

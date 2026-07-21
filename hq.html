@@ -337,6 +337,10 @@ const EVLABEL={
   'assessment.booked':['Visit booked','Slot chosen','ai'],
   'inspection.consultant_assigned':['Consultant assigned','',''],
   'inspection.completed':['Visit completed','',''],
+  'design.completed':['Design completed','',''],
+  'board.opened':['Board opened','Installers can buy seats',''],
+  'seat.purchased':['Seat purchased','Installer quote placed',''],
+  'customer.chose':['Customer chose','',''],
   'lead.state_changed':['Stage changed','','']
 };
 function evToTl(e,nowMs){
@@ -351,7 +355,7 @@ function evToTl(e,nowMs){
 async function loadData(){
   const nowMs=Date.now();
   const { data:L, error } = await db.from('leads')
-    .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,created_at,sites(ss_ref,postcode,address),customers(full_name)')
+    .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,choice_token,created_at,sites(ss_ref,postcode,address),customers(full_name)')
     .order('created_at',{ascending:false});
   if(error){ toast('Load error: '+error.message); return; }
   const ids=(L||[]).map(r=>r.id);
@@ -374,7 +378,7 @@ async function loadData(){
     const es=estSystem(bill,type);
     const site=r.sites||{}, cust=r.customers||{};
     const design=designBySite[r.site_id]||null;
-    return { id:ix, uuid:r.id, siteId:r.site_id, ss:site.ss_ref||'—', name:cust.full_name||'(no name)',
+    return { id:ix, uuid:r.id, siteId:r.site_id, chToken:r.choice_token, ss:site.ss_ref||'—', name:cust.full_name||'(no name)',
       suburb:(site.address||'').split(',').slice(-1)[0].trim(), pc:site.postcode||'',
       type, state:r.state, score:(r.score!=null?r.score:calcScore(bill,type,tl)),
       bill, kw:(design&&design.system_kw!=null)?Number(design.system_kw):es.kw,
@@ -695,7 +699,7 @@ function openDrawer(id){
     signed:['View signed PDF|pdf','Raise invoice|inv','Create connection application|conn'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
-  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`};
+  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
     const onclick=ACT_FN[k]||`toast('${t} — wire to API')`;
@@ -770,6 +774,15 @@ async function openBoardConfirm(leadId){
   await loadData(); renderAll(); closeDrawer();
 }
 
+/* ================= customer board link (magic link the customer chooses on) ================= */
+function copyChooseLink(token){
+  if(!token){ toast('No link token on this lead'); return; }
+  const url=location.origin+'/choose.html?token='+token;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(()=>toast('Customer board link copied')).catch(()=>prompt('Customer board link:',url));
+  }else{ prompt('Customer board link:',url); }
+}
+
 /* ================= nav ================= */
 document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('sel'));
@@ -803,6 +816,7 @@ window.confirmAssignConsultant = confirmAssignConsultant;
 window.openDesignForm = openDesignForm;
 window.submitDesign = submitDesign;
 window.openBoardConfirm = openBoardConfirm;
+window.copyChooseLink = copyChooseLink;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });

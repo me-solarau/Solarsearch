@@ -108,55 +108,95 @@ footer{padding:26px 0 40px;font-family:var(--mono);font-size:.64rem;color:var(--
   </div>
 </div>
 
-<script>
-const QUOTES=[
- {id:1,co:'Pilot Installer Pty Ltd',col:'#177A53',rating:4.9,reviews:214,panel:'Jinko Tiger Neo 440W',inv:'Sungrow SH-RS hybrid',bat:'Sungrow SBR 13.5 kWh',before:19980,after:14890,wty:10},
- {id:2,co:'Hunter Coast Solar',col:'#1F5C8C',rating:4.8,reviews:167,panel:'REC Alpha Pure 440W',inv:'Fronius Gen24',bat:'BYD HVM 13.8 kWh',before:21340,after:16250,wty:12},
- {id:3,co:'Valley Energy Co.',col:'#8C1F4B',rating:4.7,reviews:388,panel:'Trina Vertex S+ 435W',inv:'GoodWe GT + AC-coupled',bat:'Tesla Powerwall 3',before:22110,after:17020,wty:10},
-];
-let sel=null;
+<script type="module">
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
+
 const $=id=>document.getElementById(id);
-const fmt$=n=>'$'+n.toLocaleString();
-function initials(n){return n.split(' ').map(w=>w[0]).join('').slice(0,2)}
-function stars(r){return '★'.repeat(Math.round(r))+'☆'.repeat(5-Math.round(r))}
+const fmt$=n=>'$'+Math.round(n).toLocaleString();
+const cents=c=>Math.round((c||0)/100);
+const TOKEN=new URLSearchParams(location.search).get('token');
+const PALETTE=['#177A53','#1F5C8C','#8C1F4B','#B05A1F','#5A3FA0'];
+let QUOTES=[], sel=null;
+
+async function sbRpc(fn,args){
+  const res=await fetch(SUPABASE_URL+'/rest/v1/rpc/'+fn,{
+    method:'POST',
+    headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify(args)
+  });
+  if(!res.ok) throw new Error((await res.json().catch(()=>({}))).message||('HTTP '+res.status));
+  return res.json();
+}
+function initials(n){return (n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
+function eq(v){return v||'—'}
+
+async function load(){
+  if(!TOKEN){ $('quoteList').innerHTML='<div class="card" style="padding:20px">This link is missing its access code. Use the link from your confirmation email.</div>'; return; }
+  let d;
+  try{ d=await sbRpc('customer_board',{p_token:TOKEN}); }
+  catch(e){ $('quoteList').innerHTML='<div class="card" style="padding:20px">We couldn\'t load your quotes. The link may have expired — contact us and we\'ll resend it.</div>'; return; }
+  if(d.error){ $('quoteList').innerHTML='<div class="card" style="padding:20px">This link isn\'t valid. Contact us and we\'ll resend your comparison.</div>'; return; }
+
+  document.querySelector('.hero .ref').textContent=`${d.ss_ref||''} · ${(d.suburb||'').toUpperCase()} ${d.postcode||''} · LINK VALID 7 DAYS`;
+  document.querySelector('.hero h1').textContent=`Your quotes are ready${d.customer_first?', '+d.customer_first:''}.`;
+  const sys=`${d.system_kw?Number(d.system_kw)+' kW':''}${d.system_kw&&d.battery_kwh?' + ':''}${d.battery_kwh?Number(d.battery_kwh)+' kWh':''}`;
+  const strip=document.querySelector('.design-strip'); if(strip&&sys) strip.querySelector('span b').textContent=sys;
+
+  QUOTES=(d.quotes||[]).map((q,i)=>({...q,col:PALETTE[i%PALETTE.length]}));
+  if(d.already_chosen){
+    $('doneCo').textContent=QUOTES.length?'':'';
+    $('chooseView').style.display='none'; $('doneView').style.display='block';
+    return;
+  }
+  render();
+}
+
 function render(){
-  $('quoteList').innerHTML=QUOTES.map(q=>`<div class="quote ${sel===q.id?'sel':''}" id="q${q.id}">
+  $('quoteList').innerHTML=QUOTES.map(q=>`<div class="quote ${sel===q.quote_id?'sel':''}" id="q${q.quote_id}">
     <div class="q-main">
       <div>
-        <div class="co"><span class="avatar" style="background:${q.col}">${initials(q.co)}</span>
-          <span><b>${q.co}</b><br><span class="stars">${stars(q.rating)}</span> <span class="rl">${q.rating} · ${q.reviews} verified reviews · SAA accredited</span></span></div>
+        <div class="co"><span class="avatar" style="background:${q.col}">${initials(q.company)}</span>
+          <span><b>${q.company||'Installer'}</b><br><span class="rl">SAA accredited · verified on Solarsearch</span></span></div>
         <div class="kit">
-          <span><i>Panels</i>${q.panel}</span>
-          <span><i>Inverter</i>${q.inv}</span>
-          <span><i>Battery</i>${q.bat}</span>
+          <span><i>Panels</i>${eq(q.panel)}</span>
+          <span><i>Inverter</i>${eq(q.inverter)}</span>
+          <span><i>Battery</i>${eq(q.battery)}</span>
         </div>
       </div>
       <div class="price">
-        <div class="before">${fmt$(q.before)} before rebates</div>
-        <div class="after">${fmt$(q.after)}</div>
-        <span class="save">– ${fmt$(q.before-q.after)} rebates</span>
+        <div class="before">${fmt$(cents(q.price_before_cents))} before rebates</div>
+        <div class="after">${fmt$(cents(q.price_after_cents))}</div>
+        <span class="save">– ${fmt$(cents(q.rebate_cents))} rebates</span>
       </div>
     </div>
     <div class="q-foot">
-      <span class="wty">Workmanship warranty <b>${q.wty} yrs</b> · agreement &amp; guarantees with this installer</span>
-      <button class="pick" onclick="pick(${q.id})" aria-pressed="${sel===q.id}">${sel===q.id?'✓ Selected':'Select'}</button>
+      <span class="wty">Workmanship warranty <b>${q.warranty_years||10} yrs</b> · agreement &amp; guarantees with this installer</span>
+      <button class="pick" onclick="pick('${q.quote_id}')" aria-pressed="${sel===q.quote_id}">${sel===q.quote_id?'✓ Selected':'Select'}</button>
     </div>
-  </div>`).join('');
+  </div>`).join('')||'<div class="card" style="padding:20px">No quotes are on your board yet — we\'ll email you the moment they land.</div>';
   $('goBtn').disabled=!sel;
-  $('dockMsg').textContent=sel?QUOTES.find(q=>q.id===sel).co+' selected':'Select the installer you\'d like to go with';
+  const co=sel?(QUOTES.find(q=>q.quote_id===sel)||{}).company:null;
+  $('dockMsg').textContent=co?co+' selected':'Select the installer you\'d like to go with';
 }
 function pick(id){sel=sel===id?null:id;render()}
-function openConfirm(){$('mCo').textContent=QUOTES.find(q=>q.id===sel).co;$('cShare').checked=false;$('modal').classList.add('open')}
+function openConfirm(){$('mCo').textContent=(QUOTES.find(q=>q.quote_id===sel)||{}).company||'';$('cShare').checked=false;$('modal').classList.add('open')}
 function closeConfirm(){$('modal').classList.remove('open')}
-function confirmChoice(){
+async function confirmChoice(){
   if(!$('cShare').checked)return;
-  closeConfirm();
-  $('doneCo').textContent=QUOTES.find(q=>q.id===sel).co;
-  $('chooseView').style.display='none';$('doneView').style.display='block';window.scrollTo({top:0});
-  /* wire: quotes.status='chosen'; immutable board_snapshot already stored; event 'customer.chose'; proposal issue */
+  const btn=document.querySelector('#modal .btn-amber'); if(btn){btn.disabled=true;btn.textContent='Confirming…';}
+  try{
+    const r=await sbRpc('customer_choose',{p_token:TOKEN,p_quote_id:sel,p_consent:true});
+    closeConfirm();
+    $('doneCo').textContent=(r&&r.company)||(QUOTES.find(q=>q.quote_id===sel)||{}).company||'';
+    $('chooseView').style.display='none';$('doneView').style.display='block';window.scrollTo({top:0});
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Confirm & continue';}
+    alert('Sorry — we couldn\'t record that choice: '+e.message);
+  }
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeConfirm()});
-render();
+window.pick=pick; window.openConfirm=openConfirm; window.closeConfirm=closeConfirm; window.confirmChoice=confirmChoice;
+load();
 </script>
 </body>
 </html>

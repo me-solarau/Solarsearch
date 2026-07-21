@@ -179,6 +179,7 @@ create table leads (
   click_id      text,                             -- gclid/fbclid for offline conversion upload
   -- consent (immutable-by-policy; see events for history)
   consents      jsonb not null default '[]',      -- [{purpose, text_version, granted_at, ip}]
+  choice_token  uuid unique default uuid_generate_v4(),  -- choose.html magic-link token
   dead_reason   text,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
