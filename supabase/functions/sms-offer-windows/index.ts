@@ -39,21 +39,26 @@ Deno.serve(async (req) => {
   try {
     const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     if (!jwt) return json({ error: "unauthenticated" }, 401);
-    const { data: u } = await admin.auth.getUser(jwt);
-    const uid = u?.user?.id;
-    if (!uid) return json({ error: "unauthenticated" }, 401);
+    // Internal callers (sms-inbound RESCHEDULE) pass the service-role key.
+    const isService = jwt === SERVICE_KEY;
+    let uid: string | undefined;
+    if (!isService) {
+      const { data: u } = await admin.auth.getUser(jwt);
+      uid = u?.user?.id;
+      if (!uid) return json({ error: "unauthenticated" }, 401);
+    }
 
     const { assessment_id } = await req.json().catch(() => ({}));
     if (!assessment_id) return json({ error: "assessment_id required" }, 400);
 
-    // authorise: admin, or the technician who owns this assessment
-    const { data: role } = await admin.from("user_roles").select("role").eq("user_id", uid).maybeSingle();
+    // authorise: service-role, admin, or the technician who owns this assessment
+    const { data: role } = isService ? { data: null } : await admin.from("user_roles").select("role").eq("user_id", uid).maybeSingle();
     const { data: a } = await admin.from("assessments")
       .select("id,lead_id,sales_rep_id,status,leads(customer_id,customers(full_name,mobile,sms_opt_out)),sales_reps!inner(id,user_id,full_name)")
       .eq("id", assessment_id).maybeSingle();
     if (!a) return json({ error: "assessment not found" }, 404);
     const isOwner = a.sales_reps?.user_id === uid;
-    if (role?.role !== "admin" && !isOwner) return json({ error: "not your job" }, 403);
+    if (!isService && role?.role !== "admin" && !isOwner) return json({ error: "not your job" }, 403);
     if (!["claimed", "scheduled"].includes(a.status)) return json({ error: `cannot offer from status ${a.status}` }, 409);
 
     const cust = a.leads?.customers;

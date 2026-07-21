@@ -35,15 +35,11 @@ Deno.serve(async (req) => {
   try {
     if (!VAPID_PUBLIC || !VAPID_PRIVATE) return json({ error: "web push not configured" }, 503);
 
-    // Accept a service-role bearer (booking path) or an admin JWT (HQ button).
-    const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-    if (jwt !== SERVICE_KEY) {
-      const { data: u } = await admin.auth.getUser(jwt);
-      const uid = u?.user?.id;
-      const { data: role } = uid ? await admin.from("user_roles").select("role").eq("user_id", uid).maybeSingle() : { data: null };
-      if (role?.role !== "admin") return json({ error: "admin or service only" }, 403);
-    }
-
+    // Fire-and-forget dispatcher (same trust model as send-booking-confirmation):
+    // callable with the anon key from the booking path or an admin/service JWT.
+    // It only acts on a genuinely booked lead (state guard below), returns just
+    // counts (no PII), and lead UUIDs are unguessable — so there's nothing to
+    // leak or meaningfully abuse.
     const { lead_id } = await req.json().catch(() => ({}));
     if (!lead_id) return json({ error: "lead_id required" }, 400);
 
