@@ -822,11 +822,20 @@ async function bookAssessment(slot){
   if(!S.leadId||!S.siteId) return null;
   const r=await sbRpc('book_assessment',{p_lead_id:S.leadId,p_site_id:S.siteId,p_slot:slot});
   sendBookingEmail(); // fire-and-forget confirmation email; never blocks the booking
+  pingPool();         // fire-and-forget: buzz available technicians (B1 web push)
   return r;
 }
 function sendBookingEmail(){
   if(!S.leadId) return;
   fetch(SB_URL+'/functions/v1/send-booking-confirmation',{
+    method:'POST',
+    headers:{apikey:SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({lead_id:S.leadId})
+  }).catch(()=>{});
+}
+function pingPool(){
+  if(!S.leadId) return;
+  fetch(SB_URL+'/functions/v1/notify-pool',{
     method:'POST',
     headers:{apikey:SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
     body:JSON.stringify({lead_id:S.leadId})

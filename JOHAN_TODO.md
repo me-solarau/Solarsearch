@@ -46,6 +46,22 @@ texts the customer → they reply 1/2/3 → it books itself → day-of reminder 
       as a belt-and-braces backstop — the primary reminder already goes out as
       a Twilio Scheduled Message at confirm time.
 
+### 2b. Web push — "ping, new job near you" (B1)
+No external account needed — VAPID keys are self-generated.
+- [ ] `npm install` then `npm run gen-vapid` — prints a VAPID keypair.
+- [ ] Vercel env (Prod + Preview): `VITE_VAPID_PUBLIC_KEY` = the public key,
+      then redeploy (Vite bakes env at build).
+- [ ] Supabase Edge Function secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
+      (keep secret), `VAPID_SUBJECT` = `mailto:hello@solarsearch.com.au`.
+- [ ] Apply migration `0023_push_subscriptions.sql`.
+- [ ] Deploy the `notify-pool` Edge Function.
+- Then: in `tech.html` the pool shows **"Turn on job alerts"**; once a tech
+  enables it, every new booked job in their postcodes pushes to their phone
+  (auto-fired from the booking path; HQ can also re-ping via **appointment_set
+  → "Ping available techs"**). iPhone note: web push needs the tech to **Add to
+  Home Screen** first (iOS 16.4+); Android works in-browser. Native app (B2)
+  removes that caveat — see `MOBILE.md`.
+
 ## 3. Apply the migrations that weren't applied
 - [ ] `supabase/migrations/0012_installer_self_read_policy.sql` — portal works
       without it; only the installer-portal header company name stays blank.

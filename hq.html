@@ -967,7 +967,7 @@ function openDrawer(id){
     captured:['AI contact now|ai','Sell raw lead|raw','Mark dead|dead'],
     contacted:['View AI transcript|tx','Take over conversation|human'],
     qualified:['Book inspection|book','Sell as appointment|appt'],
-    appointment_set:['Text customer times|smsoffer','Reschedule|resch','Assign consultant|consult'],
+    appointment_set:['Text customer times|smsoffer','Ping available techs|pingtechs','Reschedule|resch','Assign consultant|consult'],
     inspected:['Create design|design'],
     designed:['Open installer board|board'],
     quoted:['Email comparison to customer|notify','Copy customer board link|link'],
@@ -979,7 +979,7 @@ function openDrawer(id){
     closed:['Compliance pack|pack'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
-  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`, pack:`openPack('${l.chToken||''}')`, smsoffer:`smsOfferForLead('${l.uuid}')`};
+  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`, pack:`openPack('${l.chToken||''}')`, smsoffer:`smsOfferForLead('${l.uuid}')`, pingtechs:`pingTechs('${l.uuid}')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
     const onclick=k&&k.startsWith('ps_')?`advancePostSale('${l.uuid}','${k.slice(3)}')`:(ACT_FN[k]||`toast('${t} — wire to API')`);
@@ -1012,6 +1012,12 @@ async function renderSmsThread(leadId){
       </div></div>`;
   }).join('');
   $('dSmsSec').style.display='';
+}
+async function pingTechs(leadId){
+  toast('Pinging available techs…');
+  const { data:r, error } = await db.functions.invoke('notify-pool',{ body:{ lead_id:leadId } });
+  if(error||(r&&r.error)){ toast((r&&r.error)||error.message||'Could not ping'); return; }
+  toast(r&&r.sent?`Pinged ${r.sent} device${r.sent===1?'':'s'} in ${r.suburb||'area'}`:'No subscribed techs cover this postcode yet');
 }
 async function smsOfferForLead(leadId){
   // resolve the live assessment for this lead, then trigger the SMS offer
@@ -1185,6 +1191,7 @@ window.submitOnboard = submitOnboard;
 window.toggleOnboardTechForm = toggleOnboardTechForm;
 window.submitOnboardTech = submitOnboardTech;
 window.smsOfferForLead = smsOfferForLead;
+window.pingTechs = pingTechs;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });

@@ -94,6 +94,12 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
 <section class="view active" id="v-pool">
   <h1>Jobs near you</h1>
   <div class="sub">Validated visits in your postcodes. $50 flat · grab locks it to you for 48 h.</div>
+  <div id="alertBar" style="display:none;margin:12px 0;background:var(--tint2);border:1px solid var(--line);border-radius:12px;padding:12px 14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div><b id="alertTitle">Get pinged for new jobs</b><div class="sub" id="alertSub" style="margin-top:2px">Turn on alerts so a new job in your area buzzes your phone.</div></div>
+      <button class="btn btn-amber btn-sm" id="alertBtn" onclick="toggleAlerts()">Turn on</button>
+    </div>
+  </div>
   <div id="poolList"></div>
 </section>
 
@@ -201,6 +207,7 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
 import { getSupabaseClient, SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
 import { requireRole } from "/src/lib/auth-guard.js";
 import { loadGooglePlaces } from "/src/lib/places.js";
+import { pushState, enableJobAlerts, disableJobAlerts, pushSupported } from "/src/lib/push.js";
 
 const $=id=>document.getElementById(id);
 let toastT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600)}
@@ -639,8 +646,44 @@ async function loadEarnings(){
   $('earnList').innerHTML=rows.map(r=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><b>${(r.outcome||'').replace('_',' ')}</b><div class="sub">${r.submitted_at?new Date(r.submitted_at).toLocaleDateString('en-AU'):''}</div></div><span class="fee">${fmt$(r.fee_cents)}</span></div>`).join('');
 }
 
+/* ===== job alerts (web push, B1) ===== */
+async function refreshAlertBar(){
+  const bar=$('alertBar'); if(!bar) return;
+  if(!pushSupported()){ bar.style.display='none'; return; }
+  const st=await pushState();
+  bar.style.display='block';
+  if(st==='on'){
+    $('alertTitle').textContent='Job alerts are on';
+    $('alertSub').textContent='New jobs in your area will buzz this phone.';
+    $('alertBtn').textContent='Turn off'; $('alertBtn').className='btn btn-ghost btn-sm';
+  }else if(st==='blocked'){
+    $('alertTitle').textContent='Alerts are blocked';
+    $('alertSub').textContent='Enable notifications for this site in your browser settings, then reload.';
+    $('alertBtn').style.display='none';
+  }else{
+    $('alertTitle').textContent='Get pinged for new jobs';
+    $('alertSub').textContent='Turn on alerts so a new job in your area buzzes your phone.';
+    $('alertBtn').textContent='Turn on'; $('alertBtn').className='btn btn-amber btn-sm'; $('alertBtn').style.display='';
+  }
+}
+async function toggleAlerts(){
+  const st=await pushState();
+  if(st==='on'){ await disableJobAlerts(db); toast('Job alerts off'); }
+  else{
+    const r=await enableJobAlerts(db);
+    if(r.ok) toast('Job alerts on — we\'ll ping you');
+    else if(r.state==='blocked') toast('Notifications are blocked in your browser settings');
+    else if(r.state==='unconfigured') toast('Alerts not configured yet');
+    else if(r.state==='unsupported') toast('This browser can\'t do alerts — add to Home Screen on iPhone');
+    else toast('Could not turn on alerts');
+  }
+  refreshAlertBar();
+}
+// SW taps route back to the pool
+if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.type==='open-pool') switchTab('pool'); });
+
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts});
 window.$=$;
 
 (async () => {
@@ -649,6 +692,7 @@ window.$=$;
   const { data:me } = await db.from('sales_reps').select('id,full_name').eq('user_id',auth.session.user.id).maybeSingle();
   if(me){ MY_REP_ID=me.id; if(me.full_name){ MY_NAME=me.full_name; $('topTag').textContent=me.full_name.split(' ')[0].toUpperCase(); } }
   loadPool();
+  refreshAlertBar();
 })();
 </script>
 </body>
