@@ -142,52 +142,64 @@ tr:last-child td{border-bottom:none}
 </main>
 <div class="toast" id="toastEl" role="status"></div>
 
-<script>
+<script type="module">
+import { getSupabaseClient } from "/src/lib/supabase.js";
+import { requireRole } from "/src/lib/auth-guard.js";
+
 const $=id=>document.getElementById(id);
 let tT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2600)}
 const fmt$=n=>'$'+Math.round(n).toLocaleString();
 const SEAT=200, PER_STC=1.10;
+const db=getSupabaseClient();
 
-/* demo board — wire to: select sites joined designs, seats, quotes where postcode in my service areas */
-const JOBS=[
- {ref:'SS-1044',addr:'Merewether 2291',sys:'8.8 kW + 13.5 kWh',stc:390,seats:2,mine:false,state:'open',pack:'18 photos · design ✓'},
- {ref:'SS-1046',addr:'Warners Bay 2282',sys:'10.6 kW + 13.5 kWh',stc:451,seats:3,mine:true,state:'quoted',pack:'21 photos · design ✓',quote:14890},
- {ref:'SS-1041',addr:'Maitland 2320',sys:'6.6 kW solar',stc:224,seats:1,mine:false,state:'open',pack:'14 photos · design ✓'},
- {ref:'SS-1038',addr:'Adamstown 2289',sys:'13.2 kW + 16 kWh',stc:520,seats:3,mine:true,state:'won',pack:'19 photos · design ✓',quote:19240},
- {ref:'SS-1035',addr:'Kotara 2289',sys:'8.8 kW + 10 kWh',stc:367,seats:3,mine:true,state:'lost',pack:'17 photos · design ✓',quote:13980},
-];
+/* ---- rebate estimate for the board (mirrors funnel RULES v2026.05) ---- */
+function batteryStc(kwh){let s=0,p=0;for(const[c,r]of [[14,1],[28,.6],[50,.15]]){s+=Math.max(0,Math.min(kwh,c)-p)*6.8*r;p=c;if(kwh<=c)break}return Math.floor(s)}
+function totalStc(kw,kwh){return Math.floor((kw||0)*34)+(kwh?batteryStc(kwh):0)}
+
+/* ---- real board via installer_board() RPC (firewalled, service-area scoped) ---- */
+let BOARD=[];
+async function loadBoard(){
+  const { data, error } = await db.rpc('installer_board');
+  if(error){ toast('Board load failed: '+error.message); BOARD=[]; return; }
+  BOARD=(data||[]).map(r=>({
+    siteId:r.site_id, ref:r.ss_ref, suburb:r.suburb||'—', pc:r.postcode||'',
+    kw:r.system_kw!=null?Number(r.system_kw):0, kwh:r.battery_kwh!=null?Number(r.battery_kwh):0,
+    seats:r.seats_taken||0, mine:!!r.has_my_seat,
+    myPrice:r.my_price_after_cents!=null?Math.round(r.my_price_after_cents/100):null,
+    address:r.address||null,
+  }));
+}
 function renderBoard(){
-  const open=JOBS.filter(j=>j.state==='open').length, won=JOBS.filter(j=>j.state==='won').length;
-  $('bKpis').innerHTML=[['Open in your areas',open],['Your active quotes',JOBS.filter(j=>j.state==='quoted').length],['Won',won],['Win rate','1 in '+Math.round(JOBS.filter(j=>j.mine).length/Math.max(1,won))]]
+  const openN=BOARD.filter(j=>!j.mine&&j.seats<3).length, mineN=BOARD.filter(j=>j.mine).length;
+  $('bKpis').innerHTML=[['Open in your areas',openN],['Your live quotes',mineN],['Seats free',BOARD.reduce((a,j)=>a+Math.max(0,3-j.seats),0)],['On board',BOARD.length]]
     .map(k=>`<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join('');
-  $('boardEl').innerHTML=JOBS.map((j,i)=>{
-    const st={open:'p-open',quoted:'p-quoted',won:'p-won',lost:'p-lost'}[j.state];
-    const stL={open:'SEATS OPEN',quoted:'YOUR QUOTE LIVE',won:'YOU WON',lost:'NOT CHOSEN'}[j.state];
-    const commission=Math.round(j.stc*PER_STC);
+  $('boardEl').innerHTML=BOARD.map(j=>{
+    const stc=totalStc(j.kw,j.kwh), commission=Math.round(stc*PER_STC);
+    const state=j.mine?'quoted':(j.seats>=3?'full':'open');
+    const st={open:'p-open',quoted:'p-quoted',full:'p-lost'}[state];
+    const stL={open:'SEATS OPEN',quoted:'YOUR QUOTE LIVE',full:'SEATS FULL'}[state];
+    const sys=`${j.kw?j.kw+' kW':''}${j.kw&&j.kwh?' + ':''}${j.kwh?j.kwh+' kWh':''}`||'Design pending';
     return `<div class="job">
-    <div class="job-h"><div><div class="ref">${j.ref}</div><div class="addr">${j.addr}</div></div><span class="pill ${st}">${stL}</span></div>
+    <div class="job-h"><div><div class="ref">${j.ref}</div><div class="addr">${j.mine&&j.address?j.address:j.suburb+' '+j.pc}</div></div><span class="pill ${st}">${stL}</span></div>
     <div class="job-b">
-      <div class="row"><span>Designed system</span><b>${j.sys}</b></div>
-      <div class="row"><span>Inspection pack</span><b class="${j.mine?'':'blur'}">${j.pack}</b></div>
-      <div class="row"><span>Est. STCs → commission if won</span><b>${j.stc} → ${fmt$(commission)}</b></div>
-      ${j.quote?`<div class="row"><span>Your auto-quote (after rebates)</span><b>${fmt$(j.quote)}</b></div>`:''}
+      <div class="row"><span>Designed system</span><b>${sys}</b></div>
+      <div class="row"><span>Est. STCs → commission if won</span><b>${stc} → ${fmt$(commission)}</b></div>
+      ${j.myPrice!=null?`<div class="row"><span>Your auto-quote (after rebates)</span><b>${fmt$(j.myPrice)}</b></div>`:''}
       <div class="row"><span>Seats taken</span><b>${j.seats}/3</b></div>
     </div>
     <div class="job-f">
-      <span style="font-family:var(--mono);font-size:.64rem;color:var(--ink3)">${j.state==='open'?'PACK UNLOCKS ON PURCHASE':j.state==='won'?'JOB PACK + CUSTOMER DETAILS RELEASED':'CUSTOMER DECIDES'}</span>
-      ${j.state==='open'?`<button class="btn btn-amber btn-sm" ${j.seats>=3?'disabled':''} onclick="buySeat(${i})">Buy seat · ${fmt$(SEAT)}</button>`:
-        j.state==='won'?`<button class="btn btn-ink btn-sm" onclick="toast('Job pack opened (design, photos, signed agreement, connection status)')">Open job pack</button>`:
-        `<button class="btn btn-ghost btn-sm" onclick="toast('Quote detail — line items, rules v2026.05')">View quote</button>`}
+      <span style="font-family:var(--mono);font-size:.64rem;color:var(--ink3)">${j.mine?'CUSTOMER DECIDES':'PACK + ADDRESS UNLOCK ON PURCHASE'}</span>
+      ${state==='open'?`<button class="btn btn-amber btn-sm" onclick="buySeat('${j.siteId}')">Buy seat · ${fmt$(SEAT)}</button>`:
+        state==='quoted'?`<button class="btn btn-ghost btn-sm" onclick="toast('Your Path-1 quote is live on the customer board')">Quote live</button>`:
+        `<button class="btn btn-ghost btn-sm" disabled>Seats full</button>`}
     </div></div>`;
-  }).join('');
+  }).join('')||'<div class="card" style="padding:20px;color:var(--ink3)">No sites on the board in your service areas yet.</div>';
 }
-function buySeat(i){
-  const j=JOBS[i];
-  if(j.seats>=3)return toast('Seat cap reached — 3 max, enforced in the database');
-  j.seats++; j.mine=true; j.state='quoted'; j.quote=Math.round((5000+j.stc*28)/10)*10;
-  renderBoard(); renderBill();
-  toast('Seat purchased — pack unlocked, Path-1 quote generated from your book and placed on the customer board');
-  /* wire: insert seats{site,installer,price}; auto-quote via price_books + design + incentive_rules */
+async function buySeat(siteId){
+  const { data, error } = await db.rpc('buy_seat',{p_site_id:siteId});
+  if(error){ toast('Seat purchase failed: '+error.message); return; }
+  toast('Seat purchased — Path-1 quote of '+fmt$(Math.round((data.price_after_cents||0)/100))+' placed on the customer board');
+  await loadBoard(); renderBoard();
 }
 
 /* rectifications */
@@ -225,7 +237,22 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   $('p-'+t.dataset.p).classList.add('active');
 }));
-renderBoard();renderRect();renderBill();
+
+// Module scope — expose the onclick="" handlers used in markup + rendered rows.
+window.toast = toast;
+window.buySeat = buySeat;
+
+// Rectifications & billing remain demo data pending their own wiring pass.
+renderRect();renderBill();
+
+(async () => {
+  const auth = await requireRole(['installer'], { loginPage: '/login.html' });
+  if (!auth) return;
+  const { data:me } = await db.from('installers').select('company_name').eq('auth_uid',auth.session.user.id).maybeSingle();
+  if(me&&me.company_name){ const co=document.querySelector('.co'); if(co) co.textContent=me.company_name.toUpperCase(); }
+  await loadBoard();
+  renderBoard();
+})();
 </script>
 </body>
 </html>

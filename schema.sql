@@ -79,6 +79,7 @@ create index on customers (mobile);
 
 create table installers (
   id            uuid primary key default uuid_generate_v4(),
+  auth_uid      uuid unique,                          -- supabase auth.users id (installer portal login)
   company_name  text not null,
   abn           text,
   status        text not null default 'pending' check (status in ('pending','approved','suspended','offboarded')),

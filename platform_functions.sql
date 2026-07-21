@@ -211,3 +211,16 @@ grant execute on function public.convert_solarsafe_lead(uuid,uuid) to authentica
 grant execute on function public.complete_inspection(uuid,jsonb,uuid) to authenticated;
 grant execute on function public.create_design(uuid,numeric,numeric,jsonb,uuid) to authenticated;
 grant execute on function public.open_board(uuid,uuid) to authenticated;
+
+-- ============================================================================
+-- Installer portal: identity link + firewalled board + seat/quote (§2, §8).
+-- Installer-facing access goes only through these SECURITY DEFINER RPCs, which
+-- whitelist columns and scope to the caller's own installer via auth_uid — the
+-- installers/seats/quotes tables stay staff-only under RLS. Full definitions
+-- live in supabase/migrations/0011_installer_identity_board_and_seats.sql;
+-- see also 0012 (installer self-read policy for the header company name).
+-- ============================================================================
+-- current_installer_id(), v_design_id_safe(uuid), installer_board(),
+-- buy_seat(uuid), link_installer_on_signup() + on_auth_user_created_installer
+-- are defined in migration 0011 — kept there as the single source of truth for
+-- this larger block rather than duplicated here.
