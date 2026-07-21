@@ -261,7 +261,27 @@ tbody tr:hover{background:var(--tint2)}
     <section class="page" id="page-vetting">
       <div class="page-head">
         <div><span class="eyebrow">Retailers · installers · sales reps</span><h1>Vetting</h1></div>
-        <span class="demo-tag">MANUAL VERIFY — ABR/TWILIO AUTO-CHECK DEFERRED</span>
+        <button class="btn btn-amber" onclick="toggleOnboardForm()">+ Onboard installer</button>
+      </div>
+      <div class="card" id="onboardForm" style="display:none;margin-bottom:20px;padding:16px">
+        <div class="eyebrow" style="margin-bottom:10px">New installer — creates their account, price book & service areas</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Company name</label><input class="search" id="obCompany" style="width:100%"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Contact email (login)</label><input class="search" id="obEmail" type="email" style="width:100%"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">ABN</label><input class="search" id="obAbn" style="width:100%"></div>
+          <div style="grid-column:span 3"><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Service-area postcodes (comma-separated)</label><input class="search" id="obPostcodes" style="width:100%" placeholder="2291, 2282, 2320"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Solar $/kW</label><input class="search mono" id="obSolarKw" style="width:100%" value="1350"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Solar fixed $</label><input class="search mono" id="obSolarFixed" style="width:100%" value="1600"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Battery $/kWh</label><input class="search mono" id="obBatKwh" style="width:100%" value="820"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Battery fixed $</label><input class="search mono" id="obBatFixed" style="width:100%" value="2800"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Two-storey adder $</label><input class="search mono" id="obTwoStorey" style="width:100%" value="450"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Tile roof adder $</label><input class="search mono" id="obTile" style="width:100%" value="350"></div>
+        </div>
+        <div class="field-err" id="obErr" style="margin-top:8px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+          <button class="btn btn-ghost btn-sm" onclick="toggleOnboardForm()">Cancel</button>
+          <button class="btn btn-ink btn-sm" onclick="submitOnboard()">Create installer account</button>
+        </div>
       </div>
       <div class="eyebrow" style="margin-bottom:8px">Retailer applications — pending</div>
       <div class="card" style="margin-bottom:20px"><table>
@@ -563,6 +583,41 @@ function docSummary(ownerType,ownerId){
   const verified=docs.filter(d=>d.status==='verified').length;
   return `${verified}/${docs.length} verified`;
 }
+function toggleOnboardForm(){
+  const f=$('onboardForm'); const show=f.style.display==='none';
+  f.style.display=show?'block':'none'; if(show) $('obErr').textContent='';
+}
+async function submitOnboard(){
+  const company=$('obCompany').value.trim(), email=$('obEmail').value.trim();
+  const postcodes=$('obPostcodes').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(company.length<2) return $('obErr').textContent='Company name required.';
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return $('obErr').textContent='Valid contact email required.';
+  if(!postcodes.length) return $('obErr').textContent='At least one service-area postcode required.';
+  $('obErr').textContent='';
+  const payload={ company_name:company, contact_email:email, abn:$('obAbn').value.trim(),
+    postcodes, solar_per_kw:$('obSolarKw').value, solar_fixed:$('obSolarFixed').value,
+    battery_per_kwh:$('obBatKwh').value, battery_fixed:$('obBatFixed').value,
+    two_storey:$('obTwoStorey').value, tile_roof:$('obTile').value };
+  const { data:{ session } } = await db.auth.getSession();
+  try{
+    const res=await fetch(SUPABASE_URL+'/functions/v1/onboard-installer',{
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+(session?session.access_token:SUPABASE_ANON_KEY),'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok&&res.status!==207){ $('obErr').textContent='Failed: '+(j.error||('HTTP '+res.status)); return; }
+    if(j.login_created===false){
+      $('obErr').textContent='Installer & price book created, but login failed: '+(j.login_error||'')+' — retry the login step.';
+    }else{
+      const skipped=(j.skipped_postcodes&&j.skipped_postcodes.length)?' (skipped unknown postcodes: '+j.skipped_postcodes.join(', ')+')':'';
+      prompt('Installer created. Share these login details securely — the temp password shows once:\n\nEmail: '+j.email+'\nTemp password:', j.temp_password);
+      toast('Installer onboarded — '+j.service_areas+' service area(s)'+skipped);
+    }
+    ['obCompany','obEmail','obAbn','obPostcodes'].forEach(id=>$(id).value='');
+    toggleOnboardForm(); await loadData(); renderVetting();
+  }catch(e){ $('obErr').textContent='Failed: '+e.message; }
+}
 function renderVetting(){
   $('applicationRows').innerHTML=retailerApps.map(a=>`<tr onclick="openApplicationDrawer('${a.id}')">
     <td><b>${a.company_name}</b><div class="src">${a.abn||'—'}</div></td>
@@ -832,6 +887,8 @@ window.submitDesign = submitDesign;
 window.openBoardConfirm = openBoardConfirm;
 window.copyChooseLink = copyChooseLink;
 window.emailComparison = emailComparison;
+window.toggleOnboardForm = toggleOnboardForm;
+window.submitOnboard = submitOnboard;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });
