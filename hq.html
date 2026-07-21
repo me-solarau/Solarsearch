@@ -920,13 +920,14 @@ function openDrawer(id){
     designed:['Open installer board|board'],
     quoted:['Email comparison to customer|notify','Copy customer board link|link'],
     customer_chose:['Copy e-sign link|sign'],
-    signed:['Connection approved|ps_connection_approved','Raise invoice|inv'],
-    connection_approved:['Mark installed|ps_installed'],
-    installed:['Register DERR|ps_der_registered'],
-    der_registered:['Close job|ps_closed'],
+    signed:['Connection approved|ps_connection_approved','Raise invoice|inv','Compliance pack|pack'],
+    connection_approved:['Mark installed|ps_installed','Compliance pack|pack'],
+    installed:['Register DERR|ps_der_registered','Compliance pack|pack'],
+    der_registered:['Close job|ps_closed','Compliance pack|pack'],
+    closed:['Compliance pack|pack'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
-  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`};
+  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`, pack:`openPack('${l.chToken||''}')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
     const onclick=k&&k.startsWith('ps_')?`advancePostSale('${l.uuid}','${k.slice(3)}')`:(ACT_FN[k]||`toast('${t} — wire to API')`);
@@ -1016,6 +1017,10 @@ function copySignLink(token){
     navigator.clipboard.writeText(url).then(()=>toast('E-sign link copied')).catch(()=>prompt('E-sign link:',url));
   }else{ prompt('E-sign link:',url); }
 }
+function openPack(token){
+  if(!token){ toast('No link token on this lead'); return; }
+  window.open('/pack.html?token='+token,'_blank','noopener');
+}
 
 /* ================= post-sale tail (signed -> ... -> closed) ================= */
 async function advancePostSale(leadId,toState){
@@ -1095,6 +1100,7 @@ window.submitDesign = submitDesign;
 window.openBoardConfirm = openBoardConfirm;
 window.copyChooseLink = copyChooseLink;
 window.copySignLink = copySignLink;
+window.openPack = openPack;
 window.emailComparison = emailComparison;
 window.advancePostSale = advancePostSale;
 window.openInvoice = openInvoice;

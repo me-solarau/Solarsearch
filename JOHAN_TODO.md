@@ -21,12 +21,14 @@ but not live. Deploy from the Supabase dashboard or CLI.)
 Already deployed & live (no action): `send-booking-confirmation`,
 `send-quotes-ready`, `onboard-installer`.
 
-## 3. Apply the one migration that wasn't applied
-- [ ] `supabase/migrations/0012_installer_self_read_policy.sql` — declined this
-      session. Portal works without it; only the installer-portal header company
-      name stays blank until applied. Run it in the SQL editor.
+## 3. Apply the migrations that weren't applied
+- [ ] `supabase/migrations/0012_installer_self_read_policy.sql` — portal works
+      without it; only the installer-portal header company name stays blank.
+- [ ] `supabase/migrations/0020_compliance_pack.sql` — the `compliance_pack`
+      RPC that `pack.html` renders. Until applied, the "Compliance pack" action
+      in HQ opens a page that can't load.
 
-Migrations `0001`–`0011` and `0013`–`0018` are already applied.
+Migrations `0001`–`0011` and `0013`–`0019` are already applied.
 
 ## 4. Verify config (probably already fine)
 - [ ] Vercel env (Production + Preview): `VITE_SUPABASE_URL`,
