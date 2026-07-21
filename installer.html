@@ -98,28 +98,28 @@ tr:last-child td{border-bottom:none}
   <div class="card">
     <div class="sec-t"><span>Base rates (fully installed)</span><span class="fresh" id="freshTag">✓ VERIFIED 12 DAYS AGO</span></div>
     <div class="fgrid f">
-      <div><label>Solar $/kW</label><input class="mono" value="1,350" id="rKw"></div>
-      <div><label>Solar fixed $</label><input class="mono" value="1,600"></div>
-      <div><label>Battery $/kWh</label><input class="mono" value="820"></div>
-      <div><label>Battery fixed $</label><input class="mono" value="2,800"></div>
+      <div><label>Solar $/kW</label><input class="mono" id="pbSolarKw"></div>
+      <div><label>Solar fixed $</label><input class="mono" id="pbSolarFixed"></div>
+      <div><label>Battery $/kWh</label><input class="mono" id="pbBatKwh"></div>
+      <div><label>Battery fixed $</label><input class="mono" id="pbBatFixed"></div>
     </div>
     <div class="sec-t"><span>Adders</span></div>
     <div class="fgrid f">
-      <div><label>Two-storey $</label><input class="mono" value="450"></div>
-      <div><label>Tile roof $</label><input class="mono" value="350"></div>
-      <div><label>Switchboard upgrade $</label><input class="mono" value="1,800"></div>
-      <div><label>Three-phase $</label><input class="mono" value="600"></div>
+      <div><label>Two-storey $</label><input class="mono" id="pbTwoStorey"></div>
+      <div><label>Tile roof $</label><input class="mono" id="pbTile"></div>
+      <div><label>Switchboard upgrade $</label><input class="mono" id="pbSwitchboard"></div>
+      <div><label>Three-phase $</label><input class="mono" id="pbThreePhase"></div>
     </div>
-    <div class="sec-t"><span>Preferred equipment (Pylon SKUs)</span></div>
+    <div class="sec-t"><span>Preferred equipment</span></div>
     <div class="fgrid f">
-      <div><label>Panel</label><select><option>Jinko Tiger Neo 440W</option><option>Trina Vertex S+ 435W</option><option>REC Alpha Pure 440W</option></select></div>
-      <div><label>Inverter</label><select><option>Sungrow SH-RS hybrid</option><option>Fronius Gen24</option><option>GoodWe GT</option></select></div>
-      <div><label>Battery</label><select><option>Sungrow SBR</option><option>Tesla Powerwall 3</option><option>BYD HVM</option></select></div>
-      <div><label>Workmanship warranty (yrs)</label><input class="mono" value="10"></div>
+      <div><label>Panel</label><input id="pbPanel" placeholder="e.g. Jinko Tiger Neo 440W"></div>
+      <div><label>Inverter</label><input id="pbInverter" placeholder="e.g. Sungrow SH-RS hybrid"></div>
+      <div><label>Battery</label><input id="pbBattery" placeholder="e.g. Sungrow SBR"></div>
+      <div><label>Workmanship warranty (yrs)</label><input class="mono" id="pbWarranty" value="10"></div>
     </div>
+    <div class="field-err" id="pbErr" style="padding:0 18px"></div>
     <div style="padding:16px 18px;display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="toast('Preview: your offer as customers see it')">Preview my quote card</button>
-      <button class="btn btn-amber" onclick="toast('Price book saved & reverified — freshness reset (wire: PATCH /price_books)')">Save & verify rates</button>
+      <button class="btn btn-amber" onclick="savePriceBook()">Save &amp; verify rates</button>
     </div>
   </div>
 </section>
@@ -202,6 +202,44 @@ async function buySeat(siteId){
   await loadBoard(); renderBoard();
 }
 
+/* ---- price book (drives buy_seat auto-quotes) ---- */
+let PRICE_BOOK=null;
+const parseCents=v=>Math.round((parseFloat(String(v).replace(/[,$\s]/g,''))||0)*100);
+const centsToStr=c=>((c||0)/100).toLocaleString();
+async function loadPriceBook(){
+  const { data } = await db.from('price_books').select('*').order('created_at',{ascending:false}).limit(1).maybeSingle();
+  PRICE_BOOK=data||null;
+  if(!PRICE_BOOK){ renderFresh(); return; }
+  const br=PRICE_BOOK.base_rates||{}, ad=PRICE_BOOK.adders||{}, pe=PRICE_BOOK.preferred_equipment||{};
+  $('pbSolarKw').value=centsToStr(br.solar_per_kw_cents); $('pbSolarFixed').value=centsToStr(br.solar_fixed_cents);
+  $('pbBatKwh').value=centsToStr(br.battery_per_kwh_cents); $('pbBatFixed').value=centsToStr(br.battery_fixed_cents);
+  $('pbTwoStorey').value=centsToStr(ad.two_storey_cents); $('pbTile').value=centsToStr(ad.tile_roof_cents);
+  $('pbSwitchboard').value=centsToStr(ad.switchboard_upgrade_cents); $('pbThreePhase').value=centsToStr(ad.three_phase_cents);
+  $('pbPanel').value=pe.panel_sku||''; $('pbInverter').value=pe.inverter_sku||''; $('pbBattery').value=pe.battery_sku||'';
+  $('pbWarranty').value=pe.warranty_years||10;
+  renderFresh();
+}
+function renderFresh(){
+  const el=$('freshTag'); if(!el)return;
+  if(!PRICE_BOOK||!PRICE_BOOK.verified_at){ el.textContent='NOT VERIFIED'; el.style.background='var(--reds)'; el.style.color='var(--red)'; return; }
+  const days=Math.floor((Date.now()-new Date(PRICE_BOOK.verified_at).getTime())/86400e3);
+  const stale=days>60;
+  el.textContent=(stale?'⚠ STALE — ':'✓ VERIFIED ')+days+' DAY'+(days===1?'':'S')+' AGO';
+  el.style.background=stale?'var(--ambers)':''; el.style.color=stale?'#7A5A00':'';
+}
+async function savePriceBook(){
+  if(!PRICE_BOOK){ $('pbErr').textContent='No price book found for your account.'; return; }
+  const base_rates={ solar_per_kw_cents:parseCents($('pbSolarKw').value), solar_fixed_cents:parseCents($('pbSolarFixed').value),
+    battery_per_kwh_cents:parseCents($('pbBatKwh').value), battery_fixed_cents:parseCents($('pbBatFixed').value) };
+  const adders={ two_storey_cents:parseCents($('pbTwoStorey').value), tile_roof_cents:parseCents($('pbTile').value),
+    switchboard_upgrade_cents:parseCents($('pbSwitchboard').value), three_phase_cents:parseCents($('pbThreePhase').value) };
+  const preferred_equipment={ panel_sku:$('pbPanel').value.trim()||null, inverter_sku:$('pbInverter').value.trim()||null,
+    battery_sku:$('pbBattery').value.trim()||null, warranty_years:parseInt($('pbWarranty').value)||10 };
+  const { error } = await db.from('price_books').update({base_rates,adders,preferred_equipment,verified_at:new Date().toISOString()}).eq('id',PRICE_BOOK.id);
+  if(error){ $('pbErr').textContent='Save failed: '+error.message; return; }
+  $('pbErr').textContent=''; toast('Price book saved & reverified'); await loadPriceBook();
+}
+
 /* rectifications */
 const RECTS=[
  {ref:'SS-0812',addr:'Belmont 2280',find:'DC isolator label weathered',sev:'MINOR',std:'AS/NZS 5033 ref',days:9},
@@ -241,6 +279,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 // Module scope — expose the onclick="" handlers used in markup + rendered rows.
 window.toast = toast;
 window.buySeat = buySeat;
+window.savePriceBook = savePriceBook;
 
 // Rectifications & billing remain demo data pending their own wiring pass.
 renderRect();renderBill();
@@ -252,6 +291,7 @@ renderRect();renderBill();
   if(me&&me.company_name){ const co=document.querySelector('.co'); if(co) co.textContent=me.company_name.toUpperCase(); }
   await loadBoard();
   renderBoard();
+  loadPriceBook();
 })();
 </script>
 </body>
