@@ -240,34 +240,37 @@ async function savePriceBook(){
   $('pbErr').textContent=''; toast('Price book saved & reverified'); await loadPriceBook();
 }
 
-/* rectifications */
-const RECTS=[
- {ref:'SS-0812',addr:'Belmont 2280',find:'DC isolator label weathered',sev:'MINOR',std:'AS/NZS 5033 ref',days:9},
- {ref:'SS-0794',addr:'Cardiff 2285',find:'Battery clearance to window below requirement',sev:'MAJOR',std:'AS/NZS 5139 ref',days:3},
-];
+/* rectifications — Solarsafe findings on the installer's past installs.
+   The Solarsafe→installer rectification pipeline (findings linked to an
+   installer + a response workflow) isn't modelled yet, so this shows an
+   honest empty state rather than demo data. */
 function renderRect(){
-  $('rectList').innerHTML=RECTS.map((r,i)=>`<div class="rect">
-    <div class="rh"><b>${r.find}</b><span class="clock" style="color:${r.days<5?'var(--red)':'var(--amberd)'}">${r.days} DAYS LEFT</span></div>
-    <p>${r.ref} · ${r.addr} · ${r.std} · severity ${r.sev} · photo evidence attached · requested on the customer's written authority</p>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn btn-ink btn-sm" onclick="toast('Marked scheduled — response recorded, date-stamped (wire: correspondence)')">Schedule the fix</button>
-      <button class="btn btn-ghost btn-sm" onclick="toast('Evidence pack opened')">View evidence</button>
-      <button class="btn btn-ghost btn-sm" onclick="toast('Dispute lodged — goes to review with your notes')">Dispute finding</button>
-    </div></div>`).join('');
+  $('rectList').innerHTML=`<div class="rect"><b>No rectification requests</b>
+    <p>When a Solarsafe inspection flags an issue on one of your past installs — and the customer authorises sharing it — the request will appear here with the finding, clause reference, and photo evidence. This activates with the Solarsafe rectification flow.</p></div>`;
 }
 
-/* billing */
-const BILL=[
- {d:'01 Jul',item:'Seat — Site Quoted board',ref:'SS-1046',amt:200,st:'paid'},
- {d:'28 Jun',item:'Commission — 520 STC × $1.10',ref:'SS-1038',amt:572,st:'paid'},
- {d:'27 Jun',item:'Seat — Site Quoted board',ref:'SS-1038',amt:200,st:'paid'},
- {d:'24 Jun',item:'Seat — Site Quoted board',ref:'SS-1035',amt:200,st:'invoiced'},
-];
-function renderBill(){
-  const tot=BILL.reduce((a,b)=>a+b.amt,0);
-  $('billKpis').innerHTML=[['This month',fmt$(tot)],['Seats',BILL.filter(b=>b.item.startsWith('Seat')).length],['Commissions',fmt$(BILL.filter(b=>!b.item.startsWith('Seat')).reduce((a,b)=>a+b.amt,0))],['Avg cost per won job',fmt$(972)]]
-    .map(k=>`<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join('');
-  $('billRows').innerHTML=BILL.map(b=>`<tr><td class="mono">${b.d}</td><td>${b.item}</td><td class="mono" style="color:var(--amberd);font-weight:700;font-size:.75rem">${b.ref}</td><td class="mono">${fmt$(b.amt)}</td><td class="mono">${fmt$(b.amt*0.1)}</td><td><span class="pill ${b.st==='paid'?'p-quoted':'p-open'}">${b.st.toUpperCase()}</span></td></tr>`).join('');
+/* billing — real: seats bought + winner commissions owed (installer_billing RPC) */
+const dstr=s=>s?new Date(s).toLocaleDateString('en-AU',{day:'2-digit',month:'short'}):'—';
+async function renderBill(){
+  const { data, error } = await db.rpc('installer_billing');
+  const rows=(!error&&Array.isArray(data))?data:[];
+  const seatTotal=rows.filter(r=>r.kind==='seat').reduce((a,r)=>a+(r.amount_cents||0),0);
+  const commTotal=rows.filter(r=>r.kind==='commission').reduce((a,r)=>a+(r.amount_cents||0),0);
+  const outstanding=rows.filter(r=>r.status&&r.status!=='paid').reduce((a,r)=>a+(r.amount_cents||0),0);
+  $('billKpis').innerHTML=[
+    ['Total charges',fmt$(Math.round((seatTotal+commTotal)/100))],
+    ['Seats',rows.filter(r=>r.kind==='seat').length],
+    ['Commissions',fmt$(Math.round(commTotal/100))],
+    ['Outstanding',fmt$(Math.round(outstanding/100))],
+  ].map(k=>`<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join('');
+  $('billRows').innerHTML=rows.map(b=>{
+    const amt=Math.round((b.amount_cents||0)/100);
+    const paid=b.status==='paid';
+    return `<tr><td class="mono">${dstr(b.date)}</td><td>${b.description||''}</td>
+      <td class="mono" style="color:var(--amberd);font-weight:700;font-size:.75rem">${b.ref||'—'}</td>
+      <td class="mono">${fmt$(amt)}</td><td class="mono">${fmt$(amt*0.1)}</td>
+      <td><span class="pill ${paid?'p-quoted':'p-open'}">${(b.status||'pending').toUpperCase()}</span></td></tr>`;
+  }).join('')||'<tr><td colspan="6" style="padding:18px;color:var(--ink3)">No charges yet — seats and commissions appear here as you win work.</td></tr>';
 }
 
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -281,8 +284,7 @@ window.toast = toast;
 window.buySeat = buySeat;
 window.savePriceBook = savePriceBook;
 
-// Rectifications & billing remain demo data pending their own wiring pass.
-renderRect();renderBill();
+renderRect(); // static honest state, no auth needed
 
 (async () => {
   const auth = await requireRole(['installer'], { loginPage: '/login.html' });
@@ -292,6 +294,7 @@ renderRect();renderBill();
   await loadBoard();
   renderBoard();
   loadPriceBook();
+  renderBill();
 })();
 </script>
 </body>
