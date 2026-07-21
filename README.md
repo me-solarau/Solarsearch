@@ -1,19 +1,70 @@
-# Solarsearch — solar & battery comparison (solarsearch.com.au)
+# Solarsearch — solar & battery lead + deal engine (solarsearch.com.au)
 
-Static two-page prototype, vanilla HTML/CSS/JS. No framework, no build-time dependencies — Vite is dev server + bundler only.
+Vanilla HTML/CSS/JS pages served by Vite, backed by Supabase (Postgres + RLS +
+Edge Functions + Storage). No framework. Every page is a Vite input in
+`vite.config.js`.
+
+## The pipeline (all real, end to end)
+
+`captured → contacted → qualified → appointment_set (booked) → inspected →
+designed → quoted (on board) → customer_chose → signed → connection_approved →
+installed → der_registered → closed`
+
+The front of the pipeline has **two site-visit paths that both hand off at
+`inspected`** and then share everything downstream:
+
+- **Sales Technician** — a gig field operator (`sales_reps` + `assessments`)
+  who claims validated jobs, attends, and takes a **guided 12-step photo set**
+  with AI validation. No selling. App: `tech.html`.
+- **Consultant** — a staff member (`staff` role `consultant`, `inspections`)
+  who sits down with the customer and consults/sells. App: `field.html`.
+
+They coexist — one is guided photo capture, the other is a sales consultation.
 
 ## Pages
-- `hq.html` — Solarsearch HQ ops app, Supabase-backed, admin-only (`requireRole(['admin'])`)
-- `field.html` — field app for on-site visits, Supabase-backed, same admin-only guard. Two job types share one JSON photo protocol: `presale` (a **consultant**'s sales visit ahead of a quote — never call this person an inspector) and `solarsafe` (a genuine post-install compliance **inspection**, sub-mode inferred from the customer's booking reason: safety / battery-ready / battery-installed)
-- `schema.sql` / `seed.sql` / `platform_functions.sql` / `rls_hardening.sql` — database: run in Supabase SQL editor in that order for a fresh project; `supabase/migrations/` holds the incremental changes already applied to the live project
-- `index.html` — consumer site: instant estimate entry, 4-step model, Solarsafe, rebate calculator; funnel ends in free home-assessment booking with a consultant
-- `quote.html` — instant roof-scan quote app; "Compare 3 installers" hands off to index.html via URL params (?src=iq&addr=&bill=&kw=&bat=)
-- `solarsafe.html` — Solarsafe consumer site (deploys separately to solarsafe.au); booking funnel creates a real `solarsafe`-mode inspection via `book_assessment`
+- `index.html` — consumer funnel; ends in a free home-assessment booking.
+- `quote.html` — instant roof-scan estimate (ad landing) → hands to index.html.
+- `solarsafe.html` — Solarsafe consumer site (deploys separately to solarsafe.au).
+- `choose.html` — customer magic-link quote comparison (`?token=`).
+- `sign.html` — customer magic-link e-signature of the chosen proposal.
+- `hq.html` — Solarsearch HQ (admin): lead inbox, board, deals, **Field ops**
+  (technician dispatch, reliability, payouts), Vetting + onboarding, campaigns.
+- `tech.html` — Sales Technician app (`sales_rep` login): pool, grab, run sheet
+  with route economics, capture, availability, earnings.
+- `installer.html` — Installer portal (`installer` login): Site Quoted board,
+  seat purchase + auto-quote. Price-book/rectifications/billing tabs still demo.
+- `field.html` — Consultant/Solarsafe inspection capture app.
+- `login.html` — role-routed sign-in. `privacy.html`, `collection-notice.html`.
 
-## Shared conventions (do not break)
-- Rebate maths live in the `RULES` object in each page's script (federal Cheaper Home Batteries tiers: 100% ≤14 kWh, 60% 14–28, 15% 28–50; STC factor 6.8, $37/STC, window Jul–Dec 2026). Update in ONE place per file when the factor steps down.
-- Design tokens are CSS custom properties in `:root` (eucalypt ink #0F2E27, solar amber #FFB100). All prices/kW/kWh render in Spline Sans Mono.
-- All data is demo data and labelled as such. Consent flow: max 3 installers, explicit checkbox before any share.
+## Database
+- Base: `schema.sql`, `seed.sql`, `platform_functions.sql`, `rls_hardening.sql`
+  (run in that order for a fresh project).
+- Incremental changes already applied to the live project: `supabase/migrations/`
+  (`0001`–`0018`). **Not yet applied / declined this session:** `0012`
+  (installer self-read policy — portal works without it).
+- Edge Functions in `supabase/functions/`: `send-booking-confirmation`,
+  `send-quotes-ready` (Resend email); `onboard-installer`, `onboard-technician`
+  (account provisioning); `validate-assessment-photo` (Claude-vision photo
+  check). **The onboarding + vision functions were not deployed this session —
+  deploy from the Supabase dashboard before those flows work.**
+
+## Config the deployment needs
+Vercel env (Production + Preview): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+`VITE_GOOGLE_MAPS_API_KEY` (Places + Distance Matrix/Routes enabled; restrict by
+referrer). Supabase Edge Function secrets: `RESEND_API_KEY` (booking + quotes
+emails), `ANTHROPIC_API_KEY` (live technician photo validation — auto-passes
+until set).
+
+## Conventions (do not break)
+- Rebate maths live in the `RULES` object in each page's script and in the
+  `buy_seat` RPC (federal Cheaper Home Batteries tiers 100% ≤14 kWh / 60% /
+  15%; STC factor 6.8, $37/STC; solar 34 STC/kW). Keep client and RPC in step.
+- Design tokens are CSS custom properties in `:root` (eucalypt ink #0F2E27,
+  solar amber #FFB100). Prices/kW/kWh render in Spline Sans Mono.
+- Consent flows and the "customer always chooses" mechanics are load-bearing;
+  the agent-model legal lines on `choose.html`/`sign.html` are not to be altered.
+- All installer/technician/customer access to other people's data goes through
+  `SECURITY DEFINER` RPCs; base tables stay locked to admin/self under RLS.
 
 ## Run
-npm install && npm run dev
+`npm install && npm run dev`
