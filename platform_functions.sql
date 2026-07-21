@@ -235,4 +235,10 @@ grant execute on function public.open_board(uuid,uuid) to authenticated;
 -- customer_choose to also issue the proposal, and adds customer_proposal(uuid)
 -- and customer_sign(uuid,text,text,bool) which capture an ETA-style signature
 -- and advance the lead customer_chose -> signed.
+--
+-- Post-sale tail — migration 0015 adds post_sale_advance(...) (signed ->
+-- connection_approved -> installed -> der_registered -> closed, creating/
+-- updating the connection_applications row and enforcing DERR-before-close)
+-- and set_invoice_status(...); it also adds the admin INSERT policy on events
+-- that the invoker-mode workflow RPCs above depend on.
 -- ============================================================================

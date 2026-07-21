@@ -329,8 +329,8 @@ function totalStc(kw,kwh){return Math.floor((kw||0)*RULES.solarStcPerKw)+(kwh?ba
 const fmt$ = n=>'$'+Math.round(n).toLocaleString();
 
 const STAGES=['captured','contacted','qualified','appointment_set','inspected','designed','quoted','customer_chose','signed'];
-const STAGE_LABEL={captured:'New',contacted:'AI contacted',qualified:'Qualified',appointment_set:'Booked',inspected:'Inspected',designed:'Designed',quoted:'On board',customer_chose:'Chosen',signed:'Signed',nurture:'Nurture',dead:'Dead'};
-const STAGE_COLOR={captured:['#E3EEF6','#1F5C8C'],contacted:['#E3EEF6','#1F5C8C'],qualified:['#FFF3D6','#7A5A00'],appointment_set:['#FFF3D6','#7A5A00'],inspected:['#E8F1EA','#0F2E27'],designed:['#E8F1EA','#0F2E27'],quoted:['#E2F2EA','#177A53'],customer_chose:['#E2F2EA','#177A53'],signed:['#177A53','#fff'],nurture:['#F0F5F0','#6D8781'],dead:['#FBEAE6','#C2452D']};
+const STAGE_LABEL={captured:'New',contacted:'AI contacted',qualified:'Qualified',appointment_set:'Booked',inspected:'Inspected',designed:'Designed',quoted:'On board',customer_chose:'Chosen',signed:'Signed',connection_approved:'Connection ✓',installed:'Installed',der_registered:'DERR ✓',audited:'Audited',closed:'Closed',nurture:'Nurture',dead:'Dead'};
+const STAGE_COLOR={captured:['#E3EEF6','#1F5C8C'],contacted:['#E3EEF6','#1F5C8C'],qualified:['#FFF3D6','#7A5A00'],appointment_set:['#FFF3D6','#7A5A00'],inspected:['#E8F1EA','#0F2E27'],designed:['#E8F1EA','#0F2E27'],quoted:['#E2F2EA','#177A53'],customer_chose:['#E2F2EA','#177A53'],signed:['#177A53','#fff'],connection_approved:['#E2F2EA','#177A53'],installed:['#177A53','#fff'],der_registered:['#177A53','#fff'],audited:['#0F2E27','#fff'],closed:['#0F2E27','#fff'],nurture:['#F0F5F0','#6D8781'],dead:['#FBEAE6','#C2452D']};
 
 /* ---- live Supabase data layer (staff-authenticated) — maps to schema.sql ---- */
 const db = getSupabaseClient();
@@ -362,6 +362,8 @@ const EVLABEL={
   'seat.purchased':['Seat purchased','Installer quote placed',''],
   'customer.chose':['Customer chose','',''],
   'proposal.signed':['Agreement signed','',''],
+  'post_sale.advanced':['Stage advanced','',''],
+  'deal.invoice_status':['Invoice updated','',''],
   'lead.state_changed':['Stage changed','','']
 };
 function evToTl(e,nowMs){
@@ -370,6 +372,8 @@ function evToTl(e,nowMs){
   if(e.event_type==='lead.state_changed'&&e.payload) b=(e.payload.from||'?')+' → '+(e.payload.to||'?');
   if(e.event_type==='assessment.booked'&&e.payload) b=(e.payload.slot||'')+(e.payload.mode==='solarsafe'?' · Solarsafe':'');
   if(e.event_type==='inspection.completed'&&e.payload){ const p=e.payload; b=`${p.pass||0} pass · ${p.minor||0} minor · ${p.major||0} major`; }
+  if(e.event_type==='post_sale.advanced'&&e.payload){ b=(e.payload.from||'?').replace(/_/g,' ')+' → '+(e.payload.to||'?').replace(/_/g,' '); }
+  if(e.event_type==='deal.invoice_status'&&e.payload){ b='Invoice '+(e.payload.status||''); }
   return {t:m[0], b, cls:m[2], when:Math.max(1,Math.round((nowMs-new Date(e.created_at).getTime())/HR))};
 }
 
@@ -393,6 +397,8 @@ async function loadData(){
   const seatBySite={}; (SE||[]).forEach(s=>{ seatBySite[s.site_id]=(seatBySite[s.site_id]||0)+1; });
   const { data:QU } = await db.from('quotes').select('site_id,status');
   const quoteBySite={}; (QU||[]).forEach(q=>{ if(q.status==='on_board'||q.status==='chosen') quoteBySite[q.site_id]=(quoteBySite[q.site_id]||0)+1; });
+  const { data:DL } = await db.from('deals').select('id,site_id,commission_cents,invoice_status,invoice_ref,signed_at,installers(company_name)');
+  const dealBySite={}; (DL||[]).forEach(d=>{ if(!dealBySite[d.site_id]) dealBySite[d.site_id]=d; });
   leads=(L||[]).map((r,ix)=>{
     const bill=r.bill_quarterly_cents?Math.round(r.bill_quarterly_cents/100):0;
     const type=r.lead_type, tl=r.timeline||'researching';
@@ -411,7 +417,15 @@ async function loadData(){
       timeline:tl, events:(byLead[r.id]||[]).map(e=>evToTl(e,nowMs)) };
   });
   jobs=leads.filter(l=>['designed','quoted','customer_chose','signed'].includes(l.state));
-  deals=leads.filter(l=>l.state==='signed').map(l=>({...l,installer:'—',stc:totalStc(l.kw,l.kwh),commission:totalStc(l.kw,l.kwh)*RULES.commissionPerStc,invoice:'pending'}));
+  const DEAL_STATES=['signed','connection_approved','installed','der_registered','audited','closed'];
+  deals=leads.filter(l=>DEAL_STATES.includes(l.state)).map(l=>{
+    const dl=dealBySite[l.siteId];
+    return {...l, dealId:dl?dl.id:null,
+      installer:(dl&&dl.installers)?dl.installers.company_name:'—',
+      stc:totalStc(l.kw,l.kwh),
+      commission:dl?Math.round(dl.commission_cents/100):Math.round(totalStc(l.kw,l.kwh)*RULES.commissionPerStc),
+      invoice:dl?dl.invoice_status:'pending'};
+  });
   const { data:C } = await db.from('campaigns').select('name,platform,status,daily_budget_cents');
   CAMPS=(C||[]).map(c=>({name:c.name,plat:c.platform,status:c.status,spend:Math.round((c.daily_budget_cents||0)/100),leads:0,signed:0}));
 
@@ -752,13 +766,16 @@ function openDrawer(id){
     designed:['Open installer board|board'],
     quoted:['Email comparison to customer|notify','Copy customer board link|link'],
     customer_chose:['Copy e-sign link|sign'],
-    signed:['View signed PDF|pdf','Raise invoice|inv','Create connection application|conn'],
+    signed:['Connection approved|ps_connection_approved','Raise invoice|inv'],
+    connection_approved:['Mark installed|ps_installed'],
+    installed:['Register DERR|ps_der_registered'],
+    der_registered:['Close job|ps_closed'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
-  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`};
+  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
-    const onclick=ACT_FN[k]||`toast('${t} — wire to API')`;
+    const onclick=k&&k.startsWith('ps_')?`advancePostSale('${l.uuid}','${k.slice(3)}')`:(ACT_FN[k]||`toast('${t} — wire to API')`);
     return `<button class="btn btn-ink btn-sm" onclick="${onclick}">${t}</button>`;
   }).join('')||'<span class="src">No actions at this stage</span>';
   $('dDetails').innerHTML=`
@@ -845,6 +862,32 @@ function copySignLink(token){
     navigator.clipboard.writeText(url).then(()=>toast('E-sign link copied')).catch(()=>prompt('E-sign link:',url));
   }else{ prompt('E-sign link:',url); }
 }
+
+/* ================= post-sale tail (signed -> ... -> closed) ================= */
+async function advancePostSale(leadId,toState){
+  let ref=null, exportLimit=null;
+  if(toState==='connection_approved'){
+    ref=prompt('DNSP approval reference (optional):','')||null;
+    const el=prompt('Approved export limit in kW (optional):',''); exportLimit=el?parseFloat(el):null;
+  }else if(toState==='der_registered'){
+    ref=prompt('DERR confirmation reference (optional):','')||null;
+  }else if(toState==='closed'){
+    if(!confirm('Close this job? DERR must already be registered.')) return;
+  }
+  const { error } = await db.rpc('post_sale_advance',{p_lead_id:leadId,p_to_state:toState,p_ref:ref,p_export_limit:exportLimit,p_staff_id:MY_STAFF_ID});
+  if(error){ toast('Could not advance: '+error.message); return; }
+  toast('Advanced to '+toState.replace(/_/g,' '));
+  await loadData(); renderAll(); closeDrawer();
+}
+async function openInvoice(leadId){
+  const dl=deals.find(d=>d.uuid===leadId);
+  if(!dl||!dl.dealId){ toast('No deal on this lead yet'); return; }
+  const ref=prompt('Invoice reference:','')||null;
+  const { error } = await db.rpc('set_invoice_status',{p_deal_id:dl.dealId,p_status:'invoiced',p_ref:ref,p_staff_id:MY_STAFF_ID});
+  if(error){ toast('Invoice failed: '+error.message); return; }
+  toast('Deal marked invoiced');
+  await loadData(); renderAll(); closeDrawer();
+}
 async function emailComparison(leadId){
   toast('Sending comparison email…');
   const { data:{ session } } = await db.auth.getSession();
@@ -896,6 +939,8 @@ window.openBoardConfirm = openBoardConfirm;
 window.copyChooseLink = copyChooseLink;
 window.copySignLink = copySignLink;
 window.emailComparison = emailComparison;
+window.advancePostSale = advancePostSale;
+window.openInvoice = openInvoice;
 window.toggleOnboardForm = toggleOnboardForm;
 window.submitOnboard = submitOnboard;
 
