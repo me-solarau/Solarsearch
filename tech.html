@@ -68,6 +68,13 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
 .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:999px;font-size:.85rem;z-index:300;opacity:0;transition:all .3s;pointer-events:none}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .done-wrap{text-align:center;padding:40px 10px}.done-wrap .ic{width:70px;height:70px;border-radius:50%;background:var(--safes);color:var(--safe);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
 .earn{font-family:var(--mono);font-weight:700;font-size:2rem}
+.sheet-back{position:fixed;inset:0;background:rgba(15,46,39,.5);z-index:200;display:none;align-items:flex-end}
+.sheet-back.open{display:flex}
+.sheet{background:var(--panel);width:100%;border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:82vh;overflow-y:auto;animation:rise .2s ease}
+.sheet h3{font-family:var(--display);font-size:1.15rem;margin-bottom:4px}
+.opt-w{display:block;width:100%;text-align:left;border:1.5px solid var(--line2);background:var(--panel);border-radius:12px;padding:14px;margin-top:10px;font-weight:600;font-size:.95rem}
+.opt-w small{display:block;color:var(--ink3);font-weight:400;font-size:.78rem;margin-top:2px}
+.opt-w.cluster{border-color:var(--safe);background:var(--safes)}
 </style>
 </head>
 <body>
@@ -179,6 +186,14 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
     <button class="btn btn-ghost" style="margin-top:20px" onclick="goJobs()">Back to my jobs</button>
   </div>
 </section>
+
+<div class="sheet-back" id="winSheet"><div class="sheet">
+  <h3>Offer these times</h3>
+  <div class="sub">Route-efficient options from your availability. Read them to the customer on the phone, then tap the one they choose.</div>
+  <div id="winOpts"></div>
+  <button class="btn btn-ghost btn-block" style="margin-top:14px" onclick="manualTime()">Enter a time manually</button>
+  <button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="closeSheet()">Cancel</button>
+</div></div>
 
 <div class="toast" id="toastEl" role="status"></div>
 
@@ -346,12 +361,58 @@ function openJob(aid){
   showView('v-job');
 }
 
+/* ===== route-efficient window offering (§5.1) — offered by phone, no SMS here ===== */
+let availWin={}, availBlackout=[];
 async function confirmTime(){
-  const v=prompt('Confirmed visit time (YYYY-MM-DD HH:MM). SMS scheduling engine wires in Phase 2:','');
+  const { data } = await db.from('technician_availability').select('windows,blackout_dates').eq('sales_rep_id',MY_REP_ID).maybeSingle();
+  availWin=(data&&data.windows)||{}; availBlackout=(data&&data.blackout_dates)||[];
+  const opts=generateWindows();
+  $('winOpts').innerHTML=opts.length
+    ? opts.map(o=>`<button class="opt-w ${o.cluster?'cluster':''}" onclick="pickWindow('${o.iso}')">${o.label}${o.cluster?'<small>Fits with another job that day — efficient</small>':'<small>Open in your availability</small>'}</button>`).join('')
+    : '<div class="sub" style="margin-top:12px">No windows from your availability. Set your availability, or enter a time manually.</div>';
+  $('winSheet').classList.add('open');
+}
+function generateWindows(){
+  const dayKey=['sun','mon','tue','wed','thu','fri','sat'];
+  const now=new Date();
+  const scheduled=JOBS.filter(j=>j.status==='scheduled'&&j.scheduled_at).map(j=>new Date(j.scheduled_at));
+  const out=[];
+  for(let dOff=1; dOff<=7 && out.length<8; dOff++){
+    const day=new Date(now.getFullYear(),now.getMonth(),now.getDate()+dOff);
+    const win=availWin[dayKey[day.getDay()]]&&availWin[dayKey[day.getDay()]][0];
+    if(!win||!win[0]||!win[1]) continue;
+    if(availBlackout.includes(day.toISOString().slice(0,10))) continue;
+    const ws=new Date(day), we=new Date(day);
+    ws.setHours(+win[0].split(':')[0],+win[0].split(':')[1],0,0);
+    we.setHours(+win[1].split(':')[0],+win[1].split(':')[1],0,0);
+    const todays=scheduled.filter(s=>s.toDateString()===day.toDateString()).sort((a,b)=>a-b);
+    const cluster=todays.length>0;
+    const starts=[];
+    if(cluster){ const after=new Date(todays[todays.length-1].getTime()+65*60000); if(after>=ws&&after<=we) starts.push(after); }
+    if(!starts.length){ starts.push(new Date(ws)); const mid=new Date(ws.getTime()+3*3600000); if(mid<=we) starts.push(mid); }
+    for(const st of starts){
+      if(scheduled.some(s=>Math.abs(s-st)<45*60000)) continue;
+      out.push({iso:st.toISOString(),ts:st.getTime(),cluster,
+        label:st.toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})});
+    }
+  }
+  out.sort((a,b)=>(b.cluster-a.cluster)||(a.ts-b.ts));
+  const seen=new Set(), res=[];
+  for(const o of out){ if(seen.has(o.iso))continue; seen.add(o.iso); res.push(o); if(res.length>=3)break; }
+  return res;
+}
+function closeSheet(){ $('winSheet').classList.remove('open'); }
+async function pickWindow(iso){ await doSchedule(iso); }
+async function manualTime(){
+  const v=prompt('Enter the confirmed time (YYYY-MM-DD HH:MM):','');
   if(!v)return; const dt=new Date(v.replace(' ','T'));
-  if(isNaN(dt)){ toast('Could not read that time — use e.g. 2026-07-24 09:40'); return; }
-  const { error } = await db.rpc('schedule_visit',{p_assessment_id:curJob.assessment_id,p_scheduled_at:dt.toISOString()});
+  if(isNaN(dt)){ toast('Use e.g. 2026-07-24 09:40'); return; }
+  await doSchedule(dt.toISOString());
+}
+async function doSchedule(iso){
+  const { error } = await db.rpc('schedule_visit',{p_assessment_id:curJob.assessment_id,p_scheduled_at:iso});
   if(error){ toast(error.message); return; }
+  closeSheet();
   toast('Visit confirmed — address unlocked'); await loadJobs(); openJob(curJob.assessment_id);
 }
 async function startVisit(){
@@ -539,7 +600,7 @@ async function loadEarnings(){
 }
 
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet});
 window.$=$;
 
 (async () => {
