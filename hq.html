@@ -274,6 +274,14 @@ tbody tr:hover{background:var(--tint2)}
         <thead><tr><th>Technician</th><th>Claimed</th><th>Completed</th><th>No-access</th><th>Expired</th><th>Reliability</th></tr></thead>
         <tbody id="foReps"></tbody>
       </table></div>
+      <div class="page-head" style="margin:22px 0 8px">
+        <div class="eyebrow">Payouts — $50 completed · $25 no-access · Stripe Connect (transfer stubbed)</div>
+        <button class="btn btn-amber btn-sm" onclick="runPayoutBatch()">Batch last 7 days</button>
+      </div>
+      <div class="card"><table>
+        <thead><tr><th>Technician</th><th>Period</th><th>Total</th><th>Status</th><th>Ref</th><th></th></tr></thead>
+        <tbody id="foPayouts"></tbody>
+      </table></div>
     </section>
 
     <!-- ============ VETTING ============ -->
@@ -376,7 +384,7 @@ const HR=3600e3;
 
 let leads=[], jobs=[], deals=[], CAMPS=[];
 let retailerApps=[], retailers=[], salesReps=[], installersList=[], vettingDocs=[];
-let assessmentsList=[], salesRepsAll=[];
+let assessmentsList=[], salesRepsAll=[], payoutsList=[];
 let MY_STAFF_ID=null;
 const VETTING_STATUSES=['registered','docs_submitted','under_review','conditionally_active','suspended','rejected'];
 const DOC_TYPE_LABEL={abn:'ABN',netcc:'NETCC number',saa:'SAA accreditation',electrical_licence:'Electrical licence',public_liability:'Public liability',workers_comp:'Workers comp',police_check:'Police check',id:'ID document'};
@@ -482,6 +490,8 @@ async function loadData(){
   assessmentsList=AS||[];
   const { data:SRALL } = await db.from('sales_reps').select('id,full_name,status').order('full_name');
   salesRepsAll=SRALL||[];
+  const { data:PO } = await db.from('payouts').select('id,period_start,period_end,total_cents,status,stripe_transfer_ref,sales_reps(full_name)').order('created_at',{ascending:false});
+  payoutsList=PO||[];
 
   const { data:{ user } } = await db.auth.getUser();
   if(user){
@@ -745,6 +755,30 @@ function renderFieldOps(){
     return `<tr><td><b>${n}</b></td><td class="mono">${r.claimed}</td><td class="mono">${r.completed}</td><td class="mono">${r.no_access}</td><td class="mono">${r.expired}</td>
       <td class="mono" style="color:${rel>=70?'var(--green)':rel>=40?'var(--amberd)':'var(--red)'};font-weight:700">${rel}%</td></tr>`;
   }).join('')||'<tr><td colspan="6" class="empty">No technician activity yet</td></tr>';
+  $('foPayouts').innerHTML=payoutsList.map(p=>{
+    const rep=(p.sales_reps&&p.sales_reps.full_name)||'—';
+    const period=(p.period_start||'')+' → '+(p.period_end||'');
+    const paid=p.status==='paid';
+    return `<tr><td><b>${rep}</b></td><td class="mono" style="font-size:.72rem">${period}</td>
+      <td class="mono" style="font-weight:700">${fmt$(Math.round((p.total_cents||0)/100))}</td>
+      <td>${paid?'<span class="pill" style="background:var(--greens);color:var(--green)">PAID</span>':'<span class="pill" style="background:var(--ambers);color:#7A5A00">PENDING</span>'}</td>
+      <td class="mono" style="font-size:.7rem">${p.stripe_transfer_ref||'—'}</td>
+      <td>${paid?'':'<button class="btn btn-ghost btn-sm" onclick="markPaid(\''+p.id+'\')">Mark paid</button>'}</td></tr>`;
+  }).join('')||'<tr><td colspan="6" class="empty">No payouts yet — batch completed jobs above</td></tr>';
+}
+async function runPayoutBatch(){
+  const end=new Date(); const start=new Date(end.getTime()-7*86400e3);
+  const iso=d=>d.toISOString().slice(0,10);
+  const { data, error } = await db.rpc('create_payout_batches',{p_period_start:iso(start),p_period_end:iso(end),p_staff_id:MY_STAFF_ID});
+  if(error){ toast('Batch failed: '+error.message); return; }
+  toast((data&&data.batches?data.batches:0)+' payout(s) created · '+fmt$(Math.round(((data&&data.total_cents)||0)/100)));
+  await loadData(); renderFieldOps();
+}
+async function markPaid(pid){
+  const ref=prompt('Stripe transfer reference (the real transfer wires in later):','')||null;
+  const { error } = await db.rpc('mark_payout_paid',{p_payout_id:pid,p_ref:ref});
+  if(error){ toast('Failed: '+error.message); return; }
+  toast('Payout marked paid'); await loadData(); renderFieldOps();
 }
 async function releaseClaim(aid){
   if(!confirm('Release this job back to the pool? The claim is cancelled and any technician can grab it again.')) return;
@@ -1050,6 +1084,8 @@ window.rejectApplication = rejectApplication;
 window.setEntityStatus = setEntityStatus;
 window.verifyDoc = verifyDoc;
 window.releaseClaim = releaseClaim;
+window.runPayoutBatch = runPayoutBatch;
+window.markPaid = markPaid;
 window.toggleNewLeadForm = toggleNewLeadForm;
 window.submitNewLead = submitNewLead;
 window.openAssignConsultant = openAssignConsultant;
