@@ -295,7 +295,7 @@ tbody tr:hover{background:var(--tint2)}
 <div class="toast" id="toastEl" role="status"></div>
 
 <script type="module">
-import { getSupabaseClient } from "/src/lib/supabase.js";
+import { getSupabaseClient, SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
 import { requireRole } from "/src/lib/auth-guard.js";
 import { attachAddressAutocomplete } from "/src/lib/address-autocomplete.js";
 
@@ -694,12 +694,12 @@ function openDrawer(id){
     appointment_set:['Reschedule|resch','Assign consultant|consult'],
     inspected:['Create design|design'],
     designed:['Open installer board|board'],
-    quoted:['View customer board link|link','Nudge customer (SMS)|nudge'],
+    quoted:['Email comparison to customer|notify','Copy customer board link|link'],
     customer_chose:['Issue proposal for e-sign|prop'],
     signed:['View signed PDF|pdf','Raise invoice|inv','Create connection application|conn'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
-  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`};
+  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
     const onclick=ACT_FN[k]||`toast('${t} — wire to API')`;
@@ -782,6 +782,20 @@ function copyChooseLink(token){
     navigator.clipboard.writeText(url).then(()=>toast('Customer board link copied')).catch(()=>prompt('Customer board link:',url));
   }else{ prompt('Customer board link:',url); }
 }
+async function emailComparison(leadId){
+  toast('Sending comparison email…');
+  const { data:{ session } } = await db.auth.getSession();
+  try{
+    const res=await fetch(SUPABASE_URL+'/functions/v1/send-quotes-ready',{
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+(session?session.access_token:SUPABASE_ANON_KEY),'Content-Type':'application/json'},
+      body:JSON.stringify({lead_id:leadId})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok){ toast('Email not sent: '+(j.error||('HTTP '+res.status))); return; }
+    toast('Comparison emailed — '+(j.count||0)+' quote'+(j.count===1?'':'s'));
+  }catch(e){ toast('Email failed: '+e.message); }
+}
 
 /* ================= nav ================= */
 document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>{
@@ -817,6 +831,7 @@ window.openDesignForm = openDesignForm;
 window.submitDesign = submitDesign;
 window.openBoardConfirm = openBoardConfirm;
 window.copyChooseLink = copyChooseLink;
+window.emailComparison = emailComparison;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });
