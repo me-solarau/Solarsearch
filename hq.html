@@ -361,6 +361,7 @@ const EVLABEL={
   'board.opened':['Board opened','Installers can buy seats',''],
   'seat.purchased':['Seat purchased','Installer quote placed',''],
   'customer.chose':['Customer chose','',''],
+  'proposal.signed':['Agreement signed','',''],
   'lead.state_changed':['Stage changed','','']
 };
 function evToTl(e,nowMs){
@@ -750,11 +751,11 @@ function openDrawer(id){
     inspected:['Create design|design'],
     designed:['Open installer board|board'],
     quoted:['Email comparison to customer|notify','Copy customer board link|link'],
-    customer_chose:['Issue proposal for e-sign|prop'],
+    customer_chose:['Copy e-sign link|sign'],
     signed:['View signed PDF|pdf','Raise invoice|inv','Create connection application|conn'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
-  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`};
+  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
     const onclick=ACT_FN[k]||`toast('${t} — wire to API')`;
@@ -837,6 +838,13 @@ function copyChooseLink(token){
     navigator.clipboard.writeText(url).then(()=>toast('Customer board link copied')).catch(()=>prompt('Customer board link:',url));
   }else{ prompt('Customer board link:',url); }
 }
+function copySignLink(token){
+  if(!token){ toast('No link token on this lead'); return; }
+  const url=location.origin+'/sign.html?token='+token;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(()=>toast('E-sign link copied')).catch(()=>prompt('E-sign link:',url));
+  }else{ prompt('E-sign link:',url); }
+}
 async function emailComparison(leadId){
   toast('Sending comparison email…');
   const { data:{ session } } = await db.auth.getSession();
@@ -886,6 +894,7 @@ window.openDesignForm = openDesignForm;
 window.submitDesign = submitDesign;
 window.openBoardConfirm = openBoardConfirm;
 window.copyChooseLink = copyChooseLink;
+window.copySignLink = copySignLink;
 window.emailComparison = emailComparison;
 window.toggleOnboardForm = toggleOnboardForm;
 window.submitOnboard = submitOnboard;

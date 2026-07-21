@@ -91,8 +91,9 @@ footer{padding:26px 0 40px;font-family:var(--mono);font-size:.64rem;color:var(--
   <div class="ic"><svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   <h2>Locked in.</h2>
   <p id="doneCo" style="font-weight:700;color:var(--ink)"></p>
-  <p>Their formal agreement is on its way for e-signature — issued in their name, with your 10-year workmanship warranty and all consumer guarantees sitting with them. Your rebate is set at your installation date.</p>
-  <p style="font-size:.82rem;color:var(--ink3)">Grid connection paperwork starts now. We'll keep you posted by SMS.</p>
+  <p>Their formal agreement is ready for your e-signature — issued in their name, with your workmanship warranty and all consumer guarantees sitting with them. Your rebate is set at your installation date.</p>
+  <p style="margin:18px 0 6px"><a class="btn btn-amber" id="signLink" href="#">Review &amp; sign your agreement</a></p>
+  <p style="font-size:.82rem;color:var(--ink3)">Grid connection paperwork starts once it's signed. We'll keep you posted by email.</p>
 </div>
 
 <div class="modal-back" id="modal">
@@ -143,8 +144,8 @@ async function load(){
   const strip=document.querySelector('.design-strip'); if(strip&&sys) strip.querySelector('span b').textContent=sys;
 
   QUOTES=(d.quotes||[]).map((q,i)=>({...q,col:PALETTE[i%PALETTE.length]}));
+  if(TOKEN) $('signLink').href='/sign.html?token='+encodeURIComponent(TOKEN);
   if(d.already_chosen){
-    $('doneCo').textContent=QUOTES.length?'':'';
     $('chooseView').style.display='none'; $('doneView').style.display='block';
     return;
   }

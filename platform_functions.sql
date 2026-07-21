@@ -230,4 +230,9 @@ grant execute on function public.open_board(uuid,uuid) to authenticated;
 -- SECURITY DEFINER RPCs — see supabase/migrations/0013_customer_choice.sql for
 -- the definitions of customer_board(uuid) and customer_choose(uuid,uuid,bool)
 -- and the leads.choice_token column they key on.
+--
+-- Proposal + native e-signature (sign.html) — migration 0014 redefines
+-- customer_choose to also issue the proposal, and adds customer_proposal(uuid)
+-- and customer_sign(uuid,text,text,bool) which capture an ETA-style signature
+-- and advance the lead customer_chose -> signed.
 -- ============================================================================
