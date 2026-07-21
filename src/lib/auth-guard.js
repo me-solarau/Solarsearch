@@ -37,8 +37,10 @@ export function homeForRole(role) {
       return "/hq.html";
     case "installer":
       return "/installer.html";
-    // retailer.html / salesrep.html don't exist yet (Phase 7) — fall back to
-    // the login page's own post-login placeholder until they're built.
+    case "sales_rep":
+      return "/tech.html";
+    // retailer.html doesn't exist yet (Phase 7) — fall back to the login
+    // page's own post-login placeholder until it's built.
     default:
       return "/login.html";
   }
