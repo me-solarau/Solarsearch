@@ -146,6 +146,7 @@ tbody tr:hover{background:var(--tint2)}
     <button class="nav-btn" data-page="board"><span class="ic">▦</span><span class="lbl">Site Quoted board</span></button>
     <button class="nav-btn" data-page="deals"><span class="ic">✓</span><span class="lbl">Deals & commissions</span></button>
     <button class="nav-btn" data-page="fieldops"><span class="ic">◎</span><span class="lbl">Field ops</span></button>
+    <button class="nav-btn" data-page="analytics"><span class="ic">▧</span><span class="lbl">Analytics</span></button>
     <button class="nav-btn" data-page="campaigns"><span class="ic">▲</span><span class="lbl">Campaigns</span></button>
     <button class="nav-btn" data-page="vetting"><span class="ic">⚑</span><span class="lbl">Vetting</span></button>
     <div class="foot">HUNTER PILOT · RULES v2026.05<br>LIVE DATA</div>
@@ -256,6 +257,23 @@ tbody tr:hover{background:var(--tint2)}
         <tbody id="campRows"></tbody>
       </table></div>
       <p style="font-family:var(--mono);font-size:.66rem;color:var(--ink3);margin-top:10px;letter-spacing:.05em">CPSD = COST PER SIGNED DEAL — THE NORTH STAR (PRD §12). OFFLINE CONVERSION UPLOAD: PHASE 2.</p>
+    </section>
+
+    <!-- ============ ANALYTICS ============ -->
+    <section class="page" id="page-analytics">
+      <div class="page-head"><div><span class="eyebrow">Conversion · velocity · source</span><h1>Analytics</h1></div></div>
+      <div class="eyebrow" style="margin-bottom:8px">Conversion funnel — leads that reached each stage</div>
+      <div class="card" style="padding:14px 16px" id="anFunnel"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px" id="anCols">
+        <div class="card">
+          <div style="padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:.9rem">Stage velocity — median time</div>
+          <table><tbody id="anDurations"></tbody></table>
+        </div>
+        <div class="card">
+          <div style="padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:.9rem">By source</div>
+          <table><thead><tr><th>Source</th><th>Leads</th><th>Signed</th><th>Conv.</th></tr></thead><tbody id="anSource"></tbody></table>
+        </div>
+      </div>
     </section>
 
     <!-- ============ FIELD OPS ============ -->
@@ -452,7 +470,9 @@ async function loadData(){
     const es=estSystem(bill,type);
     const site=r.sites||{}, cust=r.customers||{};
     const design=designBySite[r.site_id]||null;
-    return { id:ix, uuid:r.id, siteId:r.site_id, chToken:r.choice_token, ss:site.ss_ref||'—', name:cust.full_name||'(no name)',
+    const stamps={captured:r.created_at};
+    (byLead[r.id]||[]).forEach(e=>{ if(e.event_type==='lead.state_changed'&&e.payload&&e.payload.to) stamps[e.payload.to]=e.created_at; });
+    return { id:ix, uuid:r.id, siteId:r.site_id, chToken:r.choice_token, stamps, ss:site.ss_ref||'—', name:cust.full_name||'(no name)',
       suburb:(site.address||'').split(',').slice(-1)[0].trim(), pc:site.postcode||'',
       type, state:r.state, score:(r.score!=null?r.score:calcScore(bill,type,tl)),
       bill, kw:(design&&design.system_kw!=null)?Number(design.system_kw):es.kw,
@@ -717,6 +737,37 @@ async function submitOnboardTech(){
     ['tbName','tbEmail','tbPhone','tbPostcodes','tbPolice','tbPoliceExp'].forEach(id=>$(id).value='');
     toggleOnboardTechForm(); await loadData(); renderVetting();
   }catch(e){ $('tbErr').textContent='Failed: '+e.message; }
+}
+const PIPE_ORDER=['captured','contacted','qualified','appointment_set','inspected','designed','quoted','customer_chose','signed','connection_approved','installed','der_registered','closed'];
+function idxOf(s){ const i=PIPE_ORDER.indexOf(s); return i<0?-1:i; }
+function reached(l,stage){ return (l.stamps&&l.stamps[stage])||idxOf(l.state)>=idxOf(stage); }
+function fmtDur(ms){ const h=ms/3600e3; if(h<48) return h<1?Math.round(h*60)+' min':h.toFixed(1)+' h'; return (h/24).toFixed(1)+' d'; }
+function median(arr){ if(!arr.length)return null; const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+function renderAnalytics(){
+  const total=leads.length||1;
+  const FUNNEL=[['captured','New'],['appointment_set','Booked'],['inspected','Assessed'],['designed','Designed'],['quoted','On board'],['customer_chose','Chosen'],['signed','Signed'],['closed','Closed']];
+  let prev=null;
+  $('anFunnel').innerHTML=FUNNEL.map(([st,lbl])=>{
+    const n=leads.filter(l=>reached(l,st)).length;
+    const pct=Math.round(n/total*100);
+    const step=prev!=null&&prev>0?Math.round(n/prev*100):null; prev=n;
+    return `<div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:3px"><span>${lbl}</span>
+        <span class="mono"><b>${n}</b> · ${pct}%${step!=null?' <span style="color:var(--ink3)">('+step+'% of prev)</span>':''}</span></div>
+      <div style="height:9px;background:var(--tint2);border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--amber);border-radius:99px"></div></div></div>`;
+  }).join('');
+  const PAIRS=[['captured','appointment_set','New → Booked'],['appointment_set','inspected','Booked → Assessed'],['inspected','designed','Assessed → Designed'],['designed','quoted','Designed → On board'],['quoted','customer_chose','On board → Chosen'],['customer_chose','signed','Chosen → Signed'],['signed','closed','Signed → Closed']];
+  $('anDurations').innerHTML=PAIRS.map(([a,b,lbl])=>{
+    const durs=leads.filter(l=>l.stamps&&l.stamps[a]&&l.stamps[b]).map(l=>new Date(l.stamps[b])-new Date(l.stamps[a])).filter(d=>d>=0);
+    const med=median(durs);
+    return `<tr><td>${lbl}</td><td class="mono" style="text-align:right">${med!=null?fmtDur(med):'—'}</td><td class="mono src" style="text-align:right">${durs.length} lead${durs.length===1?'':'s'}</td></tr>`;
+  }).join('');
+  const bySrc={};
+  leads.forEach(l=>{ const s=l.plat||'organic'; const r=bySrc[s]=bySrc[s]||{n:0,signed:0}; r.n++; if(reached(l,'signed'))r.signed++; });
+  $('anSource').innerHTML=Object.entries(bySrc).sort((a,b)=>b[1].n-a[1].n).map(([s,r])=>{
+    const cv=r.n?Math.round(r.signed/r.n*100):0;
+    return `<tr><td><b>${s}</b></td><td class="mono">${r.n}</td><td class="mono">${r.signed}</td><td class="mono" style="color:${cv>=20?'var(--green)':'var(--ink2)'};font-weight:700">${cv}%</td></tr>`;
+  }).join('')||'<tr><td colspan="4" class="empty">No leads yet</td></tr>';
 }
 function renderFieldOps(){
   const nowMs=Date.now();
@@ -1070,7 +1121,7 @@ document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>
   $('page-'+b.dataset.page).classList.add('active');
 }));
 
-function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps(); }
+function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics(); }
 async function boot(){ await loadData(); renderAll(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
 
