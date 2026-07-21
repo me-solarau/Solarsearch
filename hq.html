@@ -261,7 +261,26 @@ tbody tr:hover{background:var(--tint2)}
     <section class="page" id="page-vetting">
       <div class="page-head">
         <div><span class="eyebrow">Retailers · installers · sales reps</span><h1>Vetting</h1></div>
-        <button class="btn btn-amber" onclick="toggleOnboardForm()">+ Onboard installer</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="toggleOnboardTechForm()">+ Onboard technician</button>
+          <button class="btn btn-amber" onclick="toggleOnboardForm()">+ Onboard installer</button>
+        </div>
+      </div>
+      <div class="card" id="onboardTechForm" style="display:none;margin-bottom:20px;padding:16px">
+        <div class="eyebrow" style="margin-bottom:10px">New sales technician — creates their login & maps postcodes to regions</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Full name</label><input class="search" id="tbName" style="width:100%"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Email (login)</label><input class="search" id="tbEmail" type="email" style="width:100%"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Phone</label><input class="search" id="tbPhone" style="width:100%"></div>
+          <div style="grid-column:span 3"><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Service postcodes (comma-separated)</label><input class="search" id="tbPostcodes" style="width:100%" placeholder="2291, 2282, 2320"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Police check ref</label><input class="search" id="tbPolice" style="width:100%"></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Police check expiry</label><input class="search" id="tbPoliceExp" type="date" style="width:100%"></div>
+        </div>
+        <div class="field-err" id="tbErr" style="margin-top:8px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+          <button class="btn btn-ghost btn-sm" onclick="toggleOnboardTechForm()">Cancel</button>
+          <button class="btn btn-ink btn-sm" onclick="submitOnboardTech()">Create technician account</button>
+        </div>
       </div>
       <div class="card" id="onboardForm" style="display:none;margin-bottom:20px;padding:16px">
         <div class="eyebrow" style="margin-bottom:10px">New installer — creates their account, price book & service areas</div>
@@ -633,6 +652,38 @@ async function submitOnboard(){
     toggleOnboardForm(); await loadData(); renderVetting();
   }catch(e){ $('obErr').textContent='Failed: '+e.message; }
 }
+function toggleOnboardTechForm(){
+  const f=$('onboardTechForm'); const show=f.style.display==='none';
+  f.style.display=show?'block':'none'; if(show) $('tbErr').textContent='';
+}
+async function submitOnboardTech(){
+  const name=$('tbName').value.trim(), email=$('tbEmail').value.trim();
+  const postcodes=$('tbPostcodes').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(name.length<2) return $('tbErr').textContent='Full name required.';
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return $('tbErr').textContent='Valid email required.';
+  if(!postcodes.length) return $('tbErr').textContent='At least one service postcode required.';
+  $('tbErr').textContent='';
+  const payload={ full_name:name, email, phone:$('tbPhone').value.trim(), postcodes,
+    police_check_ref:$('tbPolice').value.trim()||null, police_check_expiry:$('tbPoliceExp').value||null };
+  const { data:{ session } } = await db.auth.getSession();
+  try{
+    const res=await fetch(SUPABASE_URL+'/functions/v1/onboard-technician',{
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+(session?session.access_token:SUPABASE_ANON_KEY),'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok&&res.status!==207){ $('tbErr').textContent='Failed: '+(j.error||('HTTP '+res.status)); return; }
+    if(j.login_created===false){
+      $('tbErr').textContent='Technician created, but login failed: '+(j.login_error||'')+' — retry the login step.';
+    }else{
+      prompt('Technician created. Share these login details securely — the temp password shows once:\n\nEmail: '+j.email+'\nTemp password:', j.temp_password);
+      toast('Technician onboarded — '+j.regions+' region(s)');
+    }
+    ['tbName','tbEmail','tbPhone','tbPostcodes','tbPolice','tbPoliceExp'].forEach(id=>$(id).value='');
+    toggleOnboardTechForm(); await loadData(); renderVetting();
+  }catch(e){ $('tbErr').textContent='Failed: '+e.message; }
+}
 function renderVetting(){
   $('applicationRows').innerHTML=retailerApps.map(a=>`<tr onclick="openApplicationDrawer('${a.id}')">
     <td><b>${a.company_name}</b><div class="src">${a.abn||'—'}</div></td>
@@ -943,6 +994,8 @@ window.advancePostSale = advancePostSale;
 window.openInvoice = openInvoice;
 window.toggleOnboardForm = toggleOnboardForm;
 window.submitOnboard = submitOnboard;
+window.toggleOnboardTechForm = toggleOnboardTechForm;
+window.submitOnboardTech = submitOnboardTech;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });
