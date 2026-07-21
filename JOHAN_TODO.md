@@ -73,8 +73,20 @@ No external account needed — VAPID keys are self-generated.
       `technician_windows` window generator, the service-role confirm/cancel/
       reschedule RPCs, `customers.sms_opt_out`, and the public `tech_badge` RPC.
       Required before the five `sms-*` functions do anything.
+- [ ] `supabase/migrations/0023_push_subscriptions.sql` — web/native push
+      subscriptions + the service-role targeting RPCs (see §2b).
+- [ ] `supabase/migrations/0024_role_applications.sql` — the public "apply to
+      work with us" table the native apps post to (anon insert, admin read).
+      Required for the App Store apps' in-app signup path.
 
 Migrations `0001`–`0011`, `0013`–`0019`, and `0021` are already applied.
+
+## 3b. Native apps (iOS / Android) — see `MOBILE.md`
+Two App Store apps are scaffolded (`mobile/field`, `mobile/installer`) with
+launchers, native push wiring, in-app apply, and a Codemagic pipeline. It's all
+code + config; the rest is your accounts (Apple Developer, App Store Connect,
+APNs key, Codemagic, optional Firebase). Nothing here blocks tomorrow's web
+testing — the apps are the next-step packaging, not needed for the pilot.
 
 ## 4. Verify config (probably already fine)
 - [ ] Vercel env (Production + Preview): `VITE_SUPABASE_URL`,

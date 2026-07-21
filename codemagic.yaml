@@ -1,0 +1,95 @@
+# Codemagic — Mac-less iOS builds for the two Solarsearch apps → TestFlight.
+# Matches the kickoff stack (Capacitor + Codemagic, no local Mac needed).
+#
+# One-time in Codemagic UI before the first run:
+#   • Connect your Apple Developer account (Integrations → App Store Connect;
+#     create an API key, store it as the integration `solarsearch_appstore`).
+#   • Register the two bundle IDs in the Apple Developer portal:
+#       au.com.solarsearch.field       (Push Notifications capability ON)
+#       au.com.solarsearch.installer   (Push Notifications capability ON)
+#   • Create both apps in App Store Connect (same bundle IDs).
+#   • Upload an APNs Auth Key (.p8) for push (Certificates, IDs & Profiles).
+#
+# Each workflow generates the native iOS project fresh from the Capacitor config
+# (cap add ios), so no Xcode project is committed to the repo.
+
+workflows:
+  field-ios:
+    name: Solarsearch Field (iOS)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      node: 20
+      vars:
+        BUNDLE_ID: "au.com.solarsearch.field"
+        XCODE_SCHEME: "App"
+      groups:
+        - appstore   # holds the App Store Connect integration reference
+    integrations:
+      app_store_connect: solarsearch_appstore
+    scripts:
+      - name: Install Capacitor deps
+        script: cd mobile/field && npm install
+      - name: Generate iOS project
+        script: cd mobile/field && npx cap add ios && npx cap sync ios
+      - name: Set iOS permission strings + push capability
+        script: |
+          cd mobile/field/ios/App
+          PLIST=App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Take guided site photos of the roof, switchboard and meter for the solar design.'" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string 'Log attendance at the property and tag site photos.'" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'Save site photos you capture.'" "$PLIST" 2>/dev/null || true
+      - name: Set up signing
+        script: |
+          cd mobile/field/ios/App
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          cd mobile/field/ios/App
+          xcode-project build-ipa --workspace "App.xcworkspace" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+
+  installer-ios:
+    name: Solarsearch for Installers (iOS)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      node: 20
+      vars:
+        BUNDLE_ID: "au.com.solarsearch.installer"
+        XCODE_SCHEME: "App"
+      groups:
+        - appstore
+    integrations:
+      app_store_connect: solarsearch_appstore
+    scripts:
+      - name: Install Capacitor deps
+        script: cd mobile/installer && npm install
+      - name: Generate iOS project
+        script: cd mobile/installer && npx cap add ios && npx cap sync ios
+      - name: Set iOS permission strings
+        script: |
+          cd mobile/installer/ios/App
+          PLIST=App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string 'Save documents and quotes you export.'" "$PLIST" 2>/dev/null || true
+      - name: Set up signing
+        script: |
+          cd mobile/installer/ios/App
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          cd mobile/installer/ios/App
+          xcode-project build-ipa --workspace "App.xcworkspace" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

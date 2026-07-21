@@ -14,6 +14,8 @@ export default defineConfig({
         sign: resolve(__dirname, 'sign.html'),
         tech: resolve(__dirname, 'tech.html'),
         techbadge: resolve(__dirname, 'tech-badge.html'),
+        appfield: resolve(__dirname, 'app-field.html'),
+        appinstaller: resolve(__dirname, 'app-installer.html'),
         pack: resolve(__dirname, 'pack.html'),
         solarsafe: resolve(__dirname, 'solarsafe.html'),
         privacy: resolve(__dirname, 'privacy.html'),

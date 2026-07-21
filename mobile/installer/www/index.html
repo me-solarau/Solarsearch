@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Solarsearch for Installers</title>
+<style>
+  html,body{margin:0;height:100%;background:#0F2E27;color:#fff;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .c{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
+  .logo{font-weight:800;font-size:1.4rem}.logo em{font-style:normal;color:#FFB100}
+  .sub{color:#A9C6BB;font-size:.9rem;max-width:280px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#FFB100;animation:p 1s infinite alternate}
+  @keyframes p{to{opacity:.3}}
+</style>
+</head>
+<body>
+  <div class="c">
+    <div class="logo">Solar<em>search</em> · Installers</div>
+    <div class="dot"></div>
+    <div class="sub" id="msg">Loading…</div>
+  </div>
+  <script>
+    setTimeout(function(){ var m=document.getElementById('msg'); if(m) m.textContent='Connecting… check your signal if this stays.'; }, 6000);
+  </script>
+</body>
+</html>

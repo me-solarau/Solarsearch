@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Solarsearch for Installers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F7F9F6;--panel:#fff;--tint2:#F0F5F1;--ink:#0F2E27;--ink2:#41615A;--ink3:#6D8781;--line:#DBE5DE;--line2:#C4D5CA;--amber:#FFB100;--green:#177A53;--display:'Bricolage Grotesque',sans-serif;--body:'Instrument Sans',sans-serif;--mono:'Spline Sans Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);background:var(--ink);color:#fff;min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);-webkit-font-smoothing:antialiased}
+.wrap{max-width:460px;margin:0 auto;padding:34px 22px}
+.logo{font-family:var(--display);font-weight:800;font-size:1.3rem}
+.logo em{font-style:normal;color:var(--amber)}
+h1{font-family:var(--display);font-size:1.7rem;font-weight:700;margin:26px 0 8px}
+.lead{color:#A9C6BB;font-size:.95rem;line-height:1.5}
+.card{background:var(--panel);color:var(--ink);border-radius:16px;padding:20px;margin-top:22px}
+.btn{display:block;width:100%;border:none;border-radius:999px;font-weight:700;font-size:1rem;padding:14px;margin-top:12px;cursor:pointer;font-family:inherit}
+.btn-amber{background:var(--amber);color:var(--ink)}
+.btn-ghost{background:transparent;border:1.5px solid var(--line2);color:var(--ink)}
+.btn-ink{background:var(--ink);color:#fff}
+label{display:block;font-size:.8rem;color:var(--ink2);font-weight:600;margin:12px 0 4px}
+input,textarea{width:100%;border:1.5px solid var(--line2);border-radius:10px;padding:11px 12px;font-family:inherit;font-size:1rem;background:var(--tint2);color:var(--ink)}
+.muted{color:var(--ink3);font-size:.8rem;margin-top:10px;line-height:1.45}
+.foot{color:#6D8781;font-size:.72rem;text-align:center;margin-top:26px}
+.hide{display:none}
+.spin{text-align:center;padding:70px 0;color:#A9C6BB}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">Solar<em>search</em> · Installers</div>
+
+  <div id="loading" class="spin">Loading…</div>
+
+  <div id="gate" class="hide">
+    <h1>Installer portal</h1>
+    <div class="lead">Win pre-designed, site-verified jobs on a level board. Buy a seat only when you want to quote — no lead fees, no cold calling.</div>
+    <div class="card">
+      <button class="btn btn-ink" onclick="location.href='/login.html?next=%2Fapp-installer.html'">Sign in</button>
+      <button class="btn btn-ghost" onclick="showApply()">Apply to join as an installer</button>
+    </div>
+    <div class="muted">New here? Applying is free. We verify your accreditation and licences before you can quote.</div>
+  </div>
+
+  <div id="apply" class="hide">
+    <h1>Apply to join</h1>
+    <div class="lead">Tell us about your business. We review CEC accreditation and electrical licensing before approval.</div>
+    <div class="card">
+      <label>Company name</label><input id="fCompany" autocomplete="organization">
+      <label>ABN</label><input id="fAbn" inputmode="numeric">
+      <label>Contact name</label><input id="fName" autocomplete="name">
+      <label>Email</label><input id="fEmail" type="email" autocomplete="email">
+      <label>Mobile</label><input id="fPhone" type="tel" autocomplete="tel">
+      <label>Postcodes you install in (comma separated)</label><input id="fPostcodes" inputmode="numeric" placeholder="2324, 2290">
+      <label>Anything we should know? (optional)</label><textarea id="fMsg" rows="3"></textarea>
+      <button class="btn btn-amber" id="applyBtn" onclick="submitApply()">Submit application</button>
+      <button class="btn btn-ghost" onclick="showGate()">Back</button>
+    </div>
+  </div>
+
+  <div id="done" class="hide">
+    <h1>Application received 🎉</h1>
+    <div class="lead">Thanks — we've got it. Our team will verify your accreditation and be in touch to set up your login. You can close the app.</div>
+    <div class="card"><button class="btn btn-ink" onclick="showGate()">Done</button></div>
+  </div>
+
+  <div class="foot">Solarsearch · a Me-Solar brand · ABN 95665045465</div>
+</div>
+
+<script type="module">
+import { getSupabaseClient } from "/src/lib/supabase.js";
+import { registerNativePush } from "/src/lib/native-push.js";
+const $=id=>document.getElementById(id);
+const db=getSupabaseClient();
+
+function show(id){ ['loading','gate','apply','done'].forEach(s=>$(s).classList.toggle('hide',s!==id)); }
+window.showGate=()=>show('gate');
+window.showApply=()=>show('apply');
+
+window.submitApply=async()=>{
+  const company_name=$('fCompany').value.trim(), full_name=$('fName').value.trim();
+  const email=$('fEmail').value.trim(), phone=$('fPhone').value.trim(), abn=$('fAbn').value.trim();
+  const postcodes=$('fPostcodes').value.split(',').map(s=>s.trim()).filter(s=>/^\d{4}$/.test(s));
+  if(company_name.length<2){ alert('Please enter your company name'); return; }
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ alert('Please enter a valid email'); return; }
+  $('applyBtn').disabled=true; $('applyBtn').textContent='Submitting…';
+  const { error }=await db.from('role_applications').insert({ role:'installer', company_name, abn:abn||null, full_name, email, phone, postcodes, message:$('fMsg').value.trim()||null });
+  $('applyBtn').disabled=false; $('applyBtn').textContent='Submit application';
+  if(error){ alert('Could not submit — please try again.'); return; }
+  show('done');
+};
+
+(async()=>{
+  const { data:{ session } }=await db.auth.getSession();
+  if(session){
+    const { data:r }=await db.from('user_roles').select('role').eq('user_id',session.user.id).maybeSingle();
+    registerNativePush(db,{ onOpenPool:()=>{ location.href='/installer.html'; } }).catch(()=>{});
+    if(r&&r.role==='installer'){ location.replace('/installer.html'); return; }
+  }
+  show('gate');
+})();
+</script>
+</body>
+</html>
