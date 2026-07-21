@@ -351,7 +351,7 @@ function evToTl(e,nowMs){
 async function loadData(){
   const nowMs=Date.now();
   const { data:L, error } = await db.from('leads')
-    .select('id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,created_at,sites(ss_ref,postcode,address),customers(full_name)')
+    .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,created_at,sites(ss_ref,postcode,address),customers(full_name)')
     .order('created_at',{ascending:false});
   if(error){ toast('Load error: '+error.message); return; }
   const ids=(L||[]).map(r=>r.id);
@@ -361,20 +361,31 @@ async function loadData(){
     EV=E||[];
   }
   const byLead={}; EV.forEach(e=>{(byLead[e.lead_id]=byLead[e.lead_id]||[]).push(e);});
+  // designs / seats / quotes keyed by site_id — real pipeline state for the board
+  const { data:DS } = await db.from('designs').select('id,site_id,system_kw,battery_kwh,components,status,completed_at').order('created_at',{ascending:false});
+  const designBySite={}; (DS||[]).forEach(d=>{ if(!designBySite[d.site_id]) designBySite[d.site_id]=d; });
+  const { data:SE } = await db.from('seats').select('site_id');
+  const seatBySite={}; (SE||[]).forEach(s=>{ seatBySite[s.site_id]=(seatBySite[s.site_id]||0)+1; });
+  const { data:QU } = await db.from('quotes').select('site_id,status');
+  const quoteBySite={}; (QU||[]).forEach(q=>{ if(q.status==='on_board'||q.status==='chosen') quoteBySite[q.site_id]=(quoteBySite[q.site_id]||0)+1; });
   leads=(L||[]).map((r,ix)=>{
     const bill=r.bill_quarterly_cents?Math.round(r.bill_quarterly_cents/100):0;
     const type=r.lead_type, tl=r.timeline||'researching';
     const es=estSystem(bill,type);
     const site=r.sites||{}, cust=r.customers||{};
-    return { id:ix, uuid:r.id, ss:site.ss_ref||'—', name:cust.full_name||'(no name)',
+    const design=designBySite[r.site_id]||null;
+    return { id:ix, uuid:r.id, siteId:r.site_id, ss:site.ss_ref||'—', name:cust.full_name||'(no name)',
       suburb:(site.address||'').split(',').slice(-1)[0].trim(), pc:site.postcode||'',
       type, state:r.state, score:(r.score!=null?r.score:calcScore(bill,type,tl)),
-      bill, kw:es.kw, kwh:es.kwh, plat:r.source_platform||'organic',
+      bill, kw:(design&&design.system_kw!=null)?Number(design.system_kw):es.kw,
+      kwh:(design&&design.battery_kwh!=null)?Number(design.battery_kwh):es.kwh,
+      design, seats:seatBySite[r.site_id]||0, quotes:quoteBySite[r.site_id]||0,
+      plat:r.source_platform||'organic',
       creative:(r.utm&&r.utm.utm_campaign)||'—',
       ageH:Math.max(1,Math.round((nowMs-new Date(r.created_at).getTime())/HR)),
       timeline:tl, events:(byLead[r.id]||[]).map(e=>evToTl(e,nowMs)) };
   });
-  jobs=leads.filter(l=>['quoted','customer_chose','signed'].includes(l.state)).map(l=>({...l,seats:0,quotes:0}));
+  jobs=leads.filter(l=>['designed','quoted','customer_chose','signed'].includes(l.state));
   deals=leads.filter(l=>l.state==='signed').map(l=>({...l,installer:'—',stc:totalStc(l.kw,l.kwh),commission:totalStc(l.kw,l.kwh)*RULES.commissionPerStc,invoice:'pending'}));
   const { data:C } = await db.from('campaigns').select('name,platform,status,daily_budget_cents');
   CAMPS=(C||[]).map(c=>({name:c.name,plat:c.platform,status:c.status,spend:Math.round((c.daily_budget_cents||0)/100),leads:0,signed:0}));
@@ -493,21 +504,22 @@ async function submitNewLead(){
 function renderBoard(){
   $('boardCards').innerHTML=jobs.map(j=>{
     const stc=totalStc(j.kw,j.kwh);
+    const designState=j.design?'Complete':'Not yet designed';
+    const boardState=j.state==='designed'?'Ready for board':'On board';
     return `<div class="job">
     <div class="job-h"><div><div class="ref">${j.ss}</div><div class="addr">${j.suburb} ${j.pc}</div></div>${pill(j.state)}</div>
     <div class="job-b">
       <div class="row"><span>System</span><b>${j.kw?j.kw+' kW':''}${j.kw&&j.kwh?' + ':''}${j.kwh?j.kwh+' kWh':''}</b></div>
-      <div class="row"><span>Inspection pack</span><b>18 photos ✓</b></div>
-      <div class="row"><span>Design</span><b>Complete · 2 variants</b></div>
+      <div class="row"><span>Design</span><b>${designState}</b></div>
       <div class="row"><span>Est. STCs / commission</span><b>${stc} · ${fmt$(stc*RULES.commissionPerStc)}</b></div>
       <div class="row"><span>Seats (${j.seats}/3 · ${fmt$(j.seats*RULES.seatPrice)})</span>
         <span class="seats-dots">${[0,1,2].map(i=>`<span class="seat-dot ${i<j.seats?'full':''}"></span>`).join('')}</span></div>
     </div>
     <div class="job-f">
-      <span class="src">${j.quotes} quote${j.quotes>1?'s':''} on board</span>
+      <span class="src">${j.state==='designed'?boardState:(j.quotes+' quote'+(j.quotes===1?'':'s')+' on board')}</span>
       <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openDrawer(${j.id})">Open</button>
     </div></div>`;
-  }).join('')||'<div class="empty card">No jobs on the board yet — inspections feed this view.</div>';
+  }).join('')||'<div class="empty card">No jobs on the board yet — inspected leads become designs here.</div>';
 }
 
 /* ================= deals ================= */
@@ -676,16 +688,17 @@ function openDrawer(id){
     contacted:['View AI transcript|tx','Take over conversation|human'],
     qualified:['Book inspection|book','Sell as appointment|appt'],
     appointment_set:['Reschedule|resch','Assign consultant|consult'],
-    inspected:['Open design queue|design'],
-    designed:['Sell seats / open board|seats'],
+    inspected:['Create design|design'],
+    designed:['Open installer board|board'],
     quoted:['View customer board link|link','Nudge customer (SMS)|nudge'],
     customer_chose:['Issue proposal for e-sign|prop'],
     signed:['View signed PDF|pdf','Raise invoice|inv','Create connection application|conn'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
+  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
-    const onclick=k==='consult'?`openAssignConsultant('${l.uuid}')`:`toast('${t} — wire to API')`;
+    const onclick=ACT_FN[k]||`toast('${t} — wire to API')`;
     return `<button class="btn btn-ink btn-sm" onclick="${onclick}">${t}</button>`;
   }).join('')||'<span class="src">No actions at this stage</span>';
   $('dDetails').innerHTML=`
@@ -726,6 +739,37 @@ async function confirmAssignConsultant(leadId){
   await loadData(); renderAll(); closeDrawer();
 }
 
+/* ================= create design (inspected -> designed) ================= */
+function openDesignForm(leadId){
+  const l=leads.find(x=>x.uuid===leadId)||{};
+  const inp='width:100%;padding:9px 10px;border:1.5px solid var(--line2);border-radius:8px';
+  $('dActions').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div><label class="src">System kW</label><input id="dsKw" class="mono" style="${inp}" value="${l.kw||''}" inputmode="decimal"></div>
+      <div><label class="src">Battery kWh</label><input id="dsKwh" class="mono" style="${inp}" value="${l.kwh||''}" inputmode="decimal"></div>
+    </div>
+    <label class="src">Panel</label><input id="dsPanel" style="${inp};margin-bottom:8px" placeholder="e.g. Jinko Tiger Neo 440W">
+    <label class="src">Inverter</label><input id="dsInv" style="${inp};margin-bottom:8px" placeholder="e.g. Sungrow SH-RS">
+    <label class="src">Battery</label><input id="dsBat" style="${inp};margin-bottom:10px" placeholder="e.g. Sungrow SBR (optional)">
+    <button class="btn btn-ink btn-sm" onclick="submitDesign('${leadId}')">Save design & advance</button>`;
+}
+async function submitDesign(leadId){
+  const kw=parseFloat($('dsKw').value)||null, kwh=parseFloat($('dsKwh').value)||null;
+  const components={panel:$('dsPanel').value.trim()||null, inverter:$('dsInv').value.trim()||null, battery:$('dsBat').value.trim()||null};
+  const { error } = await db.rpc('create_design',{p_lead_id:leadId,p_system_kw:kw,p_battery_kwh:kwh,p_components:components,p_staff_id:MY_STAFF_ID});
+  if(error){ toast('Design failed: '+error.message); return; }
+  toast('Design saved — lead advanced to Designed');
+  await loadData(); renderAll(); closeDrawer();
+}
+
+/* ================= open installer board (designed -> quoted) ================= */
+async function openBoardConfirm(leadId){
+  const { error } = await db.rpc('open_board',{p_lead_id:leadId,p_staff_id:MY_STAFF_ID});
+  if(error){ toast('Could not open board: '+error.message); return; }
+  toast('Board opened — installers can now buy seats and quote');
+  await loadData(); renderAll(); closeDrawer();
+}
+
 /* ================= nav ================= */
 document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('sel'));
@@ -756,6 +800,9 @@ window.toggleNewLeadForm = toggleNewLeadForm;
 window.submitNewLead = submitNewLead;
 window.openAssignConsultant = openAssignConsultant;
 window.confirmAssignConsultant = confirmAssignConsultant;
+window.openDesignForm = openDesignForm;
+window.submitDesign = submitDesign;
+window.openBoardConfirm = openBoardConfirm;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });
