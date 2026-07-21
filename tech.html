@@ -94,6 +94,13 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
 <section class="view" id="v-jobs">
   <h1>My run sheet</h1>
   <div class="sub" id="jobsDate"></div>
+  <div class="card" id="runCard" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <b style="font-size:.9rem">Today's run</b>
+      <button class="btn btn-ghost btn-sm" onclick="calcRun()">Calculate</button>
+    </div>
+    <div id="runOut" class="sub" style="margin-top:8px">Tap Calculate for drive times and effective rate.</div>
+  </div>
   <div id="jobsList"></div>
 </section>
 
@@ -178,6 +185,7 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
 <script type="module">
 import { getSupabaseClient, SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
 import { requireRole } from "/src/lib/auth-guard.js";
+import { loadGooglePlaces } from "/src/lib/places.js";
 
 const $=id=>document.getElementById(id);
 let toastT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600)}
@@ -263,6 +271,8 @@ async function loadJobs(){
 }
 function fmtWhen(t){ return t?new Date(t).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):''; }
 function renderJobs(){
+  const scheduled=JOBS.filter(j=>['scheduled','in_progress'].includes(j.status)&&j.address);
+  $('runCard').style.display=scheduled.length?'block':'none';
   $('jobsList').innerHTML=JOBS.map(j=>{
     const loc=j.address||((j.suburb||'')+' '+(j.postcode||''));
     const when=j.status==='claimed'?('Confirm by '+fmtWhen(j.claim_expires_at)):('Visit '+fmtWhen(j.scheduled_at));
@@ -273,6 +283,46 @@ function renderJobs(){
       <div class="jactions"><button class="btn btn-ghost btn-sm" onclick="openJob('${j.assessment_id}')">Open</button></div>
     </div>`;
   }).join('')||'<div class="empty">No claimed jobs yet. Grab one from the pool.</div>';
+}
+
+/* ===== route-aware run economics (§5.2) — Google Distance Matrix, client-side ===== */
+async function calcRun(){
+  const jobs=JOBS.filter(j=>['scheduled','in_progress'].includes(j.status)&&j.address).sort((a,b)=>new Date(a.scheduled_at||0)-new Date(b.scheduled_at||0));
+  if(!jobs.length){ $('runOut').textContent='No scheduled jobs with a confirmed address yet.'; return; }
+  $('runOut').textContent='Calculating drive times…';
+  const places=await loadGooglePlaces();
+  if(!places){ $('runOut').textContent='Maps not configured — set VITE_GOOGLE_MAPS_API_KEY.'; return; }
+  let DistanceMatrixService;
+  try{ ({DistanceMatrixService}=await google.maps.importLibrary('routes')); }
+  catch(e){ $('runOut').textContent='Could not load routing.'; return; }
+  // origin = base postcode if set, else first job
+  const { data:av } = await db.from('technician_availability').select('base_postcode').eq('sales_rep_id',MY_REP_ID).maybeSingle();
+  const origin=(av&&av.base_postcode)?(av.base_postcode+' NSW, Australia'):jobs[0].address;
+  const waypoints=[origin,...jobs.map(j=>j.address)];
+  const svc=new DistanceMatrixService();
+  let res;
+  try{ res=await svc.getDistanceMatrix({origins:waypoints.slice(0,-1),destinations:waypoints.slice(1),travelMode:'DRIVING'}); }
+  catch(e){ $('runOut').textContent='Drive-time lookup failed: '+(e.message||e); return; }
+  let driveSec=0; const legs=[];
+  for(let i=0;i<jobs.length;i++){
+    const el=res.rows[i]&&res.rows[i].elements[i];
+    const sec=(el&&el.duration&&el.duration.value)||0; driveSec+=sec;
+    legs.push({to:jobs[i], text:(el&&el.duration&&el.duration.text)||'—'});
+  }
+  const visitMin=20*jobs.length, totalMin=Math.round(driveSec/60)+visitMin;
+  const feeCents=jobs.reduce((a,j)=>a+(j.fee_cents||5000),0);
+  const rate=totalMin?feeCents/100/(totalMin/60):0;
+  $('runOut').innerHTML=`
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px">
+      <span><b class="mono">${jobs.length}</b> jobs</span>
+      <span><b class="mono">${Math.round(driveSec/60)}</b> min driving</span>
+      <span><b class="mono">${fmt$(feeCents)}</b> fees</span>
+      <span style="color:${rate>=45?'var(--safe)':rate>=30?'var(--amberd)':'var(--red)'}"><b class="mono">$${rate.toFixed(0)}/hr</b> effective</span>
+    </div>
+    ${legs.map((l,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line)">
+      <span>${i===0?'Base':'Prev'} → ${l.to.ss_ref} <span style="color:var(--ink3)">${(l.to.address||'').split(',')[0]}</span></span>
+      <a href="https://maps.google.com/?q=${encodeURIComponent(l.to.address)}" target="_blank" rel="noopener" class="mono" style="color:var(--amberd);text-decoration:none">${l.text} ↗</a></div>`).join('')}
+    ${rate<30?'<div style="margin-top:8px;color:var(--red)">Low effective rate — consider releasing a job that adds a long detour.</div>':''}`;
 }
 
 function openJob(aid){
@@ -489,7 +539,7 @@ async function loadEarnings(){
 }
 
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun});
 window.$=$;
 
 (async () => {
