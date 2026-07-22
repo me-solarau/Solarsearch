@@ -137,7 +137,8 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
     <div class="earn" id="earnTotal">$0</div>
     <div class="sub" id="earnCount">0 jobs</div>
   </div>
-  <div class="sub" style="margin-top:14px">Payouts run weekly via Stripe Connect once wired. Completed = $50 ($45 while earning a company drone). No-access is a logged exception — no payout.</div>
+  <div class="sub" id="earnSuper" style="margin-top:4px"></div>
+  <div class="sub" style="margin-top:14px">Payouts run weekly via Stripe Connect once wired. Completed = $50 ($45 while earning a company drone), <b>plus 12% super</b> shown as its own line. No-access is a logged exception — no payout.</div>
   <div id="earnList"></div>
 </section>
 
@@ -911,11 +912,13 @@ async function saveAvail(){
 /* ===== earnings ===== */
 async function loadEarnings(){
   // RLS (rep_own_assessments) scopes this to the signed-in technician's rows.
-  const { data:mine } = await db.from('assessments').select('fee_cents,outcome,submitted_at').not('submitted_at','is',null).order('submitted_at',{ascending:false});
+  const { data:mine } = await db.from('assessments').select('fee_cents,super_cents,outcome,submitted_at').not('submitted_at','is',null).order('submitted_at',{ascending:false});
   const rows=mine||[];
   const total=rows.reduce((a,r)=>a+(r.fee_cents||0),0);
+  const totalSuper=rows.reduce((a,r)=>a+(r.super_cents||0),0);
   $('earnTotal').textContent=fmt$(total); $('earnCount').textContent=rows.length+' job'+(rows.length===1?'':'s');
-  $('earnList').innerHTML=rows.map(r=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><b>${(r.outcome||'').replace('_',' ')}</b><div class="sub">${r.submitted_at?new Date(r.submitted_at).toLocaleDateString('en-AU'):''}</div></div><span class="fee">${fmt$(r.fee_cents)}</span></div>`).join('');
+  $('earnSuper').innerHTML=`+ <b>${fmt$(totalSuper)}</b> super (12%)`;
+  $('earnList').innerHTML=rows.map(r=>`<div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><b>${(r.outcome||'').replace('_',' ')}</b><div class="sub">${r.submitted_at?new Date(r.submitted_at).toLocaleDateString('en-AU'):''}</div></div><div style="text-align:right"><span class="fee">${fmt$(r.fee_cents)}</span>${r.super_cents?`<div class="sub">+ ${fmt$(r.super_cents)} super</div>`:''}</div></div>`).join('');
 }
 
 /* ===== job alerts (web push, B1) ===== */

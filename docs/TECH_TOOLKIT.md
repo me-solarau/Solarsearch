@@ -57,6 +57,18 @@ s324/326 deduction rules entirely.
   nearest post office and **Solarsearch pays the postage**. No deduction, no debt, no
   out-of-pocket for anyone.
 
+### Superannuation — a specified line item (fee + 12%)
+Even a genuine sole-trader contractor is deemed an **employee for super** when the contract
+is **wholly or principally for their labour** (Superannuation Guarantee (Administration) Act
+**s12(3)**) — a regular assessment tech is exactly that. So super is owed on the labour fee,
+regardless of ABN/contractor status. We pay it as its **own line**, not baked into the rate:
+- `pricing_config.super_rate_pct` = **12%** (SG rate from 1 Jul 2025). `submit_assessment`
+  stores `assessments.super_cents = round(fee × 12%)` per job and returns/logs it.
+- So a completed job is **$50 fee + $6 super** (own drone) or **$45 + $5.40** (earning). A
+  no-access ($0) accrues $0 super. Shown to the tech as a separate "super" line in earnings.
+- Confirm with an accountant: the **base** (labour, ex-GST) and payment/reporting via a
+  super fund. This is owed even though the tech is a contractor for other purposes.
+
 ### Data model (`drone_assignments`, one per tech)
 - `source` `company_provided` | `own`; `status` `earning` | `owned` | `returned`;
   `jobs_target` (50), `jobs_done`.
