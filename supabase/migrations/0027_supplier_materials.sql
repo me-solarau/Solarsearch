@@ -81,7 +81,7 @@ values
   ('Goodwe','inverter','GDWGW15K-ETA-G20','Goodwe ETA Three Phase Inverter 15kW',1999.0000,'{"kw":15,"phase":3}',7,'https://www.goelectrical.com.au/gdwgw15k-eta-g20'),
   ('Goodwe','inverter','GDWGW15K-ET-20','Goodwe ET G2 Series 15kW Three Phase Hybrid Inverter',3432.0000,'{"kw":15,"phase":3,"hybrid":true}',3,'https://www.goelectrical.com.au/gdwgw15k-et-20'),
   ('Goodwe','inverter','GDWGW10K-ETA-G20','Goodwe ETA Three Phase Inverter 10kW (GW9.999K-ETA)',2453.3600,'{"kw":10,"phase":3}',24,'https://www.goelectrical.com.au/gdwgw10k-eta-g20'),
-  ('Goodwe','inverter','GDWGW8K-EHA-G20','Goodwe ESA Single Phase Inverter 8kW',2460.9200,'{"kw":8,"phase":1}',6,'https://www.goelectrical.com.au/gdwgw8k-eha-g20'),
+  ('Goodwe','inverter','GDWGW8K-EHA-G20','Goodwe ESA Single Phase Inverter 8kW',2460.9200,'{"kw":8,"phase":1,"price_review":true,"review_reason":"priced above the 9.99kW ESA ($1900) and 5kW ESA ($1250) - verify"}',6,'https://www.goelectrical.com.au/gdwgw8k-eha-g20'),
   ('Goodwe','inverter','GDWGW5K-EHA-G20','Goodwe ESA Single Phase Inverter 5kW',1250.0000,'{"kw":5,"phase":1}',3,'https://www.goelectrical.com.au/gdwgw5k-eha-g20'),
   -- ESY Sunhome
   ('ESY Sunhome','inverter','ESYHM6INVERTER','ESY Sunhome Single Phase Hybrid Inverter 6kW 2MPPT WiFi',2139.5200,'{"kw":6,"phase":1,"hybrid":true}',3,'https://www.goelectrical.com.au/esyhm6inverter'),
@@ -381,8 +381,9 @@ values
   ('PowerForce','conduit','REEPOWCON2550SOL','PowerForce HD Corrugated Solar Conduit 25mm x 50m (roll)',153.5789,'{}',null,'https://www.goelectrical.com.au/reepowcon2550sol'),
   ('PowerForce','conduit','REEPOWCON2050SOL','PowerForce HD Corrugated Solar Conduit 20mm x 50m (roll)',471.7800,'{}',null,'https://www.goelectrical.com.au/reepowcon2050sol'),
   -- REC panels
-  ('REC','panel','REC470AAPURE-RX','REC 470W Alpha Pure RX All Black',1410.0000,'{"watts":470}',null,'https://www.goelectrical.com.au/rec470aapure-rx'),
-  ('REC','panel','REC465AAPURE-RX','REC 465W Alpha Pure RX All Black',1395.0000,'{"watts":465}',null,'https://www.goelectrical.com.au/rec465aapure-rx'),
+  -- REC panels: listed per-EA (~$3.00/W) is a pallet/bulk price -> contact-supplier until re-quoted
+  ('REC','panel','REC470AAPURE-RX','REC 470W Alpha Pure RX All Black',null,'{"watts":470,"price_review":true,"listed_price":1410,"review_reason":"per-EA ~$3.00/W looks like a pallet/bulk price; treat as contact-supplier until re-quoted"}',null,'https://www.goelectrical.com.au/rec470aapure-rx'),
+  ('REC','panel','REC465AAPURE-RX','REC 465W Alpha Pure RX All Black',null,'{"watts":465,"price_review":true,"listed_price":1395,"review_reason":"per-EA ~$3.00/W looks like a pallet/bulk price; treat as contact-supplier until re-quoted"}',null,'https://www.goelectrical.com.au/rec465aapure-rx'),
   -- Pipemakers rigid conduit
   ('Pipemakers','conduit','PIP25SOLARCON','Pipemakers Rigid Conduit HD Solar 25mm x 4m PVC Grey',6.7000,'{}',null,'https://www.goelectrical.com.au/pip25solarcon'),
   ('Pipemakers','conduit','PIP25HDCONSOL','Pipemakers HD Solar Conduit Rigid 25mm x 4m PVC Grey',26.7700,'{}',null,'https://www.goelectrical.com.au/pip25hdconsol'),
@@ -455,7 +456,9 @@ values
   -- Staubli MC4 couplers
   ('Staubli','cable','MCS32.0017P0001','Staubli Male Cable Coupler MC4 KST4 4-6mm',10.4200,'{}',null,'https://www.goelectrical.com.au/mcs32-2e-0017p0001'),
   ('Staubli','cable','MCS32.0016P0001','Staubli Female Cable Coupler MC4 KBT4 4-6mm',11.5400,'{}',null,'https://www.goelectrical.com.au/mcs32-2e-0016p0001'),
-  ('Staubli','cable','MCS32.0015P0100','Staubli MC4 Plug 4-6mm Solar Cable (pack 100)',893.7800,'{}',null,'https://www.goelectrical.com.au/mcs32-2e-0015p0100')
+  ('Staubli','cable','MCS32.0015P0100','Staubli MC4 Plug 4-6mm Solar Cable (pack 100)',893.7800,'{}',null,'https://www.goelectrical.com.au/mcs32-2e-0015p0100'),
+  -- Matchmaster roof flashing
+  ('Matchmaster','mounting','MAT11MM-DRF100GB-A','Matchmaster Dektite Rapid Flash Antenna & Solar 6-50mm EPDM',107.8700,'{}',null,null)
 on conflict (supplier, part_no) do update set
   brand       = excluded.brand,
   category    = excluded.category,
