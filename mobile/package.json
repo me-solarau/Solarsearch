@@ -1,0 +1,22 @@
+{
+  "name": "solarsearch-mobile",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Capacitor native shell for the Solarsearch sales-tech (and installer) field apps",
+  "scripts": {
+    "copy:web": "rm -rf www && mkdir -p www/src/lib && cp ../tech.html www/index.html && cp ../src/lib/supabase.js www/src/lib/supabase.js",
+    "add:ios": "cap add ios",
+    "sync": "cap sync",
+    "open:ios": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/camera": "^6.0.0",
+    "@capacitor/geolocation": "^6.0.0",
+    "@capacitor/push-notifications": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0",
+    "@capacitor/ios": "^6.1.0"
+  }
+}

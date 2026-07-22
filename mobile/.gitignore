@@ -1,0 +1,5 @@
+# Generated / machine-specific — regenerate with the steps in README.md
+node_modules/
+www/
+ios/
+android/
