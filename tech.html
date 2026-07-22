@@ -168,11 +168,11 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
   <span class="mono" id="stSec" style="font-size:.62rem;color:var(--ink3);letter-spacing:.1em;font-weight:700"></span>
   <h1 id="stTitle" style="margin-top:2px"></h1>
   <div class="card"><div style="font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--amberd);font-weight:700;margin-bottom:6px">WHAT THIS PHOTO MUST SHOW</div><p id="stHint" style="font-size:.88rem;color:var(--ink2)"></p></div>
-  <label class="photo-zone" id="photoZone">
-    <input type="file" accept="image/*" capture="environment" id="camInput" hidden>
+  <div class="photo-zone" id="photoZone">
     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="6" width="19" height="14" rx="3" stroke="#6D8781" stroke-width="1.8"/><path d="M8.5 6l1.4-2.4h4.2L15.5 6" stroke="#6D8781" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="#6D8781" stroke-width="1.8"/></svg>
     <span>Tap to take photo</span>
-  </label>
+  </div>
+  <input type="file" accept="image/*" capture="environment" id="camInput" hidden>
   <div id="aiResult"></div>
   <textarea id="stNote" placeholder="Optional note — access constraint, asbestos suspicion, old wiring, shading…"></textarea>
   <button class="btn btn-ghost btn-block" style="margin-top:10px" onclick="markNA()">Mark this step N/A</button>
@@ -522,12 +522,12 @@ function loadStep(){
 }
 function renderPhoto(url){
   const z=$('photoZone');
-  z.innerHTML=`<input type="file" accept="image/*" capture="environment" id="camInput" hidden>`+
-    (url?`<img src="${url}" alt=""><button class="btn btn-ghost retake" style="background:#fff" onclick="event.preventDefault();$('camInput').click()">Retake</button>`
+  z.innerHTML=(url?`<img src="${url}" alt=""><button class="btn btn-ghost retake" style="background:#fff" onclick="event.preventDefault();event.stopPropagation();$('camInput').click()">Retake</button>`
         :`<svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="6" width="19" height="14" rx="3" stroke="#6D8781" stroke-width="1.8"/><path d="M8.5 6l1.4-2.4h4.2L15.5 6" stroke="#6D8781" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="#6D8781" stroke-width="1.8"/></svg><span>Tap to take photo</span>`);
   const inp=$('camInput');
   z.onclick=e=>{ if(e.target.closest('.retake'))return; inp.click(); };
-  inp.onchange=()=>uploadPhoto(inp.files[0]);
+  // capture the file, then clear value so re-selecting the same shot still fires change (iOS)
+  inp.onchange=()=>{ const f=inp.files&&inp.files[0]; inp.value=''; if(f) uploadPhoto(f); };
 }
 async function uploadPhoto(f){
   if(!f)return;
@@ -536,15 +536,16 @@ async function uploadPhoto(f){
   (capStore[s.key]=capStore[s.key]||{}).localUrl=localUrl;
   renderPhoto(localUrl);
   toast('Uploading…');
+  // GPS is best-effort and must never block the save — grab a quick cached fix.
   let lat=null,lng=null;
-  try{ const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j,{timeout:4000})); lat=p.coords.latitude; lng=p.coords.longitude; }catch(e){}
+  try{ const p=await new Promise((r,j)=>{ navigator.geolocation.getCurrentPosition(r,j,{timeout:2500,maximumAge:60000}); setTimeout(()=>j(new Error('geo timeout')),2600); }); lat=p.coords.latitude; lng=p.coords.longitude; }catch(e){}
   const path=`${curJob.assessment_id}/${s.key}-${Date.now()}.jpg`;
-  const { error:up } = await db.storage.from('assessment-photos').upload(path,f,{contentType:f.type||'image/jpeg'});
-  if(up){ toast('Upload failed: '+up.message); return; }
+  const { error:up } = await db.storage.from('assessment-photos').upload(path,f,{contentType:f.type||'image/jpeg',upsert:true});
+  if(up){ toast('Upload failed: '+up.message); renderPhoto(null); return; }
   const row={ assessment_id:curJob.assessment_id, step_key:s.key, storage_path:path, lat, lng, taken_at:new Date().toISOString(), ai_verdict:'pending', ai_reasons:[], note:$('stNote').value.trim()||null, na_reason:null };
   let rowId=(capStore[s.key]||{}).rowId;
-  if(rowId){ await db.from('assessment_photos').update(row).eq('id',rowId); }
-  else{ const { data } = await db.from('assessment_photos').insert(row).select('id').single(); rowId=data&&data.id; }
+  if(rowId){ const { error:ue } = await db.from('assessment_photos').update(row).eq('id',rowId); if(ue){ toast('Save failed: '+ue.message); return; } }
+  else{ const { data, error:ie } = await db.from('assessment_photos').insert(row).select('id').single(); if(ie){ toast('Save failed: '+ie.message); return; } rowId=data&&data.id; }
   capStore[s.key]={rowId,verdict:'pending',na:null,note:row.note,has:true,localUrl};
   $('aiResult').innerHTML='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00">Checking photo…</div>';
   const v=await validatePhoto(rowId);
