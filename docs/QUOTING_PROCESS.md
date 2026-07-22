@@ -84,6 +84,16 @@ accredited installer. They receive the full **compliant installation report** (t
 install photo set + completion report, start to finish — geotagged, hashed, locked) as their
 compliance / warranty / handover record. Same install-evidence gate as every install.
 
+**Solarsearch commission: 10%** of the job value on subcontracted work — split
+**5% charged to the retailer + 5% charged to the subcontractor**.
+
+**Auditable acceptance → submission path (required to invoice).** So Solarsearch can audit and
+invoice the commission, every subcontracted install must carry a clear, tracked path:
+- **Acceptance** — the subcontractor accepts the retailer's job (`accepted_at` + event). Starts the audit window and the 10% deposit.
+- **Submission** — `submit_install` → `install.submitted` (the full compliant report, locked + hashed) = completion.
+Solarsearch audits that evidenced acceptance→submission trail and invoices **5% to the retailer
+and 5% to the subcontractor** against it. (Distinct from the main-pipeline seat + winner fees.)
+
 ## Gaps still to build (were missing from the first pass)
 These sit between the stages above and are needed to make the pipeline complete:
 
