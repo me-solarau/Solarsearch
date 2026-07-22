@@ -560,7 +560,9 @@ function renderSiteForm(){
       ${f.opts.map(o=>`<option value="${o[0]}" ${siteData[f.key]===o[0]?'selected':''}>${o[1]}</option>`).join('')}
     </select>`).join('')+
     `<label class="f-label">Switchboard → inverter cable run (metres, walked)</label>
-     <input class="f-input mono" inputmode="decimal" value="${siteData.board_to_inverter_m||''}" onchange="setSite('board_to_inverter_m',this.value)" placeholder="e.g. 12">`;
+     <input class="f-input mono" inputmode="decimal" value="${siteData.board_to_inverter_m||''}" onchange="setSite('board_to_inverter_m',this.value)" placeholder="e.g. 12">
+     <label class="f-label">Existing inverter size (kW, 0 if none)</label>
+     <input class="f-input mono" inputmode="decimal" value="${siteData.existing_inverter_kw||''}" onchange="setSite('existing_inverter_kw',this.value)" placeholder="e.g. 5">`;
 }
 function setSite(k,v){ siteData[k]=v; }
 function isMulti(s){ return !!(s&&s.multi); }
@@ -742,6 +744,7 @@ function saveStepNext(){
 async function submitJob(){
   // persist site_data numeric coercion
   const sd={...siteData}; if(sd.board_to_inverter_m) sd.board_to_inverter_m=parseFloat(sd.board_to_inverter_m)||null;
+  if(sd.existing_inverter_kw!==undefined&&sd.existing_inverter_kw!=='') sd.existing_inverter_kw=parseFloat(sd.existing_inverter_kw)||0;
   const { data, error } = await db.rpc('submit_assessment',{p_assessment_id:curJob.assessment_id,p_outcome:'completed',p_site_data:sd});
   if(error){ toast(error.message); return; }
   $('doneMsg').textContent=`${curJob.ss_ref} · quote-ready · ${fmt$(data.fee_cents)} queued`;

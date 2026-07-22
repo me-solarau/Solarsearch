@@ -463,6 +463,8 @@ tbody tr:hover{background:var(--tint2)}
             <div><label class="src">Mounting + BOS $</label><input id="qBos" class="search mono" value="902" inputmode="decimal" style="width:100%"></div>
             <div><label class="src">DC run (m)</label><input id="qDc" class="search mono" value="10" inputmode="decimal" style="width:100%"></div>
             <div><label class="src">AC run (m)</label><input id="qAc" class="search mono" value="5" inputmode="decimal" style="width:100%"></div>
+            <div><label class="src">Existing inverter (kW)</label><input id="qExInv" class="search mono" value="" inputmode="decimal" placeholder="0" style="width:100%"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:20px"><input type="checkbox" id="qSwitch" style="width:16px;height:16px"><label class="src" for="qSwitch" style="margin:0;cursor:pointer">Switchboard upgrade</label></div>
           </div>
           <div class="field-err" id="qErr" style="margin-top:8px"></div>
           <button class="btn btn-amber btn-sm" style="margin-top:12px;width:100%" onclick="computeQuote()">⚡ Compute quote</button>
@@ -1475,7 +1477,8 @@ async function computeQuote(){
     battery_part:$('qBattery').value, battery_qty:int('qBatQty'), battery_kwh_usable:num('qBatKwh'),
     battery_modules:int('qBatModules'), battery_stacks:int('qBatStacks'),
     mounting_bos:num('qBos'), storey:int('qStorey'), phase:int('qPhase'),
-    dc_run_m:num('qDc'), ac_run_m:num('qAc') };
+    dc_run_m:num('qDc'), ac_run_m:num('qAc'),
+    existing_inverter_kw:num('qExInv'), switchboard_upgrade:$('qSwitch').checked };
   const { data, error } = await db.rpc('quote_estimate',{ p:payload });
   if(error){ $('qErr').textContent='Quote failed: '+error.message; return; }
   const j=data||{}, $$=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});
@@ -1490,6 +1493,7 @@ async function computeQuote(){
     ${row('AC run',$$(j.ac_run))}
     ${row('Battery install',$$(j.battery_install))}
     ${row('Backup wiring',$$(j.backup))}
+    ${Number(j.switchboard)>0?row('Switchboard upgrade',$$(j.switchboard)):''}
     ${row('Admin',$$(j.admin))}
     ${row('Sub-total (ex-GST)',$$(j.subtotal_exgst),true)}
     ${row('GST',$$(j.gst))}
@@ -1513,7 +1517,9 @@ async function loadQuoteFromLead(){
   if(p.phase) $('qPhase').value=String(p.phase);
   if(p.storey) $('qStorey').value=String(p.storey);
   if(p.ac_run_m!=null) $('qAc').value=p.ac_run_m;
-  toast(`Loaded ${p.ss_ref||ref} — ${p.roof||'roof?'} · ${p.phase?p.phase+'-phase':'phase?'}${p.ac_run_m!=null?' · AC '+p.ac_run_m+'m':''}`);
+  if(p.existing_inverter_kw!=null) $('qExInv').value=p.existing_inverter_kw;
+  $('qSwitch').checked=!!p.switchboard_upgrade;
+  toast(`Loaded ${p.ss_ref||ref} — ${p.roof||'roof?'} · ${p.phase?p.phase+'-phase':'phase?'}${p.ac_run_m!=null?' · AC '+p.ac_run_m+'m':''}${p.switchboard_upgrade?' · switchboard ⚠':''}`);
 }
 
 function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }
