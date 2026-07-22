@@ -71,6 +71,23 @@ from the quarterly bill and ignores what the customer entered. Derived from
 `existing` + `wants` + increment, it becomes honest (e.g. a battery-add shows
 0 new kW, not a bill-based 8.8 kW).
 
+## Inverter sizing rules (design engine must honour)
+Driven off the catalog `spec` (`kw`, `phase`, `hybrid`) + the site's phase count:
+
+- **Per-phase export cap:** DNSPs require inverter **export strictly below 10 kW
+  per phase** (some lower). This is why single-phase inverters are badged
+  **9.99 kW** — it sits *under* the <10 kW threshold and avoids export-limiting /
+  a full network study.
+  - **Single-phase site:** 9.99 kW is the practical inverter ceiling (<10 kW export).
+    More PV than that must **export-limit** or move to 3-phase.
+  - **Three-phase site:** just under 10 kW *per phase* → ~30 kW total headroom —
+    unlocks the larger 3-phase inverters (Goodwe ETA, Sungrow, SMA Tripower, Solis GC).
+- **DC oversize:** panels can exceed inverter AC rating up to the inverter's array
+  limit (typically ~133% DC:AC) with export limiting — surface this as an explicit
+  design choice, don't silently cap the array.
+- The estimate must therefore read the **site phase count** as an input, not assume
+  single-phase.
+
 ## Suggested build order
 1. **Intake** — replace the single "goal" question with two: *"What do you have
    now?"* and *"What do you want to add?"* → writes `existing` + `wants`.
