@@ -97,19 +97,32 @@ async function boot(){
     if(roleParam){ const a=APPS.find(x=>x.app===roleParam); if(a) $('authTitle').textContent='Apply — '+a.name; }
   }
 }
+function authError(error){
+  // Never surface a raw/empty object (was rendering as "{}"). Map the common cases.
+  const raw = (error && (error.message || error.error_description)) || '';
+  const msg = typeof raw === 'string' && raw.trim() ? raw : 'Something went wrong. Please try again.';
+  if(/confirmation email|sending.*email|smtp/i.test(msg) || error?.status===500)
+    return 'We couldn’t send your confirmation email right now. Please try again shortly or contact us.';
+  if(/email not confirmed/i.test(msg)) return 'Please confirm your email first — check your inbox for the link.';
+  if(/invalid login credentials/i.test(msg)) return 'Email or password is incorrect.';
+  if(/already registered|already exists/i.test(msg)) return 'That email already has an account — try Sign in.';
+  return msg;
+}
 async function doAuth(mode){
   const email=$('auEmail').value.trim(), password=$('auPass').value;
-  $('authMsg').textContent='';
+  $('authMsg').textContent=''; $('authMsg').style.color='var(--red)';
   if(!email||!password){ $('authMsg').textContent='Enter email and password.'; return; }
-  if(mode==='signup'){
-    const { data, error } = await db.auth.signUp({ email, password });
-    if(error){ $('authMsg').textContent=error.message; return; }
-    if(!data.session){ $('authMsg').style.color='var(--safe)'; $('authMsg').textContent='Account created — check your email to confirm, then Sign in here.'; return; }
-  } else {
-    const { error } = await db.auth.signInWithPassword({ email, password });
-    if(error){ $('authMsg').textContent=error.message; return; }
-  }
-  boot();
+  try{
+    if(mode==='signup'){
+      const { data, error } = await db.auth.signUp({ email, password });
+      if(error){ $('authMsg').textContent=authError(error); return; }
+      if(!data.session){ $('authMsg').style.color='var(--safe)'; $('authMsg').textContent='Account created — check your email to confirm, then Sign in here.'; return; }
+    } else {
+      const { error } = await db.auth.signInWithPassword({ email, password });
+      if(error){ $('authMsg').textContent=authError(error); return; }
+    }
+    boot();
+  }catch(e){ $('authMsg').textContent=authError(e); }
 }
 async function renderMine(){
   const { data:apps } = await db.from('access_applications').select('app,status').eq('user_id',session.user.id);
