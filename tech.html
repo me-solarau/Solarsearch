@@ -497,7 +497,7 @@ function setSite(k,v){ siteData[k]=v; }
 function renderStepList(){
   $('stepList').innerHTML=STEPS.map(s=>{
     const e=capStore[s.key]||{};
-    const chip=e.na?'<span class="chip na">N/A</span>':(e.verdict==='pass'?'<span class="chip pass">✓ PASS</span>':'<span class="chip todo">TO DO</span>');
+    const chip=e.na?'<span class="chip na">N/A</span>':(e.verdict==='pass'?(e.configured===false?'<span class="chip" style="background:var(--ambers);color:#7A5A00">⚠ UNVERIFIED</span>':'<span class="chip pass">✓ PASS</span>'):'<span class="chip todo">TO DO</span>');
     const thumb=e.has&&!e.na?'📷':(e.na?'—':'📷');
     return `<button class="step-row" onclick="openStep('${s.key}')">
       <span class="thumb">${thumb}${s.req&&!(e.verdict==='pass'||e.na)?'<span class="req"></span>':''}</span>
@@ -517,7 +517,7 @@ function loadStep(){
   $('stSec').textContent='STEP '+(curStepIx+1)+' OF '+STEPS.length+(s.req?' · REQUIRED':' · OPTIONAL');
   $('stTitle').textContent=s.title; $('stHint').textContent=s.hint;
   $('stNote').value=e.note||'';
-  $('aiResult').innerHTML=e.verdict==='pass'?'<div class="ai-note">✓ AI check passed — subject clear and legible.</div>':'';
+  $('aiResult').innerHTML=e.verdict==='pass'?(e.configured===false?'<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ Not verified</b> — AI checks are off (set ANTHROPIC_API_KEY).</div>':'<div class="ai-note">✓ AI check passed — subject clear and legible.</div>'):'';
   renderPhoto(e.localUrl);
 }
 function renderPhoto(url){
@@ -570,9 +570,11 @@ async function validatePhoto(photoId){
   }
 }
 function applyVerdict(stepKey,v){
-  const e=capStore[stepKey]||{}; e.verdict=v.verdict; capStore[stepKey]=e;
-  if(v.verdict==='pass'){
-    $('aiResult').innerHTML='<div class="ai-note">✓ AI check passed — subject clear and legible.'+(v.configured===false?' <span style="color:var(--ink3)">(auto-pass; set ANTHROPIC_API_KEY for live checks)</span>':'')+'</div>';
+  const e=capStore[stepKey]||{}; e.verdict=v.verdict; e.configured=v.configured; capStore[stepKey]=e;
+  if(v.verdict==='pass' && v.configured===false){
+    $('aiResult').innerHTML='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ Not verified</b><br>AI photo checks are OFF — this shot was accepted without being checked. Turn on validation (set ANTHROPIC_API_KEY) so wrong or unclear photos get rejected.</div>';
+  }else if(v.verdict==='pass'){
+    $('aiResult').innerHTML='<div class="ai-note">✓ AI check passed — subject clear and legible.</div>';
   }else{
     const reasons=(v.reasons||[]).map(r=>'• '+r).join('<br>')||'Try again — the shot didn\'t pass.';
     $('aiResult').innerHTML='<div class="ai-note" style="background:var(--reds);border-color:#F0C7BC;color:var(--red)"><b>Reshoot needed</b><br>'+reasons+'</div>';

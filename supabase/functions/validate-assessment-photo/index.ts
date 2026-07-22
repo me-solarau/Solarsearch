@@ -80,7 +80,16 @@ Deno.serve(async (req) => {
     const criteria = STEP_CRITERIA[photo.step_key] || "A clear, legible, well-framed photo relevant to a solar site assessment.";
     const { b64, mime } = await fetchImageBase64(admin, photo.storage_path);
 
-    const prompt = `You are the on-site photo checker for a solar site assessment. Judge ONLY this one photo for the step "${photo.step_key}".\n\nA passing photo shows: ${criteria}\n\nAlso require it to be in focus, well-lit, and not obstructed. Be practical, not pedantic — a usable field photo passes.\n\nReturn ONLY compact JSON: {"verdict":"pass"|"fail","reasons":["short plain-English reason", ...]}. On fail, give at most two reasons a tradesperson can act on immediately (e.g. "Get closer — labels not readable").`;
+    const prompt = `You are the on-site QA checker for a solar site assessment and the LAST line of defence before a design team quotes a job off these photos. Judge ONLY this one photo, for the step "${photo.step_key}".
+
+A PASS requires ALL of the following:
+1. The photo clearly shows: ${criteria}
+2. The specific items that matter for this step are actually identifiable in frame — not too far away, too dark, blurry, glared-out, or obstructed to verify.
+3. It is a genuine on-site photo of that subject. FAIL immediately if it is a screenshot, a phone/car dashboard, a person, a random indoor scene, a blank wall, a hand, or anything clearly unrelated to this step.
+
+Bias toward FAIL when unsure. A re-shoot while the technician is still on the property costs nothing; a wrong or missing detail that reaches a quote is expensive. Do not "give benefit of the doubt" — if you cannot positively verify the required subject, it is a FAIL.
+
+Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":["short plain-English reason", ...]}. On fail give at most two specific, actionable reasons in a tradesperson's words, e.g. "This looks like a car dashboard, not the front of the house — retake facing the property" or "Switchboard labels aren't legible — move closer and fill the frame".`;
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
