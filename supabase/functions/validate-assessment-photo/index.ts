@@ -105,9 +105,11 @@ This is the METER + SERVICE FUSE step. As well as the pass/fail, READ the meteri
     const isBat = photo.step_key === "battery_loc";
 
     const SCALE_REFS = `SCALE REFERENCE — use a known-size object in frame to turn pixels into millimetres, and say which one you used:
+- BEST: a tape measure or ruler held in frame — read its graduations directly, that is ground truth.
 - Australian clay brick: 230mm long x 110mm wide x 76mm high with 10mm mortar joints -> one COURSE (height) ~86mm, one brick+perpend (length) ~240mm. Count courses/bricks.
 - NSW meter board / switchboard enclosure: standard ~600 x 600mm (260mm deep); a full row of DIN breakers is ~12 poles wide.
 - Residential solar panel: newer high-output modules (~350W and up) ~1722-1762mm tall x ~1134mm wide; older ~250W modules ~1650mm tall x ~1000mm wide.
+- Vehicle: an Australian number plate is 372 x 134mm (precise); a typical car is ~4.5m long x ~1.8m wide, wheel diameter ~650mm.
 - Other: GPO power point ~115mm tall, standard door ~2040mm tall, downpipe ~90mm.`;
 
     const CLEARANCE_REQS = isBat
@@ -130,8 +132,9 @@ This is a PROPOSED ${isBat ? "BATTERY" : "INVERTER"} LOCATION step. As well as p
 ${SCALE_REFS}
 STANDARDS TO CHECK:
 ${CLEARANCE_REQS}
-Estimate the space above/below/left/right (and in front) of the marked spot in mm. If a required clearance is not there, add a short practical ADVISORY (what's tight, by roughly how much, what to do — move it, pick another wall, measure it). Advisories are FEEDBACK, not a photo failure — still PASS if the location context is clearly visible.`;
-      OBS = `,"observations":{"scale_reference":"what you measured against","est_clearances_mm":{"above":n|null,"below":n|null,"left":n|null,"right":n|null,"front":n|null},"clearance_ok":true|false|"unsure","advisories":["short plain-English feedback for the tech", ...]}`;
+Estimate the space above/below/left/right (and in front) of the marked spot in mm. If a required clearance is not there, add a short practical ADVISORY (what's tight, by roughly how much, what to do — move it, pick another wall, measure it). Advisories are FEEDBACK, not a photo failure — still PASS if the location context is clearly visible.
+CONFIDENCE / GROUND TRUTH: if the fit looks TIGHT (a required clearance is marginal) OR you cannot confidently establish scale from anything in frame, set needs_measure=true and advise the tech to add a photo with a TAPE MEASURE (or ruler) held across the tightest gap. If a tape/ruler is already visible and readable, set needs_measure=false.`;
+      OBS = `,"observations":{"scale_reference":"what you measured against","est_clearances_mm":{"above":n|null,"below":n|null,"left":n|null,"right":n|null,"front":n|null},"clearance_ok":true|false|"unsure","needs_measure":true|false,"advisories":["short plain-English feedback for the tech", ...]}`;
     } else if (photo.step_key === "existing_panels") {
       EXTRACT += `
 

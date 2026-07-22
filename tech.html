@@ -227,7 +227,7 @@ const DEFAULT_STEPS=[
   guide:'Stand back on the street or driveway, phone sideways (landscape). Fit the whole house AND its full roof in the frame. Make sure the driveway / side access is visible.'},
  {key:'roof_planes',title:'Roof planes + panel area',req:true,multi:true,max:4,
   hint:'Every roof face that could hold panels, and anything that shades or blocks them. Up to 4 photos.',
-  guide:'Add up to 4 photos — one per roof face is ideal. Drone shots are perfect here: tap "Upload photos" to add them from your camera roll. From the ground, shoot each face square-on and include chimneys, vents, skylights, aerials and any shading trees.'},
+  guide:'Add up to 4 photos — one per roof face is ideal. A drone is the preferred tool here (no ladder = safer): tap "Upload photos" to add its frames. From the ground, shoot each face square-on and include chimneys, vents, skylights, aerials and any shading trees. Use a ladder only if a drone can\'t get the shot.'},
  {key:'roof_material',title:'Roof material close-up',req:true,multi:true,max:6,
   hint:'A close shot where the exact roof material AND its condition are obvious.',
   guide:'Get as close as you safely can (zoom in from the ground is fine). Fill the frame with the roof surface so we can tell tile vs metal/Colorbond vs terracotta, and spot cracks, rust or brittle sheets.'},
@@ -536,7 +536,7 @@ async function openCapture(){
       if(p.na_reason){ e.na=p.na_reason; }
       else if(p.storage_path){
         let url=null; try{ const { data:su }=await db.storage.from('assessment-photos').createSignedUrl(p.storage_path,3600); url=su&&su.signedUrl; }catch(_){ }
-        e.photos.push({rowId:p.id,verdict:p.ai_verdict,configured:p.ai_verdict==='pass'?undefined:undefined,storage_path:p.storage_path,localUrl:url,advisories:(p.ai_observations&&p.ai_observations.advisories)||[]});
+        e.photos.push({rowId:p.id,verdict:p.ai_verdict,configured:p.ai_verdict==='pass'?undefined:undefined,storage_path:p.storage_path,localUrl:url,advisories:(p.ai_observations&&p.ai_observations.advisories)||[],needsMeasure:!!(p.ai_observations&&p.ai_observations.needs_measure)});
       }
     } else {
       capStore[p.step_key]={rowId:p.id,verdict:p.ai_verdict,na:p.na_reason,note:p.note,has:!!(p.storage_path||p.na_reason),storage_path:p.storage_path};
@@ -635,8 +635,10 @@ function renderMulti(){
   }
   const anyFail=photos.some(p=>p.verdict==='fail');
   const advs=[...new Set(photos.flatMap(p=>p.advisories||[]))];
+  const needMeasure=photos.some(p=>p.needsMeasure);
   let note=anyFail?'<div class="ai-note" style="background:var(--reds);border-color:#F0C7BC;color:var(--red)">A photo needs a reshoot — tap ✕ to remove it, then add a better one.</div>':'';
   if(advs.length) note+='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ AI site check</b><br>'+advs.map(a=>'• '+a).join('<br>')+'</div>';
+  if(needMeasure) note+='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>📏 Tight fit — measure it</b><br>Hold a tape measure across the tightest gap and add one more photo so we can lock the exact scale.<br><button class="btn btn-ink btn-sm" style="margin-top:8px" onclick="$(\'camInput\').click()">📷 Add tape-measure photo</button></div>';
   $('aiResult').innerHTML=note;
 }
 async function handleFiles(files){
@@ -671,9 +673,9 @@ async function uploadOne(f,multi){
     e.photos.push(ph);
     renderMulti(); refreshCount(); updateGate();
     const v=await validatePhoto(ph.rowId);
-    ph.verdict=v.verdict; ph.configured=v.configured; ph.advisories=(v.observations&&v.observations.advisories)||[];
+    ph.verdict=v.verdict; ph.configured=v.configured; ph.advisories=(v.observations&&v.observations.advisories)||[]; ph.needsMeasure=!!(v.observations&&v.observations.needs_measure);
     renderMulti(); refreshCount(); updateGate();
-    toast(v.verdict==='pass'?(v.configured===false?'Added — not verified':(ph.advisories.length?'Passed — check site note':'Photo passed')):'That one needs a reshoot');
+    toast(v.verdict==='pass'?(v.configured===false?'Added — not verified':(ph.needsMeasure?'Tight — add a tape-measure shot':(ph.advisories.length?'Passed — check site note':'Photo passed'))):'That one needs a reshoot');
   }else{
     renderSingle(localUrl);
     let rowId=(capStore[s.key]||{}).rowId;

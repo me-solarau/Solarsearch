@@ -171,3 +171,23 @@ estimates that ride back as advisories in the same note:
 
 All of these are **estimates for feedback/triage**, never a compliance or final-design
 call — the datasheet and the designer have the last word.
+
+**Ground-truth loop — `needs_measure`.** A single-photo estimate is only so good, so on
+the location steps when a clearance looks **tight/marginal** or the AI **can't establish
+scale**, it sets `needs_measure=true`. The app then shows a prominent **"📏 Tight fit —
+measure it"** prompt with a camera button: the tech holds a tape measure across the
+tightest gap and adds one more shot, and the AI reads the tape graduations directly
+(ground truth) instead of guessing. If a tape/ruler is already in frame it clears the flag.
+
+## Sales-tech field toolkit
+What the tech carries to make the capture (and the AI's job) reliable:
+- **A good phone camera** — the whole capture runs off it; clean glass, good light.
+- **Tape measure** — the ground-truth tool. Whenever the AI flags a tight fit
+  (`needs_measure`), a tape held across the gap beats any pixel estimate.
+- **Drone (preferred for roofs)** — gets the roof-plane and array shots without anyone
+  going up. **Removes the ladder → WHS/EHS risk reduction**; upload drone frames the same
+  way as phone photos.
+- **Ladder (least desired)** — only when a drone can't get the shot; height access is the
+  main on-site hazard, so avoid it where the drone will do.
+- **The vehicle** — parked in frame it's a coarse scale reference (AU number plate is a
+  precise 372 × 134 mm) when nothing else of known size is around.
