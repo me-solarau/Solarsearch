@@ -15,8 +15,24 @@ quoting is fast and repeatable. Revenue model at the bottom.
 | 6 | **Customer quoted** | — | `choose.html` (comparison) | — |
 | 7 | **Customer selection** | Customer | `sign.html` | `signed` |
 | 8 | **Winner fee** | me-solar | **7% of deal value (ex-GST subtotal)**, charged to the winning installer | — |
-| 9 | **Install** | Installer | install photos upload | `installed` |
-| 10 | **Job complete + reports** | HQ / installer | compliance pack, handover pack | `closed` |
+| 9 | **Install** | Installer **or subcontractor** | **installer-app photo set + completion report (MANDATORY)** | `installed` |
+| 10 | **Job complete + reports** | HQ / installer | compliance pack, handover pack, customer report | `closed` |
+
+## Install evidence — customer protection (MANDATORY GATE)
+**Every installation must produce an installer-app photo set + completion report
+before the job can move to `installed`/`closed` or the installer is paid.** This is
+the evidence trail that protects the customer against poor installations and backs
+warranty/compliance claims.
+
+- Applies to **both pipelines**:
+  1. **Installer pipeline** — the accredited installer who won the seat.
+  2. **Subcontractor pipeline** — any subcontractor the installer engages. The sub
+     captures the same photo set + report, so the quality chain holds even when
+     work is subbed out. The winning installer remains accountable for the sub's evidence.
+- Mirrors the sales-tech capture: a guided, geotagged, time-stamped photo protocol
+  (array, string/isolators, switchboard, inverter/battery install, labelling,
+  earthing, final tidy) + a signed completion report.
+- **Hard gate:** no photo set + report → no `job complete`, no payout, no report send.
 
 ## The quote engine (stage 3) — the speed-up
 `quote_estimate(payload)` prices any system instantly:
@@ -53,3 +69,7 @@ These sit between the stages above and are needed to make the pipeline complete:
 - **Compliance sign-off** — SAA design + electrical certificate.
 - **Installer payout** — deal value − seat − winner fee → payout ledger (Stripe transfer still stubbed).
 - **Structured site facts at capture** — phase, roof type, switchboard spare capacity, existing inverter kW. The quote engine currently *assumes* tin/single/3-phase; these must come from the sales-tech capture so the quote isn't a guess.
+- **Installer-app install-evidence capture (mandatory gate, both pipelines)** — the
+  guided install photo set + completion report in the installer app, for the
+  installer *and* subcontractor pipelines. Gates `job complete` + payout + report
+  send. Same AI-validated, geotagged protocol as the sales-tech capture.
