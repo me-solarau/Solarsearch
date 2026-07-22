@@ -161,7 +161,23 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
   <div id="stepList"></div>
   <div class="gate" id="capGate"></div>
   <div style="margin-top:18px"><button class="btn btn-safe btn-block" id="submitBtn" onclick="submitJob()">Submit — quote-ready</button></div>
-  <button class="btn btn-ghost btn-block" style="margin-top:10px;color:var(--ink3)" onclick="reportNoAccess()">Couldn't get access</button>
+  <button class="btn btn-ghost btn-block" style="margin-top:10px;color:var(--ink3)" onclick="openNoAccess()">Couldn't get access</button>
+</section>
+
+<!-- NO-ACCESS EXCEPTION (confirmed booking -> must be genuine + evidenced) -->
+<section class="view" id="v-noaccess">
+  <h1>Couldn't get access</h1>
+  <div class="sub">Access was confirmed, so this is a logged exception — <b>no payout</b>. To log it you must be on site (GPS is checked) and attach evidence.</div>
+  <div class="sec-h">Why couldn't you get in?</div>
+  <textarea id="naReason" placeholder="e.g. Locked gate, no-one home after calling, aggressive dog"></textarea>
+  <div class="sec-h">Evidence — required</div>
+  <div class="sub">A photo of what stopped you (locked gate / no-one home) <b>and</b> a screenshot of your call log to the customer. Each shot is geotagged.</div>
+  <div id="naGrid" style="margin-top:10px"></div>
+  <button class="btn btn-ghost btn-block" style="margin-top:10px" onclick="$('naInput').click()">📷 Add evidence photo</button>
+  <input id="naInput" type="file" accept="image/*" capture="environment" multiple style="display:none">
+  <div class="gate" id="naGate"></div>
+  <div style="margin-top:16px"><button class="btn btn-safe btn-block" id="naSubmit" onclick="submitNoAccess()" disabled>Log no-access (no payout)</button></div>
+  <button class="btn btn-ghost btn-block" style="margin-top:10px" onclick="showView('v-capture')">Back</button>
 </section>
 
 <!-- SINGLE STEP CAPTURE -->
@@ -811,16 +827,51 @@ async function submitJob(){
   $('doneMsg').textContent=`${curJob.ss_ref} · quote-ready · ${fmt$(data.fee_cents)} queued`;
   showView('v-done');
 }
-// Access is confirmed up front, so this is a logged exception (no payout) — a reason is
-// required so ops can chase the confirmation / reschedule. Not a normal outcome.
-async function reportNoAccess(){
-  const reason=prompt('Access is booked and confirmed, so this shouldn\'t happen — what stopped you? (e.g. locked gate, no-one home, dog). This is logged, no payout.','');
-  if(reason===null) return;
-  const clean=(reason||'').trim();
-  if(!clean){ toast('A reason is required'); return; }
-  const sd={...siteData, access_reason:clean};
+// Access is confirmed up front, so no-access is a logged exception (no payout). It must be
+// GENUINE: the backend requires a confirmed booking, on-site GPS (within 300 m), a reason,
+// and >=1 geotagged evidence photo. This view captures the reason + evidence.
+let naEvidence=[];
+function openNoAccess(){
+  naEvidence=[]; $('naReason').value='';
+  $('naInput').onchange=()=>{ const fs=[...($('naInput').files||[])]; $('naInput').value=''; if(fs.length) naUpload(fs); };
+  renderNa(); showView('v-noaccess');
+}
+async function naUpload(files){
+  for(const f of files){
+    if(!f) continue;
+    const localUrl=URL.createObjectURL(f); toast('Uploading…');
+    let lat=null,lng=null;
+    try{ const p=await new Promise((r,j)=>{ navigator.geolocation.getCurrentPosition(r,j,{timeout:2500,maximumAge:60000}); setTimeout(()=>j(new Error('geo timeout')),2600); }); lat=p.coords.latitude; lng=p.coords.longitude; }catch(e){}
+    if(lat===null||lng===null){ toast('Location needed for evidence — enable GPS and retry'); URL.revokeObjectURL(localUrl); continue; }
+    const path=`${curJob.assessment_id}/no_access_evidence-${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
+    const { error:up } = await db.storage.from('assessment-photos').upload(path,f,{contentType:f.type||'image/jpeg',upsert:true});
+    if(up){ toast('Upload failed: '+up.message); continue; }
+    const row={ assessment_id:curJob.assessment_id, step_key:'no_access_evidence', storage_path:path, lat, lng, taken_at:new Date().toISOString(), ai_verdict:null, na_reason:null };
+    const { data, error:ie } = await db.from('assessment_photos').insert(row).select('id').single();
+    if(ie){ toast('Save failed: '+ie.message); continue; }
+    naEvidence.push({rowId:data&&data.id, storage_path:path, localUrl}); renderNa();
+  }
+}
+function renderNa(){
+  $('naGrid').innerHTML = naEvidence.length
+    ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`+naEvidence.map(p=>`<div style="position:relative;border:2px solid var(--green);border-radius:12px;overflow:hidden;aspect-ratio:4/3;background:#0F2E27"><img src="${p.localUrl}" alt="" style="width:100%;height:100%;object-fit:cover"><span style="position:absolute;bottom:6px;left:6px;background:var(--green);color:#fff;font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:99px">📍 geotagged</span><button onclick="naRemove('${p.rowId}')" aria-label="Remove" style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:.85rem;line-height:1;cursor:pointer">✕</button></div>`).join('')+`</div>`
+    : '<div class="sub">No evidence yet.</div>';
+  const ok=naEvidence.length>=1;
+  $('naSubmit').disabled=!ok;
+  const g=$('naGate'); if(ok){ g.classList.remove('show'); } else { g.classList.add('show'); g.textContent='Add at least one geotagged evidence photo.'; }
+}
+async function naRemove(rowId){
+  const p=naEvidence.find(x=>x.rowId===rowId);
+  try{ await db.from('assessment_photos').delete().eq('id',rowId); if(p&&p.storage_path) await db.storage.from('assessment-photos').remove([p.storage_path]); }catch(_){ }
+  naEvidence=naEvidence.filter(x=>x.rowId!==rowId); renderNa();
+}
+async function submitNoAccess(){
+  const reason=$('naReason').value.trim();
+  if(!reason){ toast('Add a reason'); return; }
+  if(naEvidence.length<1){ toast('Add at least one evidence photo'); return; }
+  const sd={...siteData, access_reason:reason};
   const { data, error } = await db.rpc('submit_assessment',{p_assessment_id:curJob.assessment_id,p_outcome:'no_access',p_site_data:sd});
-  if(error){ toast(error.message); return; }
+  if(error){ toast(error.message); return; }   // backend enforces confirmation + on-site GPS + evidence
   $('doneMsg').textContent=`${curJob.ss_ref} · no access logged · reschedule via ops`;
   showView('v-done');
 }
@@ -904,7 +955,7 @@ async function toggleAlerts(){
 if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.type==='open-pool') switchTab('pool'); });
 
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,confirmMeasured,saveStepNext,submitJob,reportNoAccess,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts,removePhoto});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,confirmMeasured,saveStepNext,submitJob,openNoAccess,naRemove,submitNoAccess,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts,removePhoto});
 window.$=$;
 
 (async () => {
