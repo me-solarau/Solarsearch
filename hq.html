@@ -150,7 +150,8 @@ tbody tr:hover{background:var(--tint2)}
     <button class="nav-btn" data-page="campaigns"><span class="ic">▲</span><span class="lbl">Campaigns</span></button>
     <button class="nav-btn" data-page="vetting"><span class="ic">⚑</span><span class="lbl">Vetting</span></button>
     <button class="nav-btn" data-page="pricing"><span class="ic">$</span><span class="lbl">Supplier pricing</span></button>
-    <div class="foot">HUNTER PILOT · RULES v2026.05<br>LIVE DATA</div>
+    <button class="nav-btn" data-page="quote"><span class="ic">⚡</span><span class="lbl">Instant quote</span></button>
+    <div class="foot">HUNTER PILOT · RULES v2026.07<br>LIVE DATA</div>
   </aside>
 
   <main>
@@ -426,6 +427,46 @@ tbody tr:hover{background:var(--tint2)}
         <thead><tr><th>When</th><th>Supplier</th><th>Part no</th><th style="text-align:right">Was</th><th style="text-align:right">Now</th><th style="text-align:right">Change</th></tr></thead>
         <tbody id="driftRows"><tr><td colspan="6" style="color:var(--ink3)">No invoice-driven changes yet.</td></tr></tbody>
       </table></div>
+    </section>
+
+    <!-- ============ INSTANT QUOTE ============ -->
+    <section class="page" id="page-quote">
+      <div class="page-head">
+        <div><span class="eyebrow">Catalog × rate card × STC — live</span><h1>Instant quote</h1>
+          <div class="sub">Pick the gear, set the job, re-price instantly. Same engine validated against Pylon &amp; SimPro.</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:20px;align-items:start">
+        <!-- inputs -->
+        <div class="card" style="padding:16px">
+          <div class="eyebrow" style="margin-bottom:10px">System</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label class="src">Solar kW</label><input id="qKw" class="search mono" value="7.44" inputmode="decimal" style="width:100%"></div>
+            <div><label class="src">Panel qty</label><input id="qPanelQty" class="search mono" value="16" inputmode="numeric" style="width:100%"></div>
+            <div style="grid-column:span 2"><label class="src">Panel</label><select id="qPanel" class="search" style="width:100%"></select></div>
+            <div style="grid-column:span 2"><label class="src">Inverter</label><select id="qInverter" class="search" style="width:100%"></select></div>
+            <div><label class="src">Inverter kW</label><input id="qInvKw" class="search mono" value="15" inputmode="decimal" style="width:100%"></div>
+            <div><label class="src">Phase</label><select id="qPhase" class="search" style="width:100%"><option value="1">Single</option><option value="3" selected>Three</option></select></div>
+            <div style="grid-column:span 2"><label class="src">Battery module</label><select id="qBattery" class="search" style="width:100%"></select></div>
+            <div><label class="src">Battery qty</label><input id="qBatQty" class="search mono" value="4" inputmode="numeric" style="width:100%"></div>
+            <div><label class="src">Usable kWh</label><input id="qBatKwh" class="search mono" value="32" inputmode="decimal" style="width:100%"></div>
+            <div><label class="src">Modules</label><input id="qBatModules" class="search mono" value="4" inputmode="numeric" style="width:100%"></div>
+            <div><label class="src">Stacks</label><input id="qBatStacks" class="search mono" value="1" inputmode="numeric" style="width:100%"></div>
+          </div>
+          <div class="eyebrow" style="margin:14px 0 10px">Job</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label class="src">Roof storey</label><select id="qStorey" class="search" style="width:100%"><option value="1">Single</option><option value="2">Double</option></select></div>
+            <div><label class="src">Mounting + BOS $</label><input id="qBos" class="search mono" value="902" inputmode="decimal" style="width:100%"></div>
+            <div><label class="src">DC run (m)</label><input id="qDc" class="search mono" value="10" inputmode="decimal" style="width:100%"></div>
+            <div><label class="src">AC run (m)</label><input id="qAc" class="search mono" value="5" inputmode="decimal" style="width:100%"></div>
+          </div>
+          <div class="field-err" id="qErr" style="margin-top:8px"></div>
+          <button class="btn btn-amber btn-sm" style="margin-top:12px;width:100%" onclick="computeQuote()">⚡ Compute quote</button>
+        </div>
+        <!-- result -->
+        <div class="card" id="qResult" style="padding:18px;min-height:200px">
+          <div style="color:var(--ink3)">Pick the gear and press <b>Compute quote</b>.</div>
+        </div>
+      </div>
     </section>
   </main>
 </div>
@@ -1405,7 +1446,57 @@ async function buildRfq(){
 }
 function copyRfq(){ const t=$('rfqText'); t.select(); (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(()=>toast('RFQ copied')).catch(()=>{document.execCommand('copy');toast('RFQ copied');}); }
 
-function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing(); }
+/* ===================== INSTANT QUOTE ===================== */
+async function renderQuote(){
+  const cats={panel:'qPanel',inverter:'qInverter',battery:'qBattery'};
+  for(const [cat,el] of Object.entries(cats)){
+    const { data } = await db.from('supplier_materials').select('part_no,brand,description,unit_price')
+      .eq('category',cat).not('unit_price','is',null).order('unit_price');
+    const seen={}, opts=[];
+    (data||[]).forEach(r=>{ if(seen[r.part_no])return; seen[r.part_no]=1;
+      opts.push(`<option value="${escP(r.part_no)}">${escP(r.brand||'')} · ${escP((r.description||r.part_no).slice(0,54))} — $${Number(r.unit_price).toFixed(0)}</option>`);
+    });
+    if($(el)) $(el).innerHTML=opts.join('');
+  }
+  const setSel=(id,val)=>{ const el=$(id); if(el&&[...el.options].some(o=>o.value===val)) el.value=val; };
+  setSel('qPanel','AIKO-A465-MAH54Mb'); setSel('qInverter','GW-GW15K-ETA-G20'); setSel('qBattery','GDWGW8.3-BAT-D-G20');
+}
+async function computeQuote(){
+  $('qErr').textContent='';
+  const num=id=>parseFloat($(id).value)||0, int=id=>parseInt($(id).value)||0;
+  const payload={
+    solar_kw:num('qKw'), panel_part:$('qPanel').value, panel_qty:int('qPanelQty'),
+    inverter_part:$('qInverter').value, inverter_qty:1, inverter_kw:num('qInvKw'),
+    battery_part:$('qBattery').value, battery_qty:int('qBatQty'), battery_kwh_usable:num('qBatKwh'),
+    battery_modules:int('qBatModules'), battery_stacks:int('qBatStacks'),
+    mounting_bos:num('qBos'), storey:int('qStorey'), phase:int('qPhase'),
+    dc_run_m:num('qDc'), ac_run_m:num('qAc') };
+  const { data, error } = await db.rpc('quote_estimate',{ p:payload });
+  if(error){ $('qErr').textContent='Quote failed: '+error.message; return; }
+  const j=data||{}, $$=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});
+  const row=(l,v,b)=>`<tr><td style="${b?'font-weight:700':''}">${l}</td><td style="text-align:right;${b?'font-weight:700':''}" class="mono">${v}</td></tr>`;
+  $('qResult').innerHTML=`
+   <div class="eyebrow" style="margin-bottom:8px">Quote — ${payload.solar_kw} kW · ${payload.battery_kwh_usable} kWh</div>
+   <table><tbody>
+    ${row('Materials cost',$$(j.materials_cost))}
+    ${row('Materials sell (+'+j.margin_pct+'%)',$$(j.materials_sell))}
+    ${row('Solar labour',$$(j.solar_labour))}
+    ${row('DC run',$$(j.dc_run))}
+    ${row('AC run',$$(j.ac_run))}
+    ${row('Battery install',$$(j.battery_install))}
+    ${row('Backup wiring',$$(j.backup))}
+    ${row('Admin',$$(j.admin))}
+    ${row('Sub-total (ex-GST)',$$(j.subtotal_exgst),true)}
+    ${row('GST',$$(j.gst))}
+    ${row('STC ('+j.stc_solar+' solar + '+j.stc_battery+' battery @ $'+j.stc_price+')','− '+$$(j.stc_rebate))}
+   </tbody></table>
+   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px;padding-top:12px;border-top:2px solid var(--line2)">
+     <div><div class="eyebrow">Customer total (incl GST)</div><div style="font-size:1.7rem;font-weight:800;font-family:var(--display)">${$$(j.total_incl_gst)}</div></div>
+     <div style="text-align:right"><div class="eyebrow">Material profit</div><div class="mono" style="color:#177A53;font-weight:700;font-size:1.05rem">${$$(j.material_profit)}</div></div>
+   </div>`;
+}
+
+function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }
 async function boot(){ await loadData(); renderAll(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
 
@@ -1433,6 +1524,7 @@ window.cancelInvoice = cancelInvoice;
 window.applyInvoice = applyInvoice;
 window.buildRfq = buildRfq;
 window.copyRfq = copyRfq;
+window.computeQuote = computeQuote;
 window.openAssignConsultant = openAssignConsultant;
 window.confirmAssignConsultant = confirmAssignConsultant;
 window.openDesignForm = openDesignForm;
