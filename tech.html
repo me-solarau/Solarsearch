@@ -229,8 +229,8 @@ const DEFAULT_STEPS=[
   hint:'Every roof face that could hold panels, and anything that shades or blocks them. Up to 4 photos.',
   guide:'Add up to 4 photos — one per roof face is ideal. A drone is the preferred tool here (no ladder = safer): tap "Upload photos" to add its frames. From the ground, shoot each face square-on and include chimneys, vents, skylights, aerials and any shading trees. Use a ladder only if a drone can\'t get the shot.'},
  {key:'roof_material',title:'Roof material close-up',req:true,multi:true,max:6,
-  hint:'A close shot where the exact roof material AND its condition are obvious.',
-  guide:'Get as close as you safely can (zoom in from the ground is fine). Fill the frame with the roof surface so we can tell tile vs metal/Colorbond vs terracotta, and spot cracks, rust or brittle sheets.'},
+  hint:'Usually auto-read from your roof shots — only needed if they don\'t show the material/condition clearly.',
+  guide:'The AI normally reads the roof material and condition straight off your roof-plane shots, and this step auto-completes when it can. If it can\'t (too far, glare), grab a close-up here: zoom from the ground is fine, or a drone frame. Fill the frame with the roof surface so tile vs metal/Colorbond vs terracotta and any cracks, rust or brittle sheets are obvious.'},
  {key:'board_closed',title:'Switchboard — door closed',req:true,multi:true,max:6,
   hint:'The whole switchboard in its surroundings, door shut.',
   guide:'Step back about 1.5 m so you capture the whole board, the wall it\'s on, its height off the ground, and any meters next to it. Door closed for this one.'},
@@ -575,9 +575,22 @@ function measureOutstanding(e){
   const ps=(e&&e.photos)||[];
   return ps.some(p=>p.needsMeasure===true) && !ps.some(p=>p.needsMeasure===false) && !(e&&e.measuredNote);
 }
+// Roof material close-up is DERIVED: if the wider roof-plane shots let the AI
+// confirm both material and condition (needs_closeup=false), a separate close-up
+// isn't required — keeps quick visits fast. Only when the planes can't establish
+// it do we require the close-up (so it stops getting skipped).
+function roofConfirmedFromPlanes(){
+  const ps=((capStore['roof_planes']||{}).photos)||[];
+  return ps.some(p=>p.obs&&p.obs.needs_closeup===false);
+}
+function roofCloseupNeeded(){ return !roofConfirmedFromPlanes(); }
 function stepDone(s){
   const e=capStore[s.key]||{};
   if(e.na) return true;
+  if(s.key==='roof_material'){
+    const has=!!(e.photos&&e.photos.length&&e.photos.every(p=>p.verdict==='pass'));
+    return has || !roofCloseupNeeded();
+  }
   if(isMulti(s)) return !!(e.photos&&e.photos.length&&e.photos.every(p=>p.verdict==='pass')) && !measureOutstanding(e);
   return e.verdict==='pass';
 }
@@ -586,6 +599,9 @@ function renderStepList(){
     const e=capStore[s.key]||{};
     let chip;
     if(e.na) chip='<span class="chip na">N/A</span>';
+    else if(s.key==='roof_material' && !(e.photos&&e.photos.length) && stepDone(s)){
+      chip='<span class="chip pass">✓ FROM ROOF SHOTS</span>';
+    }
     else if(isMulti(s)){
       const n=(e.photos||[]).length;
       if(!n) chip='<span class="chip todo">TO DO</span>';
@@ -652,6 +668,11 @@ function renderMulti(){
   const outstanding=measureOutstanding(capStore[s.key]||{});
   if(needMeasure&&outstanding) note+='<div class="ai-note" style="background:var(--reds);border-color:#F0C7BC;color:var(--red)"><b>📏 Required — measure it before you leave</b><br>This spot is tight. We can\'t return for a second visit, so lock it now: hold a tape across the tightest gap and add one more photo. If the tape won\'t read on camera, tap "Log measurement" and type the mm.<br><button class="btn btn-ink btn-sm" style="margin-top:8px" onclick="$(\'camInput\').click()">📷 Add tape-measure photo</button> <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="confirmMeasured()">✔ Log measurement</button></div>';
   else if(capStore[s.key]&&capStore[s.key].measuredNote) note+='<div class="ai-note"><b>📏 Measured on site:</b> '+capStore[s.key].measuredNote+'</div>';
+  if(s.key==='roof_material'&&!photos.length){
+    note+=roofCloseupNeeded()
+      ? '<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>Roof unclear from the roof shots</b><br>The material/condition couldn\'t be confirmed from the roof-plane photos — add a close-up (zoom from the ground is fine, or a drone frame) so we don\'t need a second visit.</div>'
+      : '<div class="ai-note"><b>✓ Roof read from your roof shots</b> — material &amp; condition confirmed, so a separate close-up is optional. Add one only if the roof looks worn.</div>';
+  }
   $('aiResult').innerHTML=note;
 }
 async function handleFiles(files){
