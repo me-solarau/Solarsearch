@@ -24,7 +24,8 @@ export default defineConfig({
         login: resolve(__dirname, 'login.html'),
         join: resolve(__dirname, 'join.html'),
         apply: resolve(__dirname, 'apply.html'),
-        install: resolve(__dirname, 'install.html')
+        install: resolve(__dirname, 'install.html'),
+        stripereturn: resolve(__dirname, 'stripe-return.html')
       }
     }
   }

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solarsearch · Payments setup</title>
+<meta name="theme-color" content="#0F2E27">
+<style>
+:root{--paper:#F6F9F7;--panel:#FFFFFF;--ink:#0F2E27;--ink2:#41615A;--line:#DBE5DE;--safe:#177A53;--amber:#FFB100}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--paper);color:var(--ink);display:grid;place-items:center;min-height:100vh;padding:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px;max-width:440px;text-align:center}
+h1{font-size:1.3rem;margin-bottom:8px}
+.sub{color:var(--ink2);font-size:.92rem;line-height:1.55}
+.badge{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;font-size:1.6rem}
+.ok{background:#E2F2EA;color:var(--safe)}.wait{background:#FFF3D6;color:#7A5A00}
+.btn{display:inline-block;margin-top:18px;background:var(--ink);color:#fff;text-decoration:none;font-weight:700;border-radius:10px;padding:11px 18px}
+</style>
+</head>
+<body>
+<div class="card" id="card"><div class="sub">Loading…</div></div>
+<script>
+const done = new URLSearchParams(location.search).get('state') === 'done';
+document.getElementById('card').innerHTML = done
+  ? `<div class="badge ok">✓</div><h1>Payment details received</h1>
+     <div class="sub">Thanks — Stripe is reviewing your account. Once it's verified you'll be able to
+     receive milestone payments (deposit, completion and STC). You can close this page.</div>
+     <a class="btn" href="/login.html">Back to sign in</a>`
+  : `<div class="badge wait">↻</div><h1>Setup not finished</h1>
+     <div class="sub">Your Stripe onboarding wasn't completed. Reopen the setup link from your app to
+     finish adding your business and bank details.</div>
+     <a class="btn" href="/login.html">Back to sign in</a>`;
+</script>
+</body>
+</html>
