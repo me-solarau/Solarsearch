@@ -213,5 +213,7 @@ Full toolkit + drone financing + CASA legals: **`docs/TECH_TOOLKIT.md`**. In sho
 - **Tape measure** — ground-truth tool for the `needs_measure` gate.
 - **The vehicle** — reaches jobs; also a coarse scale reference (AU plate 372 × 134 mm).
 
-The drone is required kit like a car+licence is for a rideshare driver; Solarsearch fronts
-it and the tech repays **$5/job** until it's theirs (`drone_loans`).
+The drone is required kit like a car+licence is for a rideshare driver. Solarsearch can
+provide one, earned out via a **rate differential** (own-drone tech $50/job; company-drone
+tech $45 for the first 50 jobs, then the drone is theirs and the rate is $50) — no pay
+deduction. Details + legals in `docs/TECH_TOOLKIT.md`.

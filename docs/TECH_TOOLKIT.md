@@ -38,64 +38,48 @@ Non-compliance is enforced: CASA on-the-spot fines up to **$1,650/offence**, cou
 `drone_registered = true`, a current `casa_accreditation` (not past `casa_accred_expiry`),
 and a current police check. An approved/active tech must be kit-ready.
 
-## The framing: drone = condition, finance = optional privilege
-- **Having a drone is a CONDITION of engagement** — the tech's own obligation, like a
-  rideshare driver's car. They may **supply their own drone**; `tech_kit_ready()` checks the
-  kit, never the loan. Meeting the condition is on the tech.
-- **Solarsearch's financial assistance is an OPTIONAL PRIVILEGE** the tech may take up to
-  help meet that obligation — they get an asset they own outright once repaid, and can
-  decline it and buy their own instead.
+## Drone earn-to-own — a RATE DIFFERENTIAL, not a deduction
+Having a drone is a **condition of engagement** (the tech's obligation — they may supply
+their own; `tech_kit_ready()` checks the kit). Solarsearch can provide one, earned out via a
+**rate differential** — deliberately NOT a pay deduction, which sidesteps the Fair Work
+s324/326 deduction rules entirely.
 
-This framing puts the repayment on the right side of the law: a **voluntary opt-in, for the
-tech's own benefit (they end up owning the drone), revocable** — which is what Fair Work
-**s324** requires — rather than the employer deducting for its own tool (the risky pattern
-struck down in *AEU v State of Victoria*).
+| Tech | Completed-job rate | Drone |
+|------|--------------------|-------|
+| **Own drone** | **$50** from day one | already theirs |
+| **Company drone, first 50 completed jobs** | **$45** | company-owned |
+| **Company drone, after 50 completed jobs** | **$50** | **becomes theirs** |
 
-## ⚠️ Still get legal sign-off (not legal advice)
-The framing is much stronger, but before any deduction runs:
-- Capture a **written, voluntary authorisation** from the tech (s324) — the system records
-  it (`authorised_at`, `authorisation_ref`) and a deduction runs ONLY when it's present and
-  not revoked. The tech can **revoke** any time; deductions stop immediately and the residual
-  becomes an ordinary debt settled off-ledger (not a forced deduction).
-- Confirm the deduction is **reasonable** and the drone is genuinely optional (own-drone
-  accepted) so it isn't caught by s325/326.
-- **Check any applicable award/agreement** — some restrict requiring employees to supply or
-  pay for equipment.
-- Confirm the tech's **classification** (employee vs contractor) — it drives super, leave,
-  workers' comp and sham-contracting risk (s357), not just this deduction.
-  - *Uber precedent:* Australian Uber drivers are **independent contractors** (Fair Work
-    Ombudsman 2019; FWC *Gupta* 2020), and since 26 Aug 2024 also **"employee-like workers"**
-    — still contractors for tax/most law, but the FWC can set minimum standards. **The label
-    doesn't decide it** — the *real substance* of the relationship does (Fair Work Act s15AA):
-    control over how/when work is done, financial risk, who supplies tools, integration.
-    Our model (assigned "grab" jobs, mandated capture process, required kit, pay deductions)
-    carries employee-leaning factors, so don't assume "like Uber = contractor." Get it
-    confirmed before scaling.
-- **Safest fallback** if in doubt: a **company-OWNED loaner** (Solarsearch keeps title, tech
-  returns it on exit, no deduction) — sidesteps s324/326 entirely.
+- The $5 lower rate is effectively a **tool allowance** the own-drone tech receives — a
+  recognised, lawful concept — not money taken out of the company-drone tech's pay.
+- 50 × $5 = $250 recoups the ~$209 drone (DJI Neo) with a small buffer.
+- **Stop before earning it out?** The tech posts the (still company-owned) drone back from the
+  nearest post office and **Solarsearch pays the postage**. No deduction, no debt, no
+  out-of-pocket for anyone.
 
-**Design guard:** `drone_loan_accrue()` deducts ONLY when an *active* loan carries a live,
-recorded authorisation (`deduction_authorised = true` + `authorised_at`). Creating the loan
-and setting the authorisation IS the opt-in — do it only after a lawyer-cleared, signed
-agreement. No authorisation (or revoked) = no deduction.
+### Data model (`drone_assignments`, one per tech)
+- `source` `company_provided` | `own`; `status` `earning` | `owned` | `returned`;
+  `jobs_target` (50), `jobs_done`.
+- `drone_job_rate(rep)` → 4500 while `earning`, else 5000 (read-only, for UI/preview).
+- `submit_assessment` bills a **completed** job at $45 while `earning` and advances
+  `jobs_done`; the 50th job is still $45, then `status` flips to `owned` (drone is theirs)
+  and job 51+ bills $50. `no_access` stays $25; only completed jobs count toward the 50.
+- `drone_assignment_return(rep)` (admin) marks a stopped earn-out `returned`. An `owned`
+  drone is theirs and can't be recalled. Tech can read their own row (RLS `drone_assign_own`).
 
-## Drone financing — optional assistance, repaid per job
-If the tech takes up the assistance, Solarsearch fronts the drone once-off (e.g. **DJI Neo
-~$209**) so cost is never the barrier. Repayment is a small per-job amount, not an up-front hit:
-- **`drone_loans`** row: `principal_cents` (what we paid), `per_job_cents` (**$5 = 500c**
-  default), `paid_cents`, `status`, plus the authorisation (`deduction_authorised`,
-  `authorised_at`, `authorisation_ref`).
-- Admin records the signed, voluntary authorisation via `drone_loan_set_authorisation(loan,
-  true, ref)`; the tech can revoke (admin sets it `false`) and deductions stop at once.
-- On every **billable job** (`completed`/`no_access`), `submit_assessment` calls
-  `drone_loan_accrue()` which — **only if the authorisation is live** — deducts **$5** toward
-  the balance and logs it on the event trail (`drone_repay_cents`). At $5/job a $209 drone
-  clears in ~42 jobs.
-- When `paid_cents` reaches the principal the loan flips to **`paid`** — **the drone is
-  theirs.**
-- **If they stop taking jobs:** the outstanding balance (`principal − paid`) is payable, or
-  the drone is returned to Solarsearch (`status = 'returned'`). One active loan per tech
-  (enforced by a partial unique index).
-
-This is a **ledger accrual** — it tracks what's owed vs repaid; the actual money nets in
-the tech's payout. The tech can read their own loan (RLS `drone_loans_own`).
+## ✅ Why this is the cleaner legal footing (still get sign-off)
+No wage deduction happens anywhere, so the s324/326 deduction problem is avoided. Remaining
+checks for the lawyer:
+- **Minimum wage / award:** the $45 completed-job rate must still meet the applicable minimum
+  for the time worked (a ~10–20 min job at $45 clears it comfortably) — confirm against the
+  relevant award, and that a differential/own-tools allowance is permitted under it.
+- **Asset transfer (after 50 jobs):** giving the tech the ~$209 drone is a minor,
+  work-related benefit — likely FBT-exempt (minor benefits < $300 / work-related item), but
+  confirm.
+- **Classification (employee vs contractor):** still the big one — drives super, leave,
+  workers' comp, sham-contracting risk (s357). *Uber precedent:* Australian Uber drivers are
+  **independent contractors**, and since 26 Aug 2024 also **"employee-like workers"** (FWC can
+  set minimum standards). **The label doesn't decide it** — the real substance does (Fair Work
+  Act s15AA: control, financial risk, who supplies tools, integration). Our control factors
+  (assigned "grab" jobs, mandated process, required kit) lean employee, so confirm before
+  scaling.
