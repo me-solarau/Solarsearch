@@ -69,13 +69,14 @@ Prices are kept current automatically by the **invoice inbox loop** (`ingest-inv
 ## Payment milestones (job value)
 Payment is released in three milestones against the job:
 - **10% deposit** on **job acceptance** (installer/subcontractor accepts the job).
-- **60%** on the **day of completion** — gated by the mandatory install evidence
-  (`submit_install`: full photo set + completion report, locked + hashed).
+- **60%** on **completion** — **completion is defined as the installer submitting the install
+  evidence in the app** (`submit_install`): full photo set + completion report, locked + hashed.
+  There is no "completion" without that submission — it's the single, hard-gated trigger.
 - **30%** on **STC verification** (certificates confirmed/created).
 
-These map to system events: acceptance → deposit; `install.submitted` (status `installed`)
-→ 60%; STC verification → final 30%. The payment rails (Stripe) are still stubbed — this is
-the schedule to implement.
+These map to system events: acceptance → deposit; **`submit_install` → `install.submitted`
+(status `installed`, `installs.submitted_at` set) → 60%**; STC verification → final 30%. The
+payment rails (Stripe) are still stubbed — this is the schedule to implement.
 
 ## Retailer subcontract pipeline
 A **retailer** has sold their own job and subcontracts the **installation** to a Solarsearch
