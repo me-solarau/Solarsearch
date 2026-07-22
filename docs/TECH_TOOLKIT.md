@@ -82,10 +82,39 @@ checks for the lawyer:
 - **Asset transfer (after 50 jobs):** giving the tech the ~$209 drone is a minor,
   work-related benefit — likely FBT-exempt (minor benefits < $300 / work-related item), but
   confirm.
-- **Classification (employee vs contractor):** still the big one — drives super, leave,
-  workers' comp, sham-contracting risk (s357). *Uber precedent:* Australian Uber drivers are
-  **independent contractors**, and since 26 Aug 2024 also **"employee-like workers"** (FWC can
-  set minimum standards). **The label doesn't decide it** — the real substance does (Fair Work
-  Act s15AA: control, financial risk, who supplies tools, integration). Our control factors
-  (assigned "grab" jobs, mandated process, required kit) lean employee, so confirm before
-  scaling.
+- **Classification (employee vs contractor):** still the big one — see the engagement model below.
+
+## Engagement model: sole-trader contractors
+Chosen structure: each tech is a **genuine sole-trader contractor** — holds their own **ABN**,
+signs **contractor terms & conditions**, and **invoices** Solarsearch per job (the $45/$50
+rate is a contractor fee, not wages). Onboarding gate (`tech_kit_ready`) now requires `abn` +
+accepted terms (`contractor_terms_at`) on top of drone + CASA + police check.
+
+### ⚠️ The trap: an ABN + a signed contract do NOT make someone a contractor
+Both the **ATO** and **Fair Work** apply a **whole-of-relationship test** — no single factor
+(not the ABN, not the contract wording, not invoicing) decides it. If the *substance* looks
+like employment, they're an employee regardless, and mislabelling is **sham contracting**
+(Fair Work s357; up to $16,500/$82,500 per contravention). And status can **differ by regime**:
+a worker can be a contractor for tax/super (ATO **TR 2023/4**) yet an employee for Fair Work
+(**s15AA**), so both must be checked — **super may be owed even on a genuine ABN contractor.**
+
+**Where our model already leans contractor:** they supply their own tools (drone/phone),
+pay is **result-based per job** (invoiced via ABN, not hourly), they carry **commercial risk**
+(no drone → lower rate; no leave/super safety net), and they **choose** which jobs to grab and
+set their own availability.
+
+**Where it leans employee — needs care:** the capture app **mandates the process** (control),
+there's **no delegation** (they must do it personally), and to the customer they **represent
+Solarsearch** (integration). To support genuine contractor status: frame the photo protocol as
+the **deliverable/output spec** (what to hand over), not minute-to-minute control; allow a
+qualified substitute where practical; and make it real that they can work for others.
+
+### The $45/year business-name fee — you probably don't need to pay it
+A sole trader trading under **their own name** needs **no business-name registration ($0)**.
+The **$45/yr (or $104/3yr)** ASIC fee only applies if they trade under a *different* name. So
+covering it is usually **unnecessary** — most techs operate as their own name + ABN. Offer it
+only if a tech genuinely wants a registered business name; don't budget it for everyone.
+
+**Get a lawyer/accountant to draft the T&Cs and confirm the whole-of-relationship supports
+contractor status** (and the super position) before scaling — the paperwork is necessary but
+not sufficient.
