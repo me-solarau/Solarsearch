@@ -190,7 +190,7 @@ function renderJob(){
     const done=e.na||e.photos.length;
     const chip=e.na?'<span class="chip na">N/A</span>':(e.photos.length?`<span class="chip pass">✓ ${e.photos.length}</span>`:'<span class="chip todo">TO DO</span>');
     const tiles=e.photos.map(p=>`<div class="thumb">${p.localUrl?`<img src="${p.localUrl}">`:''}<span class="b" style="background:var(--safe);color:#fff">📍</span><button class="x" onclick="rmPhoto('${st.key}','${p.rowId}')">✕</button></div>`).join('');
-    return `<div class="card"><div class="row"><b>${esc(st.title)}${required?'':' <span class="sub">(optional)</span>':''}</b>${chip}</div>
+    return `<div class="card"><div class="row"><b>${esc(st.title)}${required?'':' <span class="sub">(optional)</span>'}</b>${chip}</div>
       ${e.na?`<div class="sub" style="margin-top:6px">N/A — ${esc(e.na)}</div>`:`<div class="grid">${tiles}</div>`}
       <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-sm" onclick="pick('${st.key}')">📷 Add photo</button>${required?'':`<button class="btn btn-sm" onclick="markNA('${st.key}')">Mark N/A</button>`}</div></div>`;
   };

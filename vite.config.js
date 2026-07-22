@@ -19,8 +19,12 @@ export default defineConfig({
         pack: resolve(__dirname, 'pack.html'),
         solarsafe: resolve(__dirname, 'solarsafe.html'),
         privacy: resolve(__dirname, 'privacy.html'),
+        appprivacy: resolve(__dirname, 'app-privacy.html'),
         collection: resolve(__dirname, 'collection-notice.html'),
-        login: resolve(__dirname, 'login.html')
+        login: resolve(__dirname, 'login.html'),
+        join: resolve(__dirname, 'join.html'),
+        apply: resolve(__dirname, 'apply.html'),
+        install: resolve(__dirname, 'install.html')
       }
     }
   }
