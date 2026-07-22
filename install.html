@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Solarsearch Installer</title>
+<meta name="theme-color" content="#0F2E27">
+<style>
+:root{
+  --paper:#F6F9F7;--panel:#FFFFFF;--tint:#E8F1EA;--tint2:#F0F5F1;
+  --ink:#0F2E27;--ink2:#41615A;--ink3:#6D8781;--line:#DBE5DE;--line2:#C4D5CA;
+  --amber:#FFB100;--amberd:#DE8F00;--ambers:#FFF3D6;--safe:#177A53;--safes:#E2F2EA;--red:#C2452D;--reds:#FBEAE6;
+  --body:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;--mono:ui-monospace,Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 env(safe-area-inset-bottom)}
+button{font-family:inherit;cursor:pointer}
+.top{position:sticky;top:0;background:var(--ink);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;z-index:5}
+.top b{font-size:1rem}
+.wrap{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin-bottom:4px}
+.sub{color:var(--ink2);font-size:.88rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.btn{border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:10px;padding:10px 14px;font-weight:600;font-size:.9rem}
+.btn-block{display:block;width:100%}
+.btn-ink{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn-safe{background:var(--safe);color:#fff;border-color:var(--safe)}
+.btn-amber{background:var(--amber);color:#3a2c00;border-color:var(--amber)}
+.btn-sm{padding:7px 11px;font-size:.82rem}
+.btn:disabled{opacity:.5}
+.chip{font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:.02em}
+.chip.todo{background:var(--tint);color:var(--ink3)}
+.chip.pass{background:var(--safes);color:var(--safe)}
+.chip.na{background:#EEE;color:#777}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}
+.thumb{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:4/3;background:#0F2E27}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb .x{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px}
+.thumb .b{position:absolute;bottom:4px;left:4px;font-size:.55rem;font-weight:700;padding:2px 6px;border-radius:99px}
+.gate{display:none;background:var(--reds);color:var(--red);border:1px solid #F0C7BC;border-radius:10px;padding:10px;font-size:.82rem;margin:10px 0}
+.gate.show{display:block}
+.note{background:var(--ambers);border:1px solid #F2D48A;color:#7A5A00;border-radius:10px;padding:10px;font-size:.82rem;margin:8px 0}
+label.f{display:block;font-size:.78rem;color:var(--ink2);margin:10px 0 4px}
+input.f,textarea.f,select.f{width:100%;border:1px solid var(--line2);border-radius:10px;padding:9px;font-family:inherit;font-size:.9rem}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:99px;font-size:.85rem;opacity:0;transition:opacity .2s;z-index:20}
+.toast.show{opacity:1}
+.view{display:none}.view.active{display:block}
+</style>
+</head>
+<body>
+<div class="top"><b>Solarsearch · Installer</b><span id="who" class="sub" style="color:#9fc3b7;margin-left:auto"></span></div>
+
+<div class="wrap">
+  <!-- LIST -->
+  <section class="view active" id="v-list">
+    <h1>Your installs</h1>
+    <div class="sub">Every install needs a full photo set + completion report before it counts. Evidence is geotagged, hashed and locked.</div>
+    <div id="list" style="margin-top:14px"></div>
+  </section>
+
+  <!-- JOB -->
+  <section class="view" id="v-job">
+    <button class="btn btn-sm" onclick="showView('v-list')" style="margin-bottom:12px">← All installs</button>
+    <h1 id="jobAddr">Install</h1>
+    <div class="sub" id="jobMeta"></div>
+    <div id="queueBanner" class="note" style="display:none"></div>
+    <div id="jobBody"></div>
+  </section>
+
+  <!-- REPORT -->
+  <section class="view" id="v-report">
+    <button class="btn btn-sm" onclick="openInstall(curId)" style="margin-bottom:12px">← Back</button>
+    <h1>Completion report</h1>
+    <div class="sub">Sign off the install. This is required to complete the job.</div>
+    <div class="card" style="margin-top:12px">
+      <label class="f">System commissioned & tested</label>
+      <select id="rCommissioned" class="f"><option value="yes">Yes — tested & operational</option><option value="no">No</option></select>
+      <label class="f">Export / DNSP settings applied</label>
+      <select id="rExport" class="f"><option value="yes">Yes</option><option value="na">N/A</option><option value="no">No</option></select>
+      <label class="f">Customer walkthrough / handover done</label>
+      <select id="rHandover" class="f"><option value="yes">Yes</option><option value="no">No</option></select>
+      <label class="f">Notes / anything the customer should know</label>
+      <textarea id="rNotes" class="f" rows="3" placeholder="Optional"></textarea>
+      <label class="f">Installer declaration — full name</label>
+      <input id="rSignName" class="f" placeholder="I declare the install is complete and compliant">
+    </div>
+    <div class="gate" id="rGate"></div>
+    <button class="btn btn-safe btn-block" id="rSubmit" onclick="submitInstall()">Submit completion</button>
+  </section>
+
+  <!-- DONE -->
+  <section class="view" id="v-done">
+    <div class="card" style="text-align:center;padding:40px 20px">
+      <div style="font-size:2.4rem">✅</div>
+      <h1 id="doneMsg">Install complete</h1>
+      <div class="sub">Evidence locked. Handover pack follows.</div>
+      <button class="btn btn-ink btn-block" style="margin-top:18px" onclick="boot()">Back to installs</button>
+    </div>
+  </section>
+</div>
+
+<input id="fileInput" type="file" accept="image/*" capture="environment" multiple style="display:none">
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { getSupabaseClient } from "/src/lib/supabase.js";
+import { requireRole } from "/src/lib/auth-guard.js";
+const db=getSupabaseClient();
+const $=id=>document.getElementById(id);
+let MY_INSTALLER_ID=null, curId=null, curInstall=null, activeStep=null;
+let store={};  // step_key -> {photos:[{rowId,localUrl,storage_path,queued}], na}
+
+const REQUIRED=[
+ {key:'array',title:'Panel array on roof'},
+ {key:'isolators',title:'String / DC isolators'},
+ {key:'switchboard',title:'Switchboard + breakers'},
+ {key:'inverter',title:'Inverter installed'},
+ {key:'labelling',title:'Labelling & signage'},
+ {key:'earthing',title:'Earthing'},
+ {key:'final_tidy',title:'Final tidy / make good'},
+];
+const OPTIONAL=[{key:'battery_install',title:'Battery installed (mark N/A if none)'}];
+const STEPS=[...REQUIRED,...OPTIONAL];
+
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function showView(id){ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); $(id).classList.add('active'); window.scrollTo({top:0}); }
+async function sha256Hex(f){ try{ const h=await crypto.subtle.digest('SHA-256', await f.arrayBuffer()); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join(''); }catch(e){ return null; } }
+function getGPS(){ return new Promise(res=>{ if(!navigator.geolocation) return res([null,null]); navigator.geolocation.getCurrentPosition(p=>res([p.coords.latitude,p.coords.longitude]),()=>res([null,null]),{timeout:4000,maximumAge:60000}); }); }
+
+/* ---- offline queue (same idea as the tech app) ---- */
+const IDB='ss_install',STORE='q';
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open(IDB,1); r.onupgradeneeded=()=>{ if(!r.result.objectStoreNames.contains(STORE)) r.result.createObjectStore(STORE,{keyPath:'id',autoIncrement:true}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function idbTx(m){ return idbOpen().then(d=>d.transaction(STORE,m).objectStore(STORE)); }
+async function qAdd(it){ const s=await idbTx('readwrite'); return new Promise((res,rej)=>{ const rq=s.add(it); rq.onsuccess=()=>res(); rq.onerror=()=>rej(rq.error); }); }
+async function qAll(){ const s=await idbTx('readonly'); return new Promise((res,rej)=>{ const rq=s.getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
+async function qDel(id){ const s=await idbTx('readwrite'); return new Promise((res,rej)=>{ const rq=s.delete(id); rq.onsuccess=()=>res(); rq.onerror=()=>rej(rq.error); }); }
+async function queueBanner(){ let n=0; try{ n=(await qAll()).length; }catch(e){} const el=$('queueBanner'); if(!el) return; if(n){ el.style.display='block'; el.textContent=`⚠ ${n} photo${n===1?'':'s'} saved offline — will upload when signal returns.`; } else el.style.display='none'; }
+async function pushItem(it){
+  const path=`install/${it.install_id}/${it.step_key}-${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
+  const { error:up }=await db.storage.from('assessment-photos').upload(path,it.blob,{contentType:(it.blob&&it.blob.type)||'image/jpeg',upsert:true});
+  if(up) throw new Error(up.message);
+  const row={ install_id:it.install_id, step_key:it.step_key, storage_path:path, lat:it.lat, lng:it.lng, taken_at:it.taken_at, sha256:it.sha256, bytes:it.bytes, na_reason:null };
+  const { data, error:ie }=await db.from('install_photos').insert(row).select('id').single();
+  if(ie) throw new Error(ie.message);
+  return { rowId:data&&data.id, storage_path:path };
+}
+let flushing=false;
+async function flush(){ if(flushing||!navigator.onLine) return; flushing=true; try{ let items=[]; try{items=await qAll();}catch(e){return;} for(const it of items){ try{ await pushItem(it); await qDel(it.id); }catch(e){ break; } } await queueBanner(); if(curId) openInstall(curId); } finally{ flushing=false; } }
+window.addEventListener('online',flush); setInterval(flush,30000);
+
+/* ---- data ---- */
+async function loadInstalls(){
+  const { data } = await db.from('installs').select('id,status,pipeline,leads(sites(ss_ref,address,postcode))').in('status',['scheduled','in_progress']).order('created_at',{ascending:false});
+  const rows=data||[];
+  $('list').innerHTML = rows.length ? rows.map(i=>{
+    const s=(i.leads&&i.leads.sites)||{}; const addr=[s.address,s.postcode].filter(Boolean).join(' ');
+    return `<div class="card"><div class="row"><div><b>${esc(addr||s.ss_ref||'Install')}</b><div class="sub">${s.ss_ref||''} · ${i.status.replace('_',' ')}${i.pipeline==='subcontractor'?' · sub':''}</div></div><button class="btn btn-ink btn-sm" onclick="openInstall('${i.id}')">Open</button></div></div>`;
+  }).join('') : '<div class="card sub">No installs assigned yet.</div>';
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function openInstall(id){
+  curId=id; store={};
+  const { data:i } = await db.from('installs').select('id,status,pipeline,start_gps,lead_id,leads(sites(ss_ref,address,postcode))').eq('id',id).maybeSingle();
+  if(!i){ toast('Install not found'); return; }
+  curInstall=i;
+  const s=(i.leads&&i.leads.sites)||{};
+  $('jobAddr').textContent=[s.address,s.postcode].filter(Boolean).join(' ')||s.ss_ref||'Install';
+  $('jobMeta').textContent=`${s.ss_ref||''} · ${i.status.replace('_',' ')}${i.pipeline==='subcontractor'?' · subcontractor':''}`;
+  const { data:ph } = await db.from('install_photos').select('id,step_key,storage_path,na_reason').eq('install_id',id);
+  const paths=(ph||[]).filter(p=>p.storage_path).map(p=>p.storage_path); const urlMap={};
+  if(paths.length){ const { data:su } = await db.storage.from('assessment-photos').createSignedUrls(paths,3600); (su||[]).forEach(x=>{ if(x.path&&x.signedUrl) urlMap[x.path]=x.signedUrl; }); }
+  (ph||[]).forEach(p=>{ const e=store[p.step_key]=store[p.step_key]||{photos:[],na:null}; if(p.na_reason) e.na=p.na_reason; else if(p.storage_path) e.photos.push({rowId:p.id,storage_path:p.storage_path,localUrl:urlMap[p.storage_path]}); });
+  $('fileInput').onchange=()=>{ const fs=[...($('fileInput').files||[])]; $('fileInput').value=''; if(fs.length) addPhotos(fs); };
+  await queueBanner();
+  renderJob();
+  showView('v-job');
+}
+
+function renderJob(){
+  const i=curInstall;
+  if(i.status==='scheduled'){
+    $('jobBody').innerHTML=`<div class="card"><b>Start the install</b><div class="sub">Logs your on-site GPS attendance. Required before capture.</div><button class="btn btn-safe btn-block" style="margin-top:12px" onclick="startInstall()">📍 Start install on site</button></div>`;
+    return;
+  }
+  const card=(st,required)=>{
+    const e=store[st.key]||{photos:[],na:null};
+    const done=e.na||e.photos.length;
+    const chip=e.na?'<span class="chip na">N/A</span>':(e.photos.length?`<span class="chip pass">✓ ${e.photos.length}</span>`:'<span class="chip todo">TO DO</span>');
+    const tiles=e.photos.map(p=>`<div class="thumb">${p.localUrl?`<img src="${p.localUrl}">`:''}<span class="b" style="background:var(--safe);color:#fff">📍</span><button class="x" onclick="rmPhoto('${st.key}','${p.rowId}')">✕</button></div>`).join('');
+    return `<div class="card"><div class="row"><b>${esc(st.title)}${required?'':' <span class="sub">(optional)</span>':''}</b>${chip}</div>
+      ${e.na?`<div class="sub" style="margin-top:6px">N/A — ${esc(e.na)}</div>`:`<div class="grid">${tiles}</div>`}
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-sm" onclick="pick('${st.key}')">📷 Add photo</button>${required?'':`<button class="btn btn-sm" onclick="markNA('${st.key}')">Mark N/A</button>`}</div></div>`;
+  };
+  const missing=REQUIRED.filter(st=>{ const e=store[st.key]||{photos:[],na:null}; return !(e.na||e.photos.length); });
+  $('jobBody').innerHTML =
+    REQUIRED.map(st=>card(st,true)).join('') + OPTIONAL.map(st=>card(st,false)).join('') +
+    (missing.length?`<div class="gate show">${missing.length} required step${missing.length>1?'s':''} still need a photo.</div>`:'') +
+    `<button class="btn btn-safe btn-block" ${missing.length?'disabled':''} onclick="showView('v-report')" style="margin-top:8px">Continue to completion report →</button>`;
+}
+
+async function startInstall(){
+  const [lat,lng]=await getGPS();
+  const { error } = await db.rpc('start_install',{p_install:curId,p_lat:lat,p_lng:lng});
+  if(error){ toast(error.message); return; }
+  toast('Install started — attendance logged'); openInstall(curId);
+}
+function pick(stepKey){ activeStep=stepKey; $('fileInput').click(); }
+async function addPhotos(files){
+  const stepKey=activeStep; if(!stepKey) return;
+  for(const f of files){
+    if(!f) continue;
+    const localUrl=URL.createObjectURL(f); toast('Uploading…');
+    const [lat,lng]=await getGPS(); const sha256=await sha256Hex(f);
+    const it={ install_id:curId, step_key:stepKey, lat, lng, sha256, bytes:f.size, taken_at:new Date().toISOString(), blob:f };
+    let res=null;
+    if(navigator.onLine){ try{ res=await pushItem(it); }catch(e){ res=null; } }
+    const e=store[stepKey]=store[stepKey]||{photos:[],na:null}; e.na=null;
+    if(res){ e.photos.push({rowId:res.rowId,storage_path:res.storage_path,localUrl}); }
+    else { try{ await qAdd(it); }catch(e2){} e.photos.push({rowId:null,queued:true,localUrl}); await queueBanner(); toast('Saved offline'); }
+    renderJob();
+  }
+}
+async function rmPhoto(stepKey,rowId){
+  const e=store[stepKey]; if(!e) return;
+  if(rowId&&rowId!=='null'){ const p=e.photos.find(x=>String(x.rowId)===String(rowId)); try{ await db.from('install_photos').delete().eq('id',rowId); if(p&&p.storage_path) await db.storage.from('assessment-photos').remove([p.storage_path]); }catch(_){ } }
+  e.photos=e.photos.filter(x=>String(x.rowId)!==String(rowId)); renderJob();
+}
+async function markNA(stepKey){
+  const reason=prompt('Why is this step N/A? (e.g. no battery in this system)',''); if(reason===null) return;
+  const row={ install_id:curId, step_key:stepKey, storage_path:null, na_reason:reason||'N/A' };
+  try{ const { error } = await db.from('install_photos').insert(row); if(error){ toast(error.message); return; } }catch(e){ toast('Save failed'); return; }
+  store[stepKey]={photos:[],na:row.na_reason}; renderJob();
+}
+async function submitInstall(){
+  const name=$('rSignName').value.trim();
+  if(!name){ const g=$('rGate'); g.className='gate show'; g.textContent='Add your name to the declaration.'; return; }
+  const report={ commissioned:$('rCommissioned').value, export_settings:$('rExport').value, handover:$('rHandover').value, notes:$('rNotes').value.trim()||null, declared_by:name, declared_at:new Date().toISOString() };
+  const { data, error } = await db.rpc('submit_install',{p_install:curId,p_report:report});
+  if(error){ const g=$('rGate'); g.className='gate show'; g.textContent=error.message; return; }  // backend enforces photo set + GPS + report
+  $('doneMsg').textContent='Install complete'; showView('v-done');
+}
+
+async function boot(){ await loadInstalls(); showView('v-list'); }
+Object.assign(window,{showView,openInstall,startInstall,pick,rmPhoto,markNA,submitInstall,boot});
+window.$=$;
+
+(async()=>{
+  const auth=await requireRole(['installer'],{ loginPage:'/login.html' });
+  if(!auth) return;
+  const { data:me } = await db.from('installers').select('*').eq('user_id',auth.session.user.id).maybeSingle();
+  if(me){ MY_INSTALLER_ID=me.id; $('who').textContent=me.company_name||me.contact_name||me.full_name||me.name||''; }
+  await boot(); flush();
+})();
+</script>
+</body>
+</html>
