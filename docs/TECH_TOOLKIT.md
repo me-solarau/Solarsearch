@@ -63,7 +63,8 @@ s324/326 deduction rules entirely.
 - `drone_job_rate(rep)` → 4500 while `earning`, else 5000 (read-only, for UI/preview).
 - `submit_assessment` bills a **completed** job at $45 while `earning` and advances
   `jobs_done`; the 50th job is still $45, then `status` flips to `owned` (drone is theirs)
-  and job 51+ bills $50. `no_access` stays $25; only completed jobs count toward the 50.
+  and job 51+ bills $50. `no_access` is a **$0 logged exception** (access is confirmed up
+  front — see below), and only completed jobs count toward the 50.
 - `drone_assignment_return(rep)` (admin) marks a stopped earn-out `returned`. An `owned`
   drone is theirs and can't be recalled. Tech can read their own row (RLS `drone_assign_own`).
 

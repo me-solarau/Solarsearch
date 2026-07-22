@@ -137,7 +137,7 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
     <div class="earn" id="earnTotal">$0</div>
     <div class="sub" id="earnCount">0 jobs</div>
   </div>
-  <div class="sub" style="margin-top:14px">Payouts run weekly via Stripe Connect once wired. Completed = $50, no-access = $25.</div>
+  <div class="sub" style="margin-top:14px">Payouts run weekly via Stripe Connect once wired. Completed = $50 ($45 while earning a company drone). No-access is a logged exception — no payout.</div>
   <div id="earnList"></div>
 </section>
 
@@ -161,6 +161,7 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
   <div id="stepList"></div>
   <div class="gate" id="capGate"></div>
   <div style="margin-top:18px"><button class="btn btn-safe btn-block" id="submitBtn" onclick="submitJob()">Submit — quote-ready</button></div>
+  <button class="btn btn-ghost btn-block" style="margin-top:10px;color:var(--ink3)" onclick="reportNoAccess()">Couldn't get access</button>
 </section>
 
 <!-- SINGLE STEP CAPTURE -->
@@ -810,6 +811,19 @@ async function submitJob(){
   $('doneMsg').textContent=`${curJob.ss_ref} · quote-ready · ${fmt$(data.fee_cents)} queued`;
   showView('v-done');
 }
+// Access is confirmed up front, so this is a logged exception (no payout) — a reason is
+// required so ops can chase the confirmation / reschedule. Not a normal outcome.
+async function reportNoAccess(){
+  const reason=prompt('Access is booked and confirmed, so this shouldn\'t happen — what stopped you? (e.g. locked gate, no-one home, dog). This is logged, no payout.','');
+  if(reason===null) return;
+  const clean=(reason||'').trim();
+  if(!clean){ toast('A reason is required'); return; }
+  const sd={...siteData, access_reason:clean};
+  const { data, error } = await db.rpc('submit_assessment',{p_assessment_id:curJob.assessment_id,p_outcome:'no_access',p_site_data:sd});
+  if(error){ toast(error.message); return; }
+  $('doneMsg').textContent=`${curJob.ss_ref} · no access logged · reschedule via ops`;
+  showView('v-done');
+}
 
 /* ===== availability (§5.1 window-offering source) ===== */
 const DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
@@ -890,7 +904,7 @@ async function toggleAlerts(){
 if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.type==='open-pool') switchTab('pool'); });
 
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,confirmMeasured,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts,removePhoto});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,confirmMeasured,saveStepNext,submitJob,reportNoAccess,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts,removePhoto});
 window.$=$;
 
 (async () => {
