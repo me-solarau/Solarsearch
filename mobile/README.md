@@ -22,6 +22,10 @@ TestFlight (inspector, voya), so the org account + workflow are in place.
   accepted). This satisfies "acknowledge T&C before acceptance can be granted".
 - **In-app account deletion** (Apple G5.1.1(v)) — a "Delete my account" action exists in
   `tech.html`, `install.html` and `apply.html` (`request_account_deletion`).
+- **Privacy policy** — `app-privacy.html` (host at `/app-privacy.html`; separate from the
+  consumer `privacy.html`). Fill the `[bracketed]` fields before submitting.
+- **App Store metadata + privacy-label answers** — `mobile/APP_STORE_METADATA.md` (copy-paste
+  into App Store Connect; includes the demo-login note so review isn't blocked at the access gate).
 
 ## Build steps (on a Mac)
 ```bash
