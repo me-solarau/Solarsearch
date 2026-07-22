@@ -382,7 +382,10 @@ values
   ('PowerForce','conduit','REEPOWCON2050SOL','PowerForce HD Corrugated Solar Conduit 20mm x 50m (roll)',471.7800,'{}',null,'https://www.goelectrical.com.au/reepowcon2050sol'),
   -- REC panels
   ('REC','panel','REC470AAPURE-RX','REC 470W Alpha Pure RX All Black',1410.0000,'{"watts":470}',null,'https://www.goelectrical.com.au/rec470aapure-rx'),
-  ('REC','panel','REC465AAPURE-RX','REC 465W Alpha Pure RX All Black',1395.0000,'{"watts":465}',null,'https://www.goelectrical.com.au/rec465aapure-rx')
+  ('REC','panel','REC465AAPURE-RX','REC 465W Alpha Pure RX All Black',1395.0000,'{"watts":465}',null,'https://www.goelectrical.com.au/rec465aapure-rx'),
+  -- Pipemakers rigid conduit
+  ('Pipemakers','conduit','PIP25SOLARCON','Pipemakers Rigid Conduit HD Solar 25mm x 4m PVC Grey',6.7000,'{}',null,'https://www.goelectrical.com.au/pip25solarcon'),
+  ('Pipemakers','conduit','PIP25HDCONSOL','Pipemakers HD Solar Conduit Rigid 25mm x 4m PVC Grey',26.7700,'{}',null,'https://www.goelectrical.com.au/pip25hdconsol')
 on conflict (supplier, part_no) do update set
   brand       = excluded.brand,
   category    = excluded.category,
