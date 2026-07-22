@@ -706,6 +706,11 @@ async function handleFiles(files){
     await uploadOne(files[0],false);
   }
 }
+// SHA-256 of the image bytes, captured at upload so any later swap is detectable.
+async function sha256Hex(f){
+  try{ const h=await crypto.subtle.digest('SHA-256', await f.arrayBuffer());
+       return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join(''); }catch(e){ return null; }
+}
 async function uploadOne(f,multi){
   if(!f)return;
   const s=STEPS[curStepIx];
@@ -713,10 +718,11 @@ async function uploadOne(f,multi){
   toast('Uploading…');
   let lat=null,lng=null;
   try{ const p=await new Promise((r,j)=>{ navigator.geolocation.getCurrentPosition(r,j,{timeout:2500,maximumAge:60000}); setTimeout(()=>j(new Error('geo timeout')),2600); }); lat=p.coords.latitude; lng=p.coords.longitude; }catch(e){}
+  const sha256=await sha256Hex(f);
   const path=`${curJob.assessment_id}/${s.key}-${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
   const { error:up } = await db.storage.from('assessment-photos').upload(path,f,{contentType:f.type||'image/jpeg',upsert:true});
   if(up){ toast('Upload failed: '+up.message); return; }
-  const row={ assessment_id:curJob.assessment_id, step_key:s.key, storage_path:path, lat, lng, taken_at:new Date().toISOString(), ai_verdict:'pending', ai_reasons:[], note:$('stNote').value.trim()||null, na_reason:null };
+  const row={ assessment_id:curJob.assessment_id, step_key:s.key, storage_path:path, lat, lng, taken_at:new Date().toISOString(), sha256, bytes:f.size, ai_verdict:'pending', ai_reasons:[], note:$('stNote').value.trim()||null, na_reason:null };
   if(multi){
     const { data, error:ie } = await db.from('assessment_photos').insert(row).select('id').single();
     if(ie){ toast('Save failed: '+ie.message); return; }
@@ -844,10 +850,11 @@ async function naUpload(files){
     let lat=null,lng=null;
     try{ const p=await new Promise((r,j)=>{ navigator.geolocation.getCurrentPosition(r,j,{timeout:2500,maximumAge:60000}); setTimeout(()=>j(new Error('geo timeout')),2600); }); lat=p.coords.latitude; lng=p.coords.longitude; }catch(e){}
     if(lat===null||lng===null){ toast('Location needed for evidence — enable GPS and retry'); URL.revokeObjectURL(localUrl); continue; }
+    const sha256=await sha256Hex(f);
     const path=`${curJob.assessment_id}/no_access_evidence-${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
     const { error:up } = await db.storage.from('assessment-photos').upload(path,f,{contentType:f.type||'image/jpeg',upsert:true});
     if(up){ toast('Upload failed: '+up.message); continue; }
-    const row={ assessment_id:curJob.assessment_id, step_key:'no_access_evidence', storage_path:path, lat, lng, taken_at:new Date().toISOString(), ai_verdict:null, na_reason:null };
+    const row={ assessment_id:curJob.assessment_id, step_key:'no_access_evidence', storage_path:path, lat, lng, taken_at:new Date().toISOString(), sha256, bytes:f.size, ai_verdict:null, na_reason:null };
     const { data, error:ie } = await db.from('assessment_photos').insert(row).select('id').single();
     if(ie){ toast('Save failed: '+ie.message); continue; }
     naEvidence.push({rowId:data&&data.id, storage_path:path, localUrl}); renderNa();
