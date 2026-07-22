@@ -9,12 +9,13 @@
 :root{--paper:#F6F9F7;--panel:#FFFFFF;--tint:#E8F1EA;--ink:#0F2E27;--ink2:#41615A;--ink3:#6D8781;--line:#DBE5DE;--line2:#C4D5CA;--amber:#FFB100;--ambers:#FFF3D6;--safe:#177A53;--safes:#E2F2EA;--red:#C2452D;--reds:#FBEAE6;--body:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--body);background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5}
-.top{position:sticky;top:0;background:var(--ink);color:#fff;padding:14px 16px;font-weight:700}
+.top{position:sticky;top:0;background:var(--ink);color:#fff;padding:14px 16px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.top .sub{color:#9fc3b7;font-size:.8rem;font-weight:400}
 .wrap{max-width:640px;margin:0 auto;padding:16px}
 h1{font-size:1.4rem;margin-bottom:4px}h2{font-size:1.05rem;margin:2px 0}
 .sub{color:var(--ink2);font-size:.88rem}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
-.btn{border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:10px;padding:10px 14px;font-weight:600;font-size:.9rem}
+.btn{border:1px solid var(--line2);background:var(--panel);color:var(--ink);border-radius:10px;padding:10px 14px;font-weight:600;font-size:.9rem;cursor:pointer}
 .btn-block{display:block;width:100%}.btn-ink{background:var(--ink);color:#fff;border-color:var(--ink)}.btn-safe{background:var(--safe);color:#fff;border-color:var(--safe)}
 .btn:disabled{opacity:.5}
 .pill{font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:99px}
@@ -25,25 +26,39 @@ input.f{width:100%;border:1px solid var(--line2);border-radius:10px;padding:9px;
 .terms b{color:var(--ink)}
 .ack{display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:.85rem}
 .ack input{width:18px;height:18px;margin-top:2px}
-.hide{display:none}
+.hide{display:none}.row{display:flex;gap:8px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:99px;font-size:.85rem;opacity:0;transition:opacity .2s;z-index:20}
 .toast.show{opacity:1}
 </style>
 </head>
 <body>
-<div class="top">Solarsearch · Access</div>
+<div class="top"><span>Solarsearch · Access</span><span class="sub" id="who"></span></div>
 <div class="wrap">
-  <h1>Apply for app access</h1>
-  <div class="sub">Access to the Solarsearch field apps is by application. You must acknowledge the Terms &amp; Conditions; access is granted after review.</div>
+  <h1>Apply for access</h1>
+  <div class="sub">Access to the Solarsearch apps and partner network is by application. You must acknowledge the Terms &amp; Conditions; access is granted after review.</div>
 
-  <div id="mine"></div>
+  <!-- AUTH (shown when not signed in) -->
+  <div id="authPanel" class="card hide" style="margin-top:14px">
+    <h2 id="authTitle">Create your account</h2>
+    <div class="sub">Sign in, or create an account to apply. You'll use the same login for your app once approved.</div>
+    <label class="f">Email</label><input class="f" id="auEmail" type="email" autocomplete="email">
+    <label class="f">Password</label><input class="f" id="auPass" type="password" autocomplete="current-password">
+    <div class="row" style="margin-top:14px">
+      <button class="btn btn-safe" style="flex:1" onclick="doAuth('signup')">Create account</button>
+      <button class="btn" style="flex:1" onclick="doAuth('signin')">Sign in</button>
+    </div>
+    <div class="sub" id="authMsg" style="margin-top:10px;color:var(--red)"></div>
+  </div>
 
-  <div id="apps"></div>
-
-  <div class="card" style="border-color:#F0C7BC">
-    <h2>Delete my account</h2>
-    <div class="sub">Permanently request deletion of your account and access. This deactivates you immediately; data is erased by our team.</div>
-    <button class="btn btn-block" style="margin-top:12px;color:var(--red);border-color:#F0C7BC" onclick="deleteAccount()">Delete my account</button>
+  <!-- APPLICATIONS (shown when signed in) -->
+  <div id="signedIn" class="hide">
+    <div id="mine"></div>
+    <div id="apps"></div>
+    <div class="card" style="border-color:#F0C7BC">
+      <h2>Delete my account</h2>
+      <div class="sub">Permanently request deletion of your account and access. This deactivates you immediately; data is erased by our team.</div>
+      <button class="btn btn-block" style="margin-top:12px;color:var(--red);border-color:#F0C7BC" onclick="deleteAccount()">Delete my account</button>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -52,48 +67,74 @@ input.f{width:100%;border:1px solid var(--line2);border-radius:10px;padding:9px;
 import { getSupabaseClient } from "/src/lib/supabase.js";
 const db=getSupabaseClient();
 const $=id=>document.getElementById(id);
-function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2400); }
+const roleParam=new URLSearchParams(location.search).get('role');
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-const INTEGRITY = `<b>Integrity.</b> All work must be captured honestly and on site. Photos are geotagged, hashed and locked after submission. <b>Dishonesty, tampering or fraud results in immediate suspension and/or a permanent ban from the app</b>, and fees for affected jobs may be withheld or reversed.`;
+// Role terms — describe obligations + integrity; NO pay/fee figures (those are in the
+// engagement/partner agreement provided after acceptance).
+const INTEGRITY = `<b>Integrity.</b> All work must be captured honestly and on site. Evidence is geotagged, hashed and locked after submission. <b>Dishonesty, tampering or fraud results in immediate suspension and/or a permanent ban.</b>`;
 const APPS=[
   { app:'sales_tech', ref:'tech-tc-v1', name:'Sales Technician', desc:'Book, attend and photo-capture solar site assessments.',
-    terms:`Engaged as an <b>independent contractor</b> (sole trader, own ABN). You must hold and keep current a sub-250g drone + the CASA legals to fly it for work, a phone, and a police check. <b>You must never climb or access a roof</b> — capture is ground / drone / satellite only. Completed job $50 (or $45 while earning a company drone), <b>plus 12% super</b> as its own line; no-access visits are $0 and must be genuine (confirmed booking, on-site GPS, evidence). `+INTEGRITY },
+    terms:`Engaged as an <b>independent contractor</b> (sole trader, own ABN). You must hold and keep current a sub-250g drone + the CASA legals to fly it for work, a phone, and a police check. <b>You must never climb or access a roof</b> — capture is ground / drone / satellite only. No-access visits must be genuine (confirmed booking, on-site GPS, evidence). Per-job rates, superannuation and any equipment arrangements are set out in your engagement agreement. `+INTEGRITY },
   { app:'installer', ref:'installer-tc-v1', name:'Installer', desc:'Complete installs and capture the mandatory install evidence + completion report.',
-    terms:`Accredited installer engagement. Every install requires the full guided photo set + a signed completion report before it is complete or paid; you remain accountable for any subcontractor’s evidence. Work to AS/NZS standards and hold your own licences and insurance. `+INTEGRITY },
+    terms:`Accredited installer engagement. Every install requires the full guided photo set + a signed completion report before it is complete; you remain accountable for any subcontractor’s evidence. Work to AS/NZS standards and hold your own licences and insurance. Commercial terms are set out in your engagement agreement. `+INTEGRITY },
   { app:'inspector', ref:'inspector-tc-v1', name:'Inspector', desc:'Independent inspection / audit of installations.',
-    terms:`Independent inspector engagement. Inspect and report objectively; hold the relevant accreditation and insurance. `+INTEGRITY },
+    terms:`Independent inspector engagement. Inspect and report objectively; hold the relevant accreditation and insurance. Terms are set out in your engagement agreement. `+INTEGRITY },
+  { app:'retailer', ref:'retailer-tc-v1', name:'Retailer partner', desc:'Receive customer-approved introductions.',
+    terms:`Retailer partner. You are introduced to a customer only when they explicitly select you; we do not sell or install. Provide your company details, ABN, accreditation and service areas. Commercial terms are set out in your partner agreement. `+INTEGRITY },
 ];
 
 let session=null;
 async function boot(){
   const { data } = await db.auth.getSession(); session=data&&data.session;
-  if(!session){ location.href='/login.html'; return; }
-  await renderMine(); renderApps();
+  if(session){
+    $('authPanel').classList.add('hide'); $('signedIn').classList.remove('hide');
+    $('who').textContent=session.user.email||'';
+    await renderMine(); renderApps(); openRole();
+  } else {
+    $('signedIn').classList.add('hide'); $('authPanel').classList.remove('hide');
+    if(roleParam){ const a=APPS.find(x=>x.app===roleParam); if(a) $('authTitle').textContent='Apply — '+a.name; }
+  }
+}
+async function doAuth(mode){
+  const email=$('auEmail').value.trim(), password=$('auPass').value;
+  $('authMsg').textContent='';
+  if(!email||!password){ $('authMsg').textContent='Enter email and password.'; return; }
+  if(mode==='signup'){
+    const { data, error } = await db.auth.signUp({ email, password });
+    if(error){ $('authMsg').textContent=error.message; return; }
+    if(!data.session){ $('authMsg').style.color='var(--safe)'; $('authMsg').textContent='Account created — check your email to confirm, then Sign in here.'; return; }
+  } else {
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    if(error){ $('authMsg').textContent=error.message; return; }
+  }
+  boot();
 }
 async function renderMine(){
-  const { data:apps } = await db.from('access_applications').select('app,status,terms_accepted_at,decided_at').eq('user_id',session.user.id);
+  const { data:apps } = await db.from('access_applications').select('app,status').eq('user_id',session.user.id);
   const rows=apps||[];
   $('mine').innerHTML = rows.length ? `<div class="card"><h2>Your applications</h2>${rows.map(a=>{
     const nm=(APPS.find(x=>x.app===a.app)||{}).name||a.app;
-    return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><span>${esc(nm)}</span><span class="pill ${a.status}">${a.status}</span></div>`;
-  }).join('')}<div class="sub" style="margin-top:8px">Once granted, your app access is active — sign in to your app.</div></div>` : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)"><span>${esc(nm)}</span><span class="pill ${a.status}">${a.status}</span></div>`;
+  }).join('')}<div class="sub" style="margin-top:8px">Once granted, your access is active — sign in to your app.</div></div>` : '';
 }
 function renderApps(){
   $('apps').innerHTML = APPS.map((a,i)=>`
-    <div class="card">
+    <div class="card" id="card${i}">
       <h2>${esc(a.name)}</h2><div class="sub">${esc(a.desc)}</div>
       <button class="btn btn-block" style="margin-top:10px" onclick="toggleTerms(${i})" id="tgl${i}">Read terms &amp; apply</button>
       <div class="hide" id="form${i}">
-        <label class="f">Full name</label><input class="f" id="nm${i}" placeholder="Your name">
+        <label class="f">Full name / company</label><input class="f" id="nm${i}" placeholder="Your name or company">
         <label class="f">Email</label><input class="f" id="em${i}" type="email" value="${esc(session.user.email||'')}">
         <label class="f">Mobile</label><input class="f" id="ph${i}" inputmode="tel" placeholder="04...">
-        <div class="terms"><b>${esc(a.name)} — Terms &amp; Conditions (v1).</b><br>${a.terms}<br><br>Full terms are provided in your engagement agreement.</div>
+        <div class="terms"><b>${esc(a.name)} — Terms &amp; Conditions (v1).</b><br>${a.terms}<br><br>Full terms are provided in your agreement.</div>
         <label class="ack"><input type="checkbox" id="ack${i}"> I have read and accept the ${esc(a.name)} Terms &amp; Conditions.</label>
         <button class="btn btn-safe btn-block" style="margin-top:12px" onclick="apply(${i})">Submit application</button>
       </div>
     </div>`).join('');
 }
+function openRole(){ if(!roleParam) return; const i=APPS.findIndex(x=>x.app===roleParam); if(i>=0){ toggleTerms(i); $('card'+i).scrollIntoView({behavior:'smooth',block:'start'}); } }
 function toggleTerms(i){ const f=$('form'+i); f.classList.toggle('hide'); $('tgl'+i).textContent=f.classList.contains('hide')?'Read terms & apply':'Hide'; }
 async function apply(i){
   const a=APPS[i];
@@ -110,7 +151,7 @@ async function deleteAccount(){
   if(error){ toast(error.message); return; }
   toast('Account deletion requested'); try{ await db.auth.signOut(); }catch(e){} setTimeout(()=>location.href='/login.html',1500);
 }
-Object.assign(window,{toggleTerms,apply,deleteAccount});
+Object.assign(window,{doAuth,toggleTerms,apply,deleteAccount});
 boot();
 </script>
 </body>

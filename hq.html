@@ -1099,7 +1099,7 @@ async function releaseClaim(aid){
   await db.from('events').insert({actor_type:'staff',actor_id:MY_STAFF_ID,event_type:'assessment.released',payload:{assessment_id:aid}});
   toast('Released to pool'); await loadData(); renderFieldOps();
 }
-const APP_LABEL={sales_tech:'Sales tech',installer:'Installer',inspector:'Inspector'};
+const APP_LABEL={sales_tech:'Sales tech',installer:'Installer',inspector:'Inspector',retailer:'Retailer'};
 function renderVetting(){
   $('accessAppRows').innerHTML=(accessApps||[]).map(a=>`<tr>
     <td class="src">${APP_LABEL[a.app]||a.app}</td>
@@ -1139,7 +1139,8 @@ async function decideAccess(id,granted){
   const { data, error } = await db.rpc('decide_access',{p_id:id,p_granted:granted,p_note:note});
   if(error){ toast('Failed: '+error.message); return; }
   const prov=data&&data.provisioned;
-  toast(granted?(prov==='failed'?'Granted — auto-provision failed, onboard manually':`Granted — ${a?APP_LABEL[a.app]:'access'} active`):'Application denied');
+  const msg=!granted?'Application denied':(prov==='failed'?'Granted — auto-provision failed, onboard manually':(prov==='none'?`Granted — ${a?APP_LABEL[a.app]:'access'} (provision via onboarding)`:`Granted — ${a?APP_LABEL[a.app]:'access'} active`));
+  toast(msg);
   await loadData(); renderVetting();
 }
 async function convertApplication(id){
