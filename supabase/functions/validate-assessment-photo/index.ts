@@ -149,17 +149,18 @@ ${SCALE_REFS}
 
 This is the ROOF PLANES step. As well as pass/fail: (a) DETERMINE the roof, (b) give a rough capacity feel.
 ${SCALE_REFS}
-- ROOF TYPE + CONDITION: identify the material — metal/Colorbond ("tin"), concrete tile, terracotta tile, flat/membrane, or other (use tile WIDTH: ~330-345mm = concrete, ~265-275mm = terracotta). Judge CONDITION (good / fair / poor) from what's visible: rust, cracked/slipped/brittle tiles, moss, sagging, patches.
-- CLOSE-UP CALL: if you can CONFIDENTLY establish BOTH the material AND the condition from these plane shots, set needs_closeup=false. If you cannot (too far, glare, blur, can't judge condition), set needs_closeup=true so the tech grabs a close-up before leaving.
+- ROOF TYPE (for the quote): identify the material — metal/Colorbond ("tin"), concrete tile, terracotta tile, flat/membrane, or other (use tile WIDTH: ~330-345mm = concrete, ~265-275mm = terracotta).
+- ROOF CONDITION (best-effort only): note anything visible (rust, cracked/slipped/brittle tiles, moss, sagging). Condition is FORMALLY verified by the licensed installer at install, NOT at this sales visit — so treat condition as a heads-up, never a blocker.
+- CLOSE-UP CALL (MATERIAL only): set needs_closeup=false if you can identify the MATERIAL — a ground-level or drone read is enough for the quote. Only set needs_closeup=true if you genuinely cannot tell the material. Do NOT require a close-up just to judge condition. NEVER advise anyone to climb onto or walk the roof — a "close-up" means a ground-level zoom or a drone frame only (the sales tech is not a licensed roofer and must not access the roof).
 - CAPACITY: a modern panel footprint is ~1.13m x ~1.76m (~2.0 m2). Using a visible scale reference (roof tiles, existing panels, brick, a door), estimate ROUGHLY how many standard panels the main plane could hold (allow edge setbacks), hedge it, and note obstructions (vents, skylights, shading). Put material/condition/fit into ADVISORIES.`;
       OBS = `,"observations":{"roof_type":"tin"|"tile_concrete"|"tile_terracotta"|"flat"|"other"|"unknown","roof_condition":"good"|"fair"|"poor"|"unknown","needs_closeup":true|false,"est_panels_fit":n|null,"scale_reference":"what you used","advisories":["short plain-English feedback", ...]}`;
     } else if (photo.step_key === "roof_material") {
       EXTRACT += `
 
-This is the ROOF MATERIAL close-up — the ground truth for roof type/condition.
+This is the ROOF MATERIAL close-up — a ground-level zoom or drone frame (the sales tech must NOT be on the roof; never advise climbing).
 ${SCALE_REFS}
-- Identify the MATERIAL: metal/Colorbond ("tin"), concrete tile, terracotta tile, flat/membrane, or other (tile WIDTH: ~330-345mm = concrete, ~265-275mm = terracotta).
-- Judge the CONDITION (good / fair / poor): rust, cracked/brittle/slipped tiles, moss, deterioration. Put anything notable for the installer in an ADVISORY.`;
+- Identify the MATERIAL (for the quote): metal/Colorbond ("tin"), concrete tile, terracotta tile, flat/membrane, or other (tile WIDTH: ~330-345mm = concrete, ~265-275mm = terracotta).
+- CONDITION is best-effort only and is formally verified by the licensed installer at install — note anything visible (rust, cracks, brittle/slipped tiles, moss) as an ADVISORY, but never as a blocker.`;
       OBS = `,"observations":{"roof_type":"tin"|"tile_concrete"|"tile_terracotta"|"flat"|"other"|"unknown","roof_condition":"good"|"fair"|"poor"|"unknown","advisories":["short plain-English feedback", ...]}`;
     } else if (photo.step_key === "board_open") {
       EXTRACT += `

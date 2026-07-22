@@ -32,6 +32,11 @@ warranty/compliance claims.
 - Mirrors the sales-tech capture: a guided, geotagged, time-stamped photo protocol
   (array, string/isolators, switchboard, inverter/battery install, labelling,
   earthing, final tidy) + a signed completion report.
+- **Roof condition is verified here, by the licensed installer** — the sales visit only
+  reads roof *material* (ground/drone/satellite, no roof access). The installer inspects
+  and records the roof's condition/suitability on the day, before any load or penetration.
+  See `docs/ROOF_SAFETY_AND_LIABILITY.md` (WHS s272 can't be contracted out; sales techs
+  never climb).
 - **Hard gate:** no photo set + report → no `job complete`, no payout, no report send.
 
 ## The quote engine (stage 3) — the speed-up

@@ -227,10 +227,10 @@ const DEFAULT_STEPS=[
   guide:'Stand back on the street or driveway, phone sideways (landscape). Fit the whole house AND its full roof in the frame. Make sure the driveway / side access is visible.'},
  {key:'roof_planes',title:'Roof planes + panel area',req:true,multi:true,max:4,
   hint:'Every roof face that could hold panels, and anything that shades or blocks them. Up to 4 photos.',
-  guide:'Add up to 4 photos — one per roof face is ideal. A drone is the preferred tool here (no ladder = safer): tap "Upload photos" to add its frames. From the ground, shoot each face square-on and include chimneys, vents, skylights, aerials and any shading trees. Use a ladder only if a drone can\'t get the shot.'},
+  guide:'Add up to 4 photos — one per roof face is ideal. NEVER get on the roof — you\'re not a licensed roofer and it\'s not worth the risk. Use a drone for elevated shots (tap "Upload photos" to add its frames) or shoot from the ground. Satellite/Pylon imagery backs these up, so ground + drone is enough. Include chimneys, vents, skylights, aerials and any shading trees.'},
  {key:'roof_material',title:'Roof material close-up',req:true,multi:true,max:6,
-  hint:'Usually auto-read from your roof shots — only needed if they don\'t show the material/condition clearly.',
-  guide:'The AI normally reads the roof material and condition straight off your roof-plane shots, and this step auto-completes when it can. If it can\'t (too far, glare), grab a close-up here: zoom from the ground is fine, or a drone frame. Fill the frame with the roof surface so tile vs metal/Colorbond vs terracotta and any cracks, rust or brittle sheets are obvious.'},
+  hint:'Usually auto-read from your roof shots — only needed if they don\'t show the roof material clearly.',
+  guide:'The AI normally reads the roof material straight off your roof-plane shots, and this step auto-completes when it can. If it can\'t (too far, glare), grab a close-up here: zoom from the ground, or a drone frame — NEVER get on the roof. Roof condition is formally checked by the licensed installer at install, so don\'t risk a close-up just for condition. Fill the frame so tile vs metal/Colorbond vs terracotta is obvious.'},
  {key:'board_closed',title:'Switchboard — door closed',req:true,multi:true,max:6,
   hint:'The whole switchboard in its surroundings, door shut.',
   guide:'Step back about 1.5 m so you capture the whole board, the wall it\'s on, its height off the ground, and any meters next to it. Door closed for this one.'},
@@ -670,8 +670,8 @@ function renderMulti(){
   else if(capStore[s.key]&&capStore[s.key].measuredNote) note+='<div class="ai-note"><b>📏 Measured on site:</b> '+capStore[s.key].measuredNote+'</div>';
   if(s.key==='roof_material'&&!photos.length){
     note+=roofCloseupNeeded()
-      ? '<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>Roof unclear from the roof shots</b><br>The material/condition couldn\'t be confirmed from the roof-plane photos — add a close-up (zoom from the ground is fine, or a drone frame) so we don\'t need a second visit.</div>'
-      : '<div class="ai-note"><b>✓ Roof read from your roof shots</b> — material &amp; condition confirmed, so a separate close-up is optional. Add one only if the roof looks worn.</div>';
+      ? '<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>Roof material unclear from the roof shots</b><br>Add a close-up (ground zoom or a drone frame — never get on the roof) so we can confirm tin vs tile for the quote. Condition itself is checked by the installer at install.</div>'
+      : '<div class="ai-note"><b>✓ Roof material read from your roof shots</b> — no separate close-up needed. Roof condition is verified by the licensed installer at install.</div>';
   }
   $('aiResult').innerHTML=note;
 }

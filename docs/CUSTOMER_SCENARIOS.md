@@ -170,14 +170,15 @@ estimates that ride back as advisories in the same note:
   `est_existing_kw`). Confirmed off the inverter nameplate.
 - **`roof_planes`** — using a modern panel footprint (~1.13 × 1.76 m) it gives a
   **rough panel-fit** count for the main plane (`est_panels_fit`), heavily hedged and
-  noting obstructions — a sizing feel for the designer. It also **reads the roof type +
-  condition** (tin / concrete tile / terracotta / flat, via tile width; good/fair/poor)
-  and sets `needs_closeup`.
-- **`roof_material` (derived close-up)** — the separate roof close-up is **only required
-  when the plane shots can't confirm** material + condition (`needs_closeup=true`). If they
-  can, the step **auto-completes** ("✓ from roof shots") so a quick ground-only visit isn't
-  slowed. This is the fix for close-ups getting skipped on fast visits — captured when it
-  matters, waived when the roof is already clear, never a return trip.
+  noting obstructions. It also **reads the roof TYPE for the quote** (tin / concrete tile /
+  terracotta / flat, via tile width) and sets `needs_closeup` — **keyed to material only**.
+- **`roof_material` (derived close-up)** — the separate close-up is **only required when
+  the plane shots can't identify the material** (`needs_closeup=true`); otherwise it
+  **auto-completes** ("✓ from roof shots"), so a quick ground-only visit isn't slowed.
+  **Roof condition is NOT a sales-tech responsibility** — it's reported best-effort as a
+  heads-up and is **formally verified by the licensed installer at install** (see the
+  roof-safety + liability policy). The sales tech **must never get on the roof**: ground
+  zoom, drone, or Pylon satellite only.
 - **`board_open`** — estimates **spare DIN poles** against the ~12-pole standard row
   (`est_spare_poles`); a near-full board raises a *switchboard-upgrade likely* advisory
   that lines up with the `switchboard_upgrade` quote flag.
