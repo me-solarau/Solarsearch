@@ -466,9 +466,16 @@ import { attachAddressAutocomplete } from "/src/lib/address-autocomplete.js";
    DATA LAYER — Supabase-backed (see src/lib/supabase.js).
    Every function below maps 1:1 to a table/query in schema.sql.
    ================================================================ */
-const RULES={v:'v2026.05',stcFactor:6.8,stcPrice:37,solarStcPerKw:34,tiers:[[14,1],[28,.6],[50,.15]],commissionPerStc:1.10,seatPrice:200};
+// STC rules (CER SRES). SOLAR: certificates = kW x postcode zone rating x deeming
+// years, floored. Zone 3 (1.382) covers most of the Hunter / Mid-north-coast
+// service area; deeming years = 2031 - install year (5 for 2026), stepping down to
+// the scheme's 2030 end. BATTERY: matches the Cheaper Home Batteries program tiers
+// exactly (100% 0-14kWh, 60% 14-28, 15% 28-50, cap 50kWh) x 6.8 factor.
+// TODO: postcode -> exact STC zone for non-Zone-3 jobs; stcPrice tracks the market.
+const RULES={v:'v2026.07',stcFactor:6.8,stcPrice:39,zoneRating:1.382,deemingYears:5,tiers:[[14,1],[28,.6],[50,.15]],commissionPerStc:1.10,seatPrice:200};
+function solarStc(kw){return Math.floor((kw||0)*RULES.zoneRating*RULES.deemingYears)}
 function batteryStc(kwh){let s=0,p=0;for(const[c,r]of RULES.tiers){s+=Math.max(0,Math.min(kwh,c)-p)*RULES.stcFactor*r;p=c;if(kwh<=c)break}return Math.floor(s)}
-function totalStc(kw,kwh){return Math.floor((kw||0)*RULES.solarStcPerKw)+(kwh?batteryStc(kwh):0)}
+function totalStc(kw,kwh){return solarStc(kw)+(kwh?batteryStc(kwh):0)}
 const fmt$ = n=>'$'+Math.round(n).toLocaleString();
 
 const STAGES=['captured','contacted','qualified','appointment_set','inspected','designed','quoted','customer_chose','signed'];
