@@ -26,6 +26,13 @@ returns boolean language sql stable security definer set search_path=public as $
   ) q;
 $$;
 
+-- LEGAL CAUTION (see docs/TECH_TOOLKIT.md): pay deductions are restricted. For EMPLOYEES,
+-- Fair Work Act s324/326 likely make a deduction for a required work tool unlawful (cf. AEU
+-- v Victoria). For CONTRACTORS a commercial finance deal is generally OK with a signed,
+-- optional, revocable agreement (mind sham-contracting s357). A drone_loans row must only
+-- be created AFTER a lawyer-cleared agreement for that tech's classification; no row = no
+-- deduction. The safest option is a company-OWNED loaner with no deduction at all.
+--
 -- One drone loan per tech. principal is what Solarsearch paid; paid_cents accrues
 -- via per-job deductions; per_job_cents is the deduction ($5 default).
 create table if not exists public.drone_loans (

@@ -38,6 +38,29 @@ Non-compliance is enforced: CASA on-the-spot fines up to **$1,650/offence**, cou
 `drone_registered = true`, a current `casa_accreditation` (not past `casa_accred_expiry`),
 and a current police check. An approved/active tech must be kit-ready.
 
+## ⚠️ Legality of the repayment — READ BEFORE USING (not legal advice)
+Requiring the drone as **kit** is fine. **Expecting payback via pay deductions is not
+automatically legal** — it hinges on worker classification, and getting it wrong carries
+penalties. Get a lawyer to paper this before any deduction runs.
+- **If techs are EMPLOYEES:** pay deductions are restricted by Fair Work Act **s324**
+  (must be in writing AND *principally for the employee's benefit*) and **s325/326**
+  (deductions for the employer's benefit / "unreasonable" are void). In *AEU v State of
+  Victoria* the Federal Court held deducting for **work laptops** unlawful under s326. A
+  required work tool like a drone is high-risk; the "grab no jobs → pay balance or return"
+  term is the kind of employer cost-shift s325 targets. **Likely unlawful as designed.**
+- **If techs are CONTRACTORS:** a commercial equipment-finance arrangement (front it,
+  repay per job, own it when cleared, else return/pay out) is generally OK **with a signed
+  agreement**, BUT beware **sham contracting** (Fair Work **s357**; up to $16,500/individual,
+  $82,500/company per contravention) and the gig/"employee-like" rules — the *practical
+  reality* of the relationship decides, not the label. Make the plan **genuinely optional**
+  (own-drone allowed), documented, revocable, with the amount/method stated.
+- **Safest option:** a **company-OWNED loaner** — Solarsearch owns the drone, issues it as
+  an asset, tech returns it on exit, **no deduction at all**. This avoids s324/326 entirely.
+
+**Design guard:** `drone_loan_accrue()` only deducts when an *active* `drone_loans` row
+exists. Creating that row IS the opt-in — **only create it after a signed finance agreement
+that a lawyer has cleared for the tech's actual classification.** No row = no deduction.
+
 ## Drone financing — Solarsearch fronts it, tech pays it back per job
 Solarsearch buys the drone once-off (e.g. **DJI Neo ~$209**) so cost is never the reason a
 tech skips the drone. Repayment is a small per-job deduction, not an up-front hit:
