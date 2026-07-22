@@ -70,6 +70,10 @@ s324/326 deduction rules entirely.
   reason, and **≥1 geotagged `no_access_evidence` photo** (locked gate / no-one home /
   call-log screenshot). No payout, but a solid audit trail; ops gets an
   `assessment.no_access` event with the reason + GPS distance to reschedule.
+- **Evidence is locked on submission** — once an assessment is submitted, its photos
+  (capture set + no-access evidence, with their GPS/timestamps) are immutable: no insert,
+  update or delete (DB trigger `assessment_photos_lock`; admin override for legal holds).
+  Tamper-proof trail for disputes and customer protection.
 - `drone_assignment_return(rep)` (admin) marks a stopped earn-out `returned`. An `owned`
   drone is theirs and can't be recalled. Tech can read their own row (RLS `drone_assign_own`).
 

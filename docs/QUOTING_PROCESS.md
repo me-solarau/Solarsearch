@@ -38,6 +38,9 @@ warranty/compliance claims.
   See `docs/ROOF_SAFETY_AND_LIABILITY.md` (WHS s272 can't be contracted out; sales techs
   never climb).
 - **Hard gate:** no photo set + report → no `job complete`, no payout, no report send.
+- **Evidence is locked once submitted** — the sales-tech capture set + no-access evidence
+  become immutable on submission (DB trigger; admin override only), so the audit trail can't
+  be altered after the fact. The installer-app evidence should lock the same way.
 
 ## The quote engine (stage 3) — the speed-up
 `quote_estimate(payload)` prices any system instantly:
