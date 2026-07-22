@@ -156,6 +156,7 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
 <section class="view" id="v-capture">
   <h1>Site capture</h1>
   <div class="sub" id="capMeta"></div>
+  <div id="queueBanner" class="ai-note" style="display:none;background:var(--ambers);border-color:#F2D48A;color:#7A5A00;margin-top:8px"></div>
   <div class="sec-h">Structured site data</div>
   <div class="card" id="siteDataForm"></div>
   <div class="sec-h">Photos — each checked on upload</div>
@@ -237,6 +238,55 @@ const db=getSupabaseClient();
 const fmt$=c=>'$'+Math.round((c||0)/100).toLocaleString();
 let MY_NAME='Tech', MY_REP_ID=null;
 let navStack=['v-pool'], curTab='pool';
+
+/* ===== offline capture queue — field dead-zones don't lose evidence ===== */
+const IDB_NAME='ss_tech', IDB_STORE='uploadQueue';
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open(IDB_NAME,1); r.onupgradeneeded=()=>{ const d=r.result; if(!d.objectStoreNames.contains(IDB_STORE)) d.createObjectStore(IDB_STORE,{keyPath:'id',autoIncrement:true}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function idbTx(mode){ return idbOpen().then(d=>d.transaction(IDB_STORE,mode).objectStore(IDB_STORE)); }
+async function idbAdd(item){ const st=await idbTx('readwrite'); return new Promise((res,rej)=>{ const rq=st.add(item); rq.onsuccess=()=>res(); rq.onerror=()=>rej(rq.error); }); }
+async function idbAll(){ const st=await idbTx('readonly'); return new Promise((res,rej)=>{ const rq=st.getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
+async function idbDel(id){ const st=await idbTx('readwrite'); return new Promise((res,rej)=>{ const rq=st.delete(id); rq.onsuccess=()=>res(); rq.onerror=()=>rej(rq.error); }); }
+async function updateQueueBanner(){ let n=0; try{ n=(await idbAll()).length; }catch(e){} const el=document.getElementById('queueBanner'); if(!el) return; if(n>0){ el.style.display='block'; el.textContent=`⚠ ${n} photo${n===1?'':'s'} saved offline — will upload automatically when signal returns.`; } else el.style.display='none'; }
+// Push one buffered capture (blob + capture-time GPS/hash/timestamp) up to storage + DB.
+async function doUploadItem(item,opts){
+  opts=opts||{};
+  const path=`${item.assessment_id}/${item.step_key}-${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
+  const { error:up } = await db.storage.from('assessment-photos').upload(path,item.blob,{contentType:(item.blob&&item.blob.type)||'image/jpeg',upsert:true});
+  if(up) throw new Error(up.message||'upload failed');
+  const row={ assessment_id:item.assessment_id, step_key:item.step_key, storage_path:path, lat:item.lat, lng:item.lng, taken_at:item.taken_at, sha256:item.sha256, bytes:item.bytes, ai_verdict:(item.kind==='na'?null:'pending'), ai_reasons:[], note:item.note||null, na_reason:null };
+  const { data, error:ie } = await db.from('assessment_photos').insert(row).select('id').single();
+  if(ie) throw new Error(ie.message||'insert failed');
+  const rowId=data&&data.id; let validation=null;
+  if(opts.validate && item.kind!=='na'){ try{ validation=await validatePhoto(rowId); }catch(e){} }
+  return { rowId, storage_path:path, validation };
+}
+// Buffer a capture locally + show it as queued.
+async function queuePhoto(item,localUrl,multi,s){
+  try{ await idbAdd(item); }catch(e){}
+  await updateQueueBanner();
+  if(multi){ const e=capStore[s.key]=capStore[s.key]||{multi:true,photos:[]}; e.multi=true; e.photos=e.photos||[]; e.na=null; e.photos.push({rowId:null,verdict:'queued',queued:true,localUrl}); renderMulti(); refreshCount(); updateGate(); }
+  else { capStore[s.key]={rowId:null,verdict:'queued',queued:true,na:null,note:item.note,has:false,localUrl}; renderSingle(localUrl); $('aiResult').innerHTML='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00">Saved offline — uploads &amp; checks when signal returns.</div>'; }
+  toast('Saved offline — will upload when online');
+}
+// Retry buffered captures; fires on reconnect, on a timer, and at boot.
+let flushing=false;
+async function flushQueue(){
+  if(flushing||!navigator.onLine) return; flushing=true;
+  try{
+    let items=[]; try{ items=await idbAll(); }catch(e){ return; }
+    if(!items.length) return;
+    let did=false, forJob=false;
+    for(const it of items){
+      try{ await doUploadItem(it,{validate:true}); await idbDel(it.id); did=true; if(curJob&&it.assessment_id===curJob.assessment_id) forJob=true; }
+      catch(e){ break; }   // still offline / failing — keep the rest buffered
+    }
+    await updateQueueBanner();
+    if(did) toast('Queued photos uploaded');
+    if(forJob && $('v-capture').classList.contains('active')) openCapture();
+  } finally { flushing=false; }
+}
+window.addEventListener('online', flushQueue);
+setInterval(flushQueue, 30000);
 
 /* ===== capture spec (scope §4) ===== */
 const DEFAULT_STEPS=[
@@ -674,7 +724,7 @@ function renderMulti(){
   if(!photos.length){ z.innerHTML=`<div class="photo-zone" onclick="$('camInput').click()">${CAM_SVG}<span>Take a photo or upload from your camera roll — add up to ${s.max} angles (more is better)</span></div>`; }
   else{
     z.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`+photos.map(p=>{
-      const st=p.verdict==='fail'?['var(--red)','RESHOOT','var(--red)','#fff']:(p.verdict==='pass'&&p.configured===false?['#F2D48A','UNVERIFIED','var(--ambers)','#7A5A00']:(p.verdict==='pass'?['var(--green)','✓','var(--green)','#fff']:['var(--line)','…','#7A5A00','#fff']));
+      const st=p.queued?['#F2D48A','QUEUED ⏳','var(--ambers)','#7A5A00']:(p.verdict==='fail'?['var(--red)','RESHOOT','var(--red)','#fff']:(p.verdict==='pass'&&p.configured===false?['#F2D48A','UNVERIFIED','var(--ambers)','#7A5A00']:(p.verdict==='pass'?['var(--green)','✓','var(--green)','#fff']:['var(--line)','…','#7A5A00','#fff'])));
       return `<div style="position:relative;border:2px solid ${st[0]};border-radius:12px;overflow:hidden;aspect-ratio:4/3;background:#0F2E27">${p.localUrl?`<img src="${p.localUrl}" alt="" style="width:100%;height:100%;object-fit:cover">`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#6D8781;font-size:.7rem">saved photo</div>'}<span style="position:absolute;bottom:6px;left:6px;background:${st[2]};color:${st[3]};font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:99px">${st[1]}</span><button onclick="removePhoto('${p.rowId}')" aria-label="Remove" style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:.85rem;line-height:1;cursor:pointer">✕</button></div>`;
     }).join('')+`</div>`;
   }
@@ -719,10 +769,12 @@ async function uploadOne(f,multi){
   let lat=null,lng=null;
   try{ const p=await new Promise((r,j)=>{ navigator.geolocation.getCurrentPosition(r,j,{timeout:2500,maximumAge:60000}); setTimeout(()=>j(new Error('geo timeout')),2600); }); lat=p.coords.latitude; lng=p.coords.longitude; }catch(e){}
   const sha256=await sha256Hex(f);
+  const item={ assessment_id:curJob.assessment_id, step_key:s.key, kind:'capture', lat, lng, sha256, bytes:f.size, taken_at:new Date().toISOString(), note:$('stNote').value.trim()||null, blob:f };
+  if(!navigator.onLine){ await queuePhoto(item,localUrl,multi,s); return; }
   const path=`${curJob.assessment_id}/${s.key}-${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
   const { error:up } = await db.storage.from('assessment-photos').upload(path,f,{contentType:f.type||'image/jpeg',upsert:true});
-  if(up){ toast('Upload failed: '+up.message); return; }
-  const row={ assessment_id:curJob.assessment_id, step_key:s.key, storage_path:path, lat, lng, taken_at:new Date().toISOString(), sha256, bytes:f.size, ai_verdict:'pending', ai_reasons:[], note:$('stNote').value.trim()||null, na_reason:null };
+  if(up){ await queuePhoto(item,localUrl,multi,s); return; }
+  const row={ assessment_id:curJob.assessment_id, step_key:s.key, storage_path:path, lat, lng, taken_at:item.taken_at, sha256, bytes:f.size, ai_verdict:'pending', ai_reasons:[], note:item.note, na_reason:null };
   if(multi){
     const { data, error:ie } = await db.from('assessment_photos').insert(row).select('id').single();
     if(ie){ toast('Save failed: '+ie.message); return; }
@@ -975,6 +1027,7 @@ window.$=$;
   if(me){ MY_REP_ID=me.id; if(me.full_name){ MY_NAME=me.full_name; $('topTag').textContent=me.full_name.split(' ')[0].toUpperCase(); } }
   loadPool();
   refreshAlertBar();
+  updateQueueBanner(); flushQueue();   // resume any captures buffered offline
 })();
 </script>
 </body>
