@@ -138,6 +138,7 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
     <div class="sub" id="earnCount">0 jobs</div>
   </div>
   <div class="sub" id="earnSuper" style="margin-top:4px"></div>
+  <button class="btn btn-ghost btn-block" style="margin-top:16px;color:var(--ink3);font-size:.8rem" onclick="deleteAccount()">Delete my account</button>
   <div class="sub" style="margin-top:14px">Payouts run weekly via Stripe Connect once wired. Completed = $50 ($45 while earning a company drone), <b>plus 12% super</b> shown as its own line. No-access is a logged exception — no payout.</div>
   <div id="earnList"></div>
 </section>
@@ -889,6 +890,13 @@ async function submitJob(){
 // Access is confirmed up front, so no-access is a logged exception (no payout). It must be
 // GENUINE: the backend requires a confirmed booking, on-site GPS (within 300 m), a reason,
 // and >=1 geotagged evidence photo. This view captures the reason + evidence.
+// Apple-required in-app account deletion.
+async function deleteAccount(){
+  if(!confirm('Permanently request account deletion? You will lose access immediately.')) return;
+  const { error } = await db.rpc('request_account_deletion',{p_reason:null});
+  if(error){ toast(error.message); return; }
+  toast('Account deletion requested'); try{ await db.auth.signOut(); }catch(e){} setTimeout(()=>location.href='/login.html',1500);
+}
 let naEvidence=[];
 function openNoAccess(){
   naEvidence=[]; $('naReason').value='';
@@ -1017,7 +1025,7 @@ async function toggleAlerts(){
 if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.type==='open-pool') switchTab('pool'); });
 
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,confirmMeasured,saveStepNext,submitJob,openNoAccess,naRemove,submitNoAccess,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts,removePhoto});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,confirmMeasured,saveStepNext,submitJob,openNoAccess,naRemove,submitNoAccess,deleteAccount,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts,removePhoto});
 window.$=$;
 
 (async () => {

@@ -359,6 +359,11 @@ tbody tr:hover{background:var(--tint2)}
         <thead><tr><th>Company</th><th>Contact</th><th>Regions</th><th>Submitted</th></tr></thead>
         <tbody id="applicationRows"></tbody>
       </table></div>
+      <div class="eyebrow" style="margin-bottom:8px">App access applications — T&amp;C accepted, awaiting grant</div>
+      <div class="card" style="margin-bottom:20px"><table>
+        <thead><tr><th>App</th><th>Name</th><th>Contact</th><th>T&amp;C</th><th>Status</th><th></th></tr></thead>
+        <tbody id="accessAppRows"></tbody>
+      </table></div>
       <div class="eyebrow" style="margin-bottom:8px">Accounts under vetting</div>
       <div class="card"><table>
         <thead><tr><th>Type</th><th>Name</th><th>Status</th><th>Docs</th><th>Created</th></tr></thead>
@@ -538,7 +543,7 @@ const HR=3600e3;
 
 let leads=[], jobs=[], deals=[], CAMPS=[];
 let retailerApps=[], retailers=[], salesReps=[], installersList=[], vettingDocs=[];
-let assessmentsList=[], salesRepsAll=[], payoutsList=[];
+let assessmentsList=[], salesRepsAll=[], payoutsList=[], accessApps=[];
 let MY_STAFF_ID=null;
 const VETTING_STATUSES=['registered','docs_submitted','under_review','conditionally_active','suspended','rejected'];
 const DOC_TYPE_LABEL={abn:'ABN',netcc:'NETCC number',saa:'SAA accreditation',electrical_licence:'Electrical licence',public_liability:'Public liability',workers_comp:'Workers comp',police_check:'Police check',id:'ID document'};
@@ -668,6 +673,8 @@ async function loadData(){
   salesRepsAll=SRALL||[];
   const { data:PO } = await db.from('payouts').select('id,period_start,period_end,total_cents,status,stripe_transfer_ref,sales_reps(full_name)').order('created_at',{ascending:false});
   payoutsList=PO||[];
+  const { data:ACC } = await db.from('access_applications').select('*').eq('status','pending').order('created_at',{ascending:false});
+  accessApps=ACC||[];
 
   const { data:{ user } } = await db.auth.getUser();
   if(user){
@@ -1092,7 +1099,16 @@ async function releaseClaim(aid){
   await db.from('events').insert({actor_type:'staff',actor_id:MY_STAFF_ID,event_type:'assessment.released',payload:{assessment_id:aid}});
   toast('Released to pool'); await loadData(); renderFieldOps();
 }
+const APP_LABEL={sales_tech:'Sales tech',installer:'Installer',inspector:'Inspector'};
 function renderVetting(){
+  $('accessAppRows').innerHTML=(accessApps||[]).map(a=>`<tr>
+    <td class="src">${APP_LABEL[a.app]||a.app}</td>
+    <td><b>${esc(a.full_name||'—')}</b></td>
+    <td class="src">${esc(a.email||'')}${a.phone?'<div class="src">'+esc(a.phone)+'</div>':''}</td>
+    <td>${a.terms_accepted_at?'<span class="pill" style="background:var(--greens);color:var(--green)">accepted</span>':'<span class="pill" style="background:var(--reds);color:var(--red)">no</span>'}</td>
+    <td><span class="pill" style="background:var(--ambers);color:#7A5A00">${a.status}</span></td>
+    <td style="white-space:nowrap"><button class="btn btn-ink btn-sm" onclick="decideAccess('${a.id}',true)">Grant</button> <button class="btn btn-ghost btn-sm" onclick="decideAccess('${a.id}',false)">Deny</button></td></tr>`).join('')
+    ||'<tr><td colspan="6" class="empty">No pending access applications</td></tr>';
   $('applicationRows').innerHTML=retailerApps.map(a=>`<tr onclick="openApplicationDrawer('${a.id}')">
     <td><b>${a.company_name}</b><div class="src">${a.abn||'—'}</div></td>
     <td>${a.contact_name||'—'}<div class="src">${a.contact_email||''}</div></td>
@@ -1115,6 +1131,16 @@ function renderVetting(){
     ||'<tr><td colspan="5" class="empty">Nothing awaiting vetting</td></tr>';
 }
 
+// Grant/deny an app access application. Grant is blocked server-side unless the applicant
+// accepted the T&Cs. After granting, complete provisioning via Onboard technician/installer.
+async function decideAccess(id,granted){
+  const a=(accessApps||[]).find(x=>x.id===id);
+  const note=granted?null:(prompt('Reason for denial (optional):','')||null);
+  const { error } = await db.rpc('decide_access',{p_id:id,p_granted:granted,p_note:note});
+  if(error){ toast('Failed: '+error.message); return; }
+  toast(granted?`Granted — now onboard ${a?APP_LABEL[a.app]:'them'}`:'Application denied');
+  await loadData(); renderVetting();
+}
 async function convertApplication(id){
   const a=retailerApps.find(x=>x.id===id); if(!a)return;
   const { data:ret, error } = await db.from('retailers').insert({
@@ -1621,6 +1647,7 @@ window.pingTechs = pingTechs;
 window.openGallery = openGallery;
 window.verifyEvidence = verifyEvidence;
 window.setTechStatus = setTechStatus;
+window.decideAccess = decideAccess;
 window.closeGallery = closeGallery;
 
 (async () => {

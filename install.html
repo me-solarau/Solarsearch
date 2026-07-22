@@ -57,6 +57,7 @@ input.f,textarea.f,select.f{width:100%;border:1px solid var(--line2);border-radi
     <h1>Your installs</h1>
     <div class="sub">Every install needs a full photo set + completion report before it counts. Evidence is geotagged, hashed and locked.</div>
     <div id="list" style="margin-top:14px"></div>
+    <button class="btn btn-block btn-sm" style="margin-top:20px;color:var(--ink3)" onclick="deleteAccount()">Delete my account</button>
   </section>
 
   <!-- JOB -->
@@ -242,8 +243,14 @@ async function submitInstall(){
   $('doneMsg').textContent='Install complete'; showView('v-done');
 }
 
+async function deleteAccount(){
+  if(!confirm('Permanently request account deletion? You will lose access immediately.')) return;
+  const { error } = await db.rpc('request_account_deletion',{p_reason:null});
+  if(error){ toast(error.message); return; }
+  toast('Account deletion requested'); try{ await db.auth.signOut(); }catch(e){} setTimeout(()=>location.href='/login.html',1500);
+}
 async function boot(){ await loadInstalls(); showView('v-list'); }
-Object.assign(window,{showView,openInstall,startInstall,pick,rmPhoto,markNA,submitInstall,boot});
+Object.assign(window,{showView,openInstall,startInstall,pick,rmPhoto,markNA,submitInstall,deleteAccount,boot});
 window.$=$;
 
 (async()=>{
