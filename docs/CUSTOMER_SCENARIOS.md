@@ -120,3 +120,32 @@ as a $0 requirement flag, must be actioned before install) and `service_fuse_l2`
 (Level 2 / ASP install, baseline **$425** = midpoint of $350–500, range in `meta`).
 Both flow through `quote_estimate` as their own quote lines and auto-tick on the
 instant quote when the meter photo detected them.
+
+## Inverter / battery clearances — scale-from-brick + standards (AI feedback)
+The proposed-location photos (`inverter_loc`, `battery_loc`) can't be measured with a
+tape from a photo, so the vision checker **estimates the clearances using a known-size
+reference in frame** and gives the sales tech immediate feedback (an amber "Site check
+— clearances" note in the app). Advisories are **feedback, not a photo failure** — the
+shot still passes as long as the location context is visible.
+
+**Scale ruler — Australian brickwork** (the reliable reference on most homes):
+- Standard clay brick: **230 (L) × 110 (W) × 76 (H) mm**, laid with **10 mm** mortar joints.
+- So one **course ≈ 86 mm** high, and **one brick + perpend ≈ 240 mm** long.
+- Count courses/bricks to turn the photo into millimetres. Fallbacks if no brick: GPO
+  power point ≈ 115 mm tall, standard door ≈ 2040 mm, downpipe ≈ 90 mm.
+
+**Standards checked (design-review flags, not a compliance sign-off):**
+- **Inverter** (manufacturer ventilation + good practice): ≈ **300 mm above & below**,
+  **100–200 mm sides**, ~**1 m** working space in front; not boxed in an unventilated
+  cavity, not above/below a heat source, avoid west/afternoon sun (derating), IP-rated
+  if outdoors, ~600 mm off gas meters.
+- **Battery / BESS** (AS/NZS 5139): keep a ~**600 mm exclusion zone** from exits, opening
+  windows, vents, HVAC intakes and other appliances/heat sources; **not** under stairs,
+  on an escape path, or in a ceiling/subfloor/cavity; no habitable-room wall without a
+  fire barrier; manufacturer side/top clearances.
+
+The AI returns `est_clearances_mm` (above/below/left/right/front), a `clearance_ok`
+flag, the `scale_reference` it used, and `advisories[]` — stored in
+`assessment_photos.ai_observations` and shown to the tech on site so a tight or
+non-compliant spot gets caught before the truck leaves. Final clearances are still
+confirmed by the designer/installer against the specific product datasheet.

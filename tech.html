@@ -248,10 +248,10 @@ const DEFAULT_STEPS=[
   guide:'Find the earth cable running from the board to a stake/water pipe and shoot it close enough to see the connection and roughly the cable size. If you genuinely can\'t locate it, mark N/A with a note.'},
  {key:'inverter_loc',title:'Proposed inverter location',req:true,multi:true,max:6,
   hint:'The exact wall/spot for the inverter, with the clearances around it visible.',
-  guide:'Show the exact wall you\'d mount the inverter on, standing back enough to see the space above, below and to the sides (inverters need air gaps). Note shade/sun, height, and how far it is from the switchboard. Put your hand or a tape in frame for scale if it helps.'},
+  guide:'Show the exact wall you\'d mount the inverter on, standing back enough to see the space above, below and to the sides (inverters need air gaps). Keep some brickwork or a known object (power point, door, tape) in frame — the AI reads scale off it (Aussie brick course ≈ 86mm) to estimate clearances and flag anything tight. Note shade/sun, height, and distance from the switchboard.'},
  {key:'battery_loc',title:'Proposed battery location',req:true,multi:true,max:6,
   hint:'The battery spot with enough around it to judge floor/wall space, ventilation and clearances.',
-  guide:'Show where the battery would go with plenty of surroundings — floor space or wall, ventilation, and anything nearby that matters (windows, doorways, exits, heat sources, direct sun). Batteries have strict clearance rules, so give us the full context.'},
+  guide:'Show where the battery would go with plenty of surroundings — floor space or wall, ventilation, and anything nearby that matters (windows, doorways, exits, heat sources, direct sun). Keep brickwork or a known object in frame for scale — the AI estimates the clearances off it and checks them against AS/NZS 5139 (≈600mm from exits/windows/vents/appliances). Batteries have strict rules, so give us the full context.'},
  {key:'cable_route',title:'Cable route',req:true,multi:true,max:6,
   hint:'The path cables would run: roof → switchboard, and switchboard → inverter/battery.',
   guide:'Take a couple of shots showing the likely cable path — where cables leave the roof, and the run from the board to the inverter/battery. Point out any hard bits (double storey, no roof space, long external run).'},
@@ -528,7 +528,7 @@ async function openCapture(){
   capStore={};
   // battery-retrofit jobs get the tailored checklist (existing inverter + array)
   STEPS = (curJob&&curJob.lead_type==='battery_retrofit') ? RETROFIT_STEPS : DEFAULT_STEPS;
-  const { data } = await db.from('assessment_photos').select('id,step_key,storage_path,ai_verdict,na_reason,note').eq('assessment_id',curJob.assessment_id);
+  const { data } = await db.from('assessment_photos').select('id,step_key,storage_path,ai_verdict,ai_observations,na_reason,note').eq('assessment_id',curJob.assessment_id);
   for(const p of (data||[])){
     const s=STEPS.find(x=>x.key===p.step_key);
     if(s&&s.multi){
@@ -536,7 +536,7 @@ async function openCapture(){
       if(p.na_reason){ e.na=p.na_reason; }
       else if(p.storage_path){
         let url=null; try{ const { data:su }=await db.storage.from('assessment-photos').createSignedUrl(p.storage_path,3600); url=su&&su.signedUrl; }catch(_){ }
-        e.photos.push({rowId:p.id,verdict:p.ai_verdict,configured:p.ai_verdict==='pass'?undefined:undefined,storage_path:p.storage_path,localUrl:url});
+        e.photos.push({rowId:p.id,verdict:p.ai_verdict,configured:p.ai_verdict==='pass'?undefined:undefined,storage_path:p.storage_path,localUrl:url,advisories:(p.ai_observations&&p.ai_observations.advisories)||[]});
       }
     } else {
       capStore[p.step_key]={rowId:p.id,verdict:p.ai_verdict,na:p.na_reason,note:p.note,has:!!(p.storage_path||p.na_reason),storage_path:p.storage_path};
@@ -634,7 +634,10 @@ function renderMulti(){
     }).join('')+`</div>`;
   }
   const anyFail=photos.some(p=>p.verdict==='fail');
-  $('aiResult').innerHTML=anyFail?'<div class="ai-note" style="background:var(--reds);border-color:#F0C7BC;color:var(--red)">A photo needs a reshoot — tap ✕ to remove it, then add a better one.</div>':'';
+  const advs=[...new Set(photos.flatMap(p=>p.advisories||[]))];
+  let note=anyFail?'<div class="ai-note" style="background:var(--reds);border-color:#F0C7BC;color:var(--red)">A photo needs a reshoot — tap ✕ to remove it, then add a better one.</div>':'';
+  if(advs.length) note+='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ Site check — clearances</b><br>'+advs.map(a=>'• '+a).join('<br>')+'</div>';
+  $('aiResult').innerHTML=note;
 }
 async function handleFiles(files){
   const s=STEPS[curStepIx];
@@ -668,9 +671,9 @@ async function uploadOne(f,multi){
     e.photos.push(ph);
     renderMulti(); refreshCount(); updateGate();
     const v=await validatePhoto(ph.rowId);
-    ph.verdict=v.verdict; ph.configured=v.configured;
+    ph.verdict=v.verdict; ph.configured=v.configured; ph.advisories=(v.observations&&v.observations.advisories)||[];
     renderMulti(); refreshCount(); updateGate();
-    toast(v.verdict==='pass'?(v.configured===false?'Added — not verified':'Photo passed'):'That one needs a reshoot');
+    toast(v.verdict==='pass'?(v.configured===false?'Added — not verified':(ph.advisories.length?'Passed — check site note':'Photo passed')):'That one needs a reshoot');
   }else{
     renderSingle(localUrl);
     let rowId=(capStore[s.key]||{}).rowId;

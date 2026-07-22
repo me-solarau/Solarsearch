@@ -96,8 +96,36 @@ This is the METER + SERVICE FUSE step. As well as the pass/fail, READ the meteri
 - SERVICE FUSE: the sealed supply-authority service fuse / service protection device (often a black fuse carrier, sometimes labelled "SERVICE FUSE"). "present" if you can see one, "absent" if the metering is clearly shown and there is none, "unknown" if the shot doesn't establish it.
   - If service_fuse is "absent", a Level 2 electrician is required (external work).` : "";
 
+    // Inverter/battery location steps: estimate real clearances from the photo using
+    // whatever is a known-size reference — Australian brickwork is the reliable ruler.
+    const LOC_STEPS = new Set(["inverter_loc", "battery_loc"]);
+    const isBat = photo.step_key === "battery_loc";
+    const CLEARANCE_REQS = isBat
+      ? `Home battery (BESS) siting, per AS/NZS 5139 and manufacturer rules — flag if the spot looks non-compliant:
+- Keep a ~600mm exclusion zone clear of building exits/entries, opening windows, vents, HVAC/air intakes, and other appliances/heat sources.
+- NOT in a restricted location: under stairs, on/over an exit or escape path, in a ceiling space, subfloor, roof or wall cavity.
+- Not mounted on the wall of a habitable room without a fire-rated barrier; not in unventilated cupboards; keep off direct west/afternoon sun where possible.
+- Manufacturer side/top clearances (typ. 100-300mm) and rated mounting height/surface.`
+      : `Solar inverter siting, per manufacturer ventilation rules + good practice — flag if the spot looks tight:
+- Ventilation gaps: typically >=300mm above and below, >=100-200mm each side; ~1m clear working space in front.
+- Not boxed into an unventilated cavity, not directly above/below a heat source, avoid direct west/afternoon sun (heat derating).
+- Outdoors needs an IP-rated unit; keep clear of gas meters (~600mm) and out of habitable-room noise zones.`;
+    const LOC_EXTRACT = LOC_STEPS.has(photo.step_key) ? `
+
+This is a PROPOSED ${isBat ? "BATTERY" : "INVERTER"} LOCATION step. As well as pass/fail, ESTIMATE the available clearances and give the sales tech feedback.
+SCALE REFERENCE — use a known-size object in frame to turn pixels into millimetres. Australian brickwork is ideal:
+- A standard clay brick is 230mm long x 110mm wide x 76mm high, laid with 10mm mortar joints.
+- So one brick COURSE (height) is about 86mm, and one brick + perpend joint (length) is about 240mm. Count courses/bricks to estimate distances.
+- If no brick is visible, use another known reference (a power point/GPO is ~115mm tall, a standard door ~2040mm, a downpipe ~90mm) and say which you used.
+STANDARDS TO CHECK:
+${CLEARANCE_REQS}
+Estimate the space above/below/left/right (and in front) of the marked spot in mm. If a required clearance does not appear to be there, add a short, practical ADVISORY for the tech in a tradesperson's words (what's tight, by roughly how much, and what to do — e.g. move it, pick another wall, or measure it). If it looks fine, say so. Advisories are FEEDBACK, not a photo failure — still PASS the photo if the location context is clearly visible.` : "";
+
+    const EXTRACT = METER_EXTRACT + LOC_EXTRACT;
     const RETURN_SHAPE = photo.step_key === "meter"
       ? `Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":[...],"observations":{"meter_kind":"dial"|"smart"|"unknown","phase":1|3|null,"service_fuse":"present"|"absent"|"unknown","meter_upgrade_required":true|false}}.`
+      : LOC_STEPS.has(photo.step_key)
+      ? `Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":[...],"observations":{"scale_reference":"what you measured against","est_clearances_mm":{"above":n|null,"below":n|null,"left":n|null,"right":n|null,"front":n|null},"clearance_ok":true|false|"unsure","advisories":["short plain-English feedback for the tech", ...]}}.`
       : `Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":["short plain-English reason", ...]}.`;
 
     const prompt = `You are the on-site QA checker for a solar site assessment and the LAST line of defence before a design team quotes a job off these photos. Judge ONLY this one photo, for the step "${photo.step_key}".
@@ -107,7 +135,7 @@ A PASS requires ALL of the following:
 2. The specific items that matter for this step are actually identifiable in frame — not too far away, too dark, blurry, glared-out, or obstructed to verify.
 3. It is a genuine on-site photo of that subject. FAIL immediately if it is a screenshot, a phone/car dashboard, a person, a random indoor scene, a blank wall, a hand, or anything clearly unrelated to this step.
 
-Bias toward FAIL when unsure. A re-shoot while the technician is still on the property costs nothing; a wrong or missing detail that reaches a quote is expensive. Do not "give benefit of the doubt" — if you cannot positively verify the required subject, it is a FAIL.${METER_EXTRACT}
+Bias toward FAIL when unsure. A re-shoot while the technician is still on the property costs nothing; a wrong or missing detail that reaches a quote is expensive. Do not "give benefit of the doubt" — if you cannot positively verify the required subject, it is a FAIL.${EXTRACT}
 
 ${RETURN_SHAPE} On fail give at most two specific, actionable reasons in a tradesperson's words, e.g. "This looks like a car dashboard, not the front of the house — retake facing the property" or "Switchboard labels aren't legible — move closer and fill the frame".`;
 
@@ -132,7 +160,7 @@ ${RETURN_SHAPE} On fail give at most two specific, actionable reasons in a trade
       const parsed = JSON.parse(m ? m[0] : text);
       verdict = parsed.verdict === "pass" ? "pass" : "fail";
       reasons = Array.isArray(parsed.reasons) ? parsed.reasons.slice(0, 3).map(String) : [];
-      if (photo.step_key === "meter" && parsed.observations && typeof parsed.observations === "object") {
+      if ((photo.step_key === "meter" || LOC_STEPS.has(photo.step_key)) && parsed.observations && typeof parsed.observations === "object") {
         observations = parsed.observations as Record<string, unknown>;
       }
     } catch { /* keep fail default */ }
