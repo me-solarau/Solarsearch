@@ -26,7 +26,7 @@ const BRAND = {
     subject: "Your free home assessment is booked",
     name: "Solarsearch",
     intro:
-      "Thanks for booking your free home assessment. A Solarsearch consultant will visit to assess your roof, switchboard and (if relevant) battery location — no sales pitch, nothing to sign.",
+      "Thanks for booking your free home assessment. A Solarsearch technician will visit to assess your roof, switchboard and (if relevant) battery location — no sales pitch, nothing to sign.",
     next:
       "What happens next: we design your system from real site evidence, then up to three accredited installers price the identical design — and you choose on your private link.",
     accent: "#FFB100",
