@@ -465,6 +465,8 @@ tbody tr:hover{background:var(--tint2)}
             <div><label class="src">AC run (m)</label><input id="qAc" class="search mono" value="5" inputmode="decimal" style="width:100%"></div>
             <div><label class="src">Existing inverter (kW)</label><input id="qExInv" class="search mono" value="" inputmode="decimal" placeholder="0" style="width:100%"></div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:20px"><input type="checkbox" id="qSwitch" style="width:16px;height:16px"><label class="src" for="qSwitch" style="margin:0;cursor:pointer">Switchboard upgrade</label></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="qMeter" style="width:16px;height:16px"><label class="src" for="qMeter" style="margin:0;cursor:pointer">Meter upgrade (retailer)</label></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px"><input type="checkbox" id="qL2" style="width:16px;height:16px"><label class="src" for="qL2" style="margin:0;cursor:pointer">No service fuse — Level 2</label></div>
           </div>
           <div class="field-err" id="qErr" style="margin-top:8px"></div>
           <button class="btn btn-amber btn-sm" style="margin-top:12px;width:100%" onclick="computeQuote()">⚡ Compute quote</button>
@@ -1478,7 +1480,8 @@ async function computeQuote(){
     battery_modules:int('qBatModules'), battery_stacks:int('qBatStacks'),
     mounting_bos:num('qBos'), storey:int('qStorey'), phase:int('qPhase'),
     dc_run_m:num('qDc'), ac_run_m:num('qAc'),
-    existing_inverter_kw:num('qExInv'), switchboard_upgrade:$('qSwitch').checked };
+    existing_inverter_kw:num('qExInv'), switchboard_upgrade:$('qSwitch').checked,
+    meter_upgrade:$('qMeter').checked, service_fuse_l2:$('qL2').checked };
   const { data, error } = await db.rpc('quote_estimate',{ p:payload });
   if(error){ $('qErr').textContent='Quote failed: '+error.message; return; }
   const j=data||{}, $$=n=>'$'+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});
@@ -1494,6 +1497,8 @@ async function computeQuote(){
     ${row('Battery install',$$(j.battery_install))}
     ${row('Backup wiring',$$(j.backup))}
     ${Number(j.switchboard)>0?row('Switchboard upgrade',$$(j.switchboard)):''}
+    ${$('qMeter').checked?row('Meter upgrade (retailer)',Number(j.meter_upgrade)>0?$$(j.meter_upgrade):'required'):''}
+    ${Number(j.service_fuse_l2)>0?row('Level 2 service fuse',$$(j.service_fuse_l2)):''}
     ${row('Admin',$$(j.admin))}
     ${row('Sub-total (ex-GST)',$$(j.subtotal_exgst),true)}
     ${row('GST',$$(j.gst))}
@@ -1519,7 +1524,10 @@ async function loadQuoteFromLead(){
   if(p.ac_run_m!=null) $('qAc').value=p.ac_run_m;
   if(p.existing_inverter_kw!=null) $('qExInv').value=p.existing_inverter_kw;
   $('qSwitch').checked=!!p.switchboard_upgrade;
-  toast(`Loaded ${p.ss_ref||ref} — ${p.roof||'roof?'} · ${p.phase?p.phase+'-phase':'phase?'}${p.ac_run_m!=null?' · AC '+p.ac_run_m+'m':''}${p.switchboard_upgrade?' · switchboard ⚠':''}`);
+  $('qMeter').checked=!!p.meter_upgrade;
+  $('qL2').checked=!!p.service_fuse_l2;
+  const flags=[p.switchboard_upgrade?'switchboard':null,p.meter_upgrade?'meter upgrade':null,p.service_fuse_l2?'no service fuse (L2)':null].filter(Boolean);
+  toast(`Loaded ${p.ss_ref||ref} — ${p.roof||'roof?'} · ${p.phase?p.phase+'-phase':'phase?'}${p.ac_run_m!=null?' · AC '+p.ac_run_m+'m':''}${flags.length?' · ⚠ '+flags.join(', '):''}`);
 }
 
 function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }

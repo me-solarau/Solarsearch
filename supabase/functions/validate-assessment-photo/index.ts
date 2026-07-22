@@ -28,7 +28,7 @@ const STEP_CRITERIA: Record<string, string> = {
   board_closed: "An electrical switchboard/meter box with its door closed, in its surrounding location context. Reject if no switchboard is visible.",
   board_open: "An electrical switchboard with the door open showing the breakers and circuit labels; the labels must be readable. Reject if labels are blurry/unreadable or the door is shut.",
   main_switch: "A close-up of the main switch and existing circuit labelling on the switchboard, readable. Reject if not close enough to read.",
-  meter: "An electricity meter and/or the metering arrangement, with the meter face visible. Reject if no meter is shown.",
+  meter: "An electricity meter and the metering arrangement, with the meter face/nameplate legible AND the service fuse (or clear evidence there is none) in view. Reject if no meter is shown or the shot can't establish the metering setup.",
   main_earth: "The main earth connection / earth electrode / earthing conductor at the switchboard. Reject if no earthing is visible.",
   inverter_loc: "A wall or location proposed for mounting a solar inverter, with surrounding clearances visible. Reject if it is not a plausible mounting location.",
   battery_loc: "A location proposed for a home battery, with enough surroundings to judge clearance and ventilation. Reject if surroundings are not visible.",
@@ -83,6 +83,23 @@ Deno.serve(async (req) => {
     const criteria = STEP_CRITERIA[photo.step_key] || "A clear, legible, well-framed photo relevant to a solar site assessment.";
     const { b64, mime } = await fetchImageBase64(admin, photo.storage_path);
 
+    // The meter step also extracts structured facts that drive the quote: meter kind
+    // (old dial meters need an upgrade before solar), supply phase (read off the smart
+    // meter nameplate: 230V x1 = single, 230V x3 = three), and whether a supply-authority
+    // service fuse is present (absent => a Level 2 electrician is required).
+    const METER_EXTRACT = photo.step_key === "meter" ? `
+
+This is the METER + SERVICE FUSE step. As well as the pass/fail, READ the metering and report what you see, using these rules:
+- METER KIND: "dial" if it is an old electromechanical meter with spinning discs and mechanical number wheels (e.g. "Watthour Meter Type M3", accumulation meters). "smart" if it is a modern electronic/digital meter with an LCD (e.g. EDMI Atlas, or any digital readout). "unknown" if you can't tell.
+  - An old DIAL meter ALWAYS means a meter upgrade is required before solar -> set meter_upgrade_required=true. A smart meter does not need upgrading -> false.
+- PHASE (only if a smart-meter nameplate is legible): the nameplate voltage tells you the phase. "230V x1" (a single 230/240V element) = single phase -> 1. "230V x3" (three elements) or a 400V/3-phase nameplate = three phase -> 3. If you cannot read it, use null.
+- SERVICE FUSE: the sealed supply-authority service fuse / service protection device (often a black fuse carrier, sometimes labelled "SERVICE FUSE"). "present" if you can see one, "absent" if the metering is clearly shown and there is none, "unknown" if the shot doesn't establish it.
+  - If service_fuse is "absent", a Level 2 electrician is required (external work).` : "";
+
+    const RETURN_SHAPE = photo.step_key === "meter"
+      ? `Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":[...],"observations":{"meter_kind":"dial"|"smart"|"unknown","phase":1|3|null,"service_fuse":"present"|"absent"|"unknown","meter_upgrade_required":true|false}}.`
+      : `Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":["short plain-English reason", ...]}.`;
+
     const prompt = `You are the on-site QA checker for a solar site assessment and the LAST line of defence before a design team quotes a job off these photos. Judge ONLY this one photo, for the step "${photo.step_key}".
 
 A PASS requires ALL of the following:
@@ -90,15 +107,15 @@ A PASS requires ALL of the following:
 2. The specific items that matter for this step are actually identifiable in frame — not too far away, too dark, blurry, glared-out, or obstructed to verify.
 3. It is a genuine on-site photo of that subject. FAIL immediately if it is a screenshot, a phone/car dashboard, a person, a random indoor scene, a blank wall, a hand, or anything clearly unrelated to this step.
 
-Bias toward FAIL when unsure. A re-shoot while the technician is still on the property costs nothing; a wrong or missing detail that reaches a quote is expensive. Do not "give benefit of the doubt" — if you cannot positively verify the required subject, it is a FAIL.
+Bias toward FAIL when unsure. A re-shoot while the technician is still on the property costs nothing; a wrong or missing detail that reaches a quote is expensive. Do not "give benefit of the doubt" — if you cannot positively verify the required subject, it is a FAIL.${METER_EXTRACT}
 
-Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":["short plain-English reason", ...]}. On fail give at most two specific, actionable reasons in a tradesperson's words, e.g. "This looks like a car dashboard, not the front of the house — retake facing the property" or "Switchboard labels aren't legible — move closer and fill the frame".`;
+${RETURN_SHAPE} On fail give at most two specific, actionable reasons in a tradesperson's words, e.g. "This looks like a car dashboard, not the front of the house — retake facing the property" or "Switchboard labels aren't legible — move closer and fill the frame".`;
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
-        model: MODEL, max_tokens: 300,
+        model: MODEL, max_tokens: 400,
         messages: [{ role: "user", content: [
           { type: "image", source: { type: "base64", media_type: mime, data: b64 } },
           { type: "text", text: prompt },
@@ -109,15 +126,21 @@ Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":["short plain-Engli
     const data = await resp.json();
     const text = (data.content || []).map((c: { text?: string }) => c.text || "").join("").trim();
     let verdict = "fail", reasons = ["Could not read the photo — please retake"];
+    let observations: Record<string, unknown> | null = null;
     try {
       const m = text.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(m ? m[0] : text);
       verdict = parsed.verdict === "pass" ? "pass" : "fail";
       reasons = Array.isArray(parsed.reasons) ? parsed.reasons.slice(0, 3).map(String) : [];
+      if (photo.step_key === "meter" && parsed.observations && typeof parsed.observations === "object") {
+        observations = parsed.observations as Record<string, unknown>;
+      }
     } catch { /* keep fail default */ }
 
-    await admin.from("assessment_photos").update({ ai_verdict: verdict, ai_reasons: reasons }).eq("id", photo_id);
-    return json({ verdict, reasons, configured: true });
+    const update: Record<string, unknown> = { ai_verdict: verdict, ai_reasons: reasons };
+    if (observations) update.ai_observations = observations;
+    await admin.from("assessment_photos").update(update).eq("id", photo_id);
+    return json({ verdict, reasons, observations, configured: true });
   } catch (e) {
     return json({ error: String((e as Error).message || e) }, 500);
   }

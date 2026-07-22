@@ -95,3 +95,28 @@ Driven off the catalog `spec` (`kw`, `phase`, `hybrid`) + the site's phase count
    what ③ already does).
 3. **Estimate / design / rebate** — drive off `existing` + `wants` + the
    increment; retire the bill-based guess.
+
+## Meter + service fuse — AI photo learning (drives the quote)
+The **meter capture step is non-negotiable** (no N/A) and the vision checker
+(`validate-assessment-photo`) reads three facts off it into
+`assessment_photos.ai_observations`, which `quote_prefill` then pre-flags on the
+instant quote. Three states, from real site photos:
+
+1. **Old dial meter** — electromechanical, spinning disc + mechanical number
+   wheels (e.g. "Watthour Meter Type M3"). **Always needs a meter upgrade** before
+   solar (`meter_upgrade_required=true`). These older setups typically also have
+   **no service fuse** → a Level 2 electrician is required as well.
+2. **Smart meter** — modern electronic/LCD meter (e.g. EDMI Atlas Mk7A). No
+   upgrade needed. Its **nameplate voltage tells you the phase**:
+   **`230V x1` = single phase**, **`230V x3` (or a 400V/3-phase nameplate) = three
+   phase**. This feeds the inverter sizing / export rules above.
+3. **Service fuse present vs absent** — the sealed supply-authority service fuse
+   (black fuse carrier, sometimes labelled "SERVICE FUSE"). **Absent → a Level 2
+   electrician is required** (external resource, **~$350–$500**). Smart meter +
+   service fuse present = the clean case, no extra electrical.
+
+Pricing hooks (`chargeables`): `meter_upgrade` (retailer swaps the meter — carried
+as a $0 requirement flag, must be actioned before install) and `service_fuse_l2`
+(Level 2 / ASP install, baseline **$425** = midpoint of $350–500, range in `meta`).
+Both flow through `quote_estimate` as their own quote lines and auto-tick on the
+instant quote when the meter photo detected them.

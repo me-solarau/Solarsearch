@@ -179,7 +179,7 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
   </div>
   <div id="aiResult"></div>
   <textarea id="stNote" placeholder="Optional note — access constraint, asbestos suspicion, old wiring, shading…"></textarea>
-  <button class="btn btn-ghost btn-block" style="margin-top:10px" onclick="markNA()">Mark this step N/A</button>
+  <button id="naBtn" class="btn btn-ghost btn-block" style="margin-top:10px" onclick="markNA()">Mark this step N/A</button>
   <div class="cap-nav">
     <button class="btn btn-ghost" onclick="navBack()">Back to list</button>
     <button class="btn btn-ink" onclick="saveStepNext()">Save &amp; next →</button>
@@ -240,9 +240,9 @@ const DEFAULT_STEPS=[
  {key:'main_switch',title:'Main switch + rating',req:true,multi:true,max:6,
   hint:'Close-up of the main switch, its amp rating, and the existing circuit labelling.',
   guide:'Zoom into the main switch. The amp rating stamped on it and the nearby circuit labels must be sharp and readable.'},
- {key:'meter',title:'Meter / metering',req:true,multi:true,max:6,
-  hint:'The meter face (numbers/NMI legible) and the whole metering arrangement.',
-  guide:'Frame the meter so the display and any NMI/serial sticker are readable. If there\'s more than one meter, get them all in one shot or take a second photo.'},
+ {key:'meter',title:'Meter + service fuse',req:true,multi:true,max:6,noNA:true,
+  hint:'Meter face + nameplate legible, AND the service fuse (or clearly show there is none). Non-negotiable.',
+  guide:'Two things the design team can\'t proceed without: (1) the meter — old spinning-disc dial meter means a meter upgrade is needed; a smart/digital meter is fine, and its nameplate tells us the phase (230V x1 = single phase, 230V x3 = three phase), so shoot the nameplate close enough to read. (2) the service fuse — the sealed supply-authority fuse. If there is NO service fuse, a Level 2 electrician is required, so make sure the shot proves whether one is present or not. This step can\'t be marked N/A.'},
  {key:'main_earth',title:'Main earth connection',req:true,multi:true,max:6,
   hint:'The main earthing conductor/electrode and its connection.',
   guide:'Find the earth cable running from the board to a stake/water pipe and shoot it close enough to see the connection and roughly the cable size. If you genuinely can\'t locate it, mark N/A with a note.'},
@@ -606,6 +606,7 @@ function loadStep(){
   const s=STEPS[curStepIx], e=capStore[s.key]||{};
   $('stSec').textContent='STEP '+(curStepIx+1)+' OF '+STEPS.length+(s.req?' · REQUIRED':' · OPTIONAL')+(isMulti(s)?' · UP TO '+s.max:'');
   $('stTitle').textContent=s.title; $('stHint').textContent=s.hint; $('stGuide').textContent=s.guide||'';
+  $('naBtn').style.display=s.noNA?'none':'';
   $('stNote').value=e.note||'';
   $('galInput').multiple=isMulti(s);
   if(isMulti(s)){ $('aiResult').innerHTML=''; renderMulti(); }
@@ -720,6 +721,7 @@ function applyVerdict(stepKey,v){
 }
 async function markNA(){
   const s=STEPS[curStepIx];
+  if(s.noNA){ toast('This step is non-negotiable — a photo is required'); return; }
   const reason=prompt('Why is this step N/A? (e.g. no existing system)','');
   if(reason===null)return;
   const row={ assessment_id:curJob.assessment_id, step_key:s.key, storage_path:null, na_reason:reason||'N/A', ai_verdict:null, note:$('stNote').value.trim()||null };
