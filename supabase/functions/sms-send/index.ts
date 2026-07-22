@@ -1,17 +1,16 @@
-// sms-send — the single outbound SMS point. Every other SMS function calls this
-// so there is exactly one place that talks to Twilio and one place that writes
-// the sms_messages log (dispute protection, §6). Service-role: it trusts its
-// caller (other Edge Functions / admin), looks up nothing about ownership.
+// sms-send — the single outbound SMS point (Kudosity / Transmit SMS API).
+// Every other SMS function calls this so there is exactly one place that talks
+// to the provider and one place that writes the sms_messages log (§6).
 //
 // POST { to, body, lead_id?, assessment_id?, kind?, send_at? }
-//   send_at (ISO 8601, 15min–7d out) -> Twilio Scheduled Message (ScheduleType=fixed)
+//   send_at (ISO 8601) -> scheduled send (Kudosity `send_at`, account-timezone).
 //
-// Honours per-customer STOP opt-out (never texts an opted-out number) and a
-// quiet-hours guard (no live sends 21:00–08:00 Australia/Sydney; scheduled
-// sends are exempt — Twilio holds them to SendAt).
+// Honours per-customer STOP opt-out and a quiet-hours guard (no live sends
+// 21:00–08:00 Australia/Sydney; scheduled sends are exempt).
 //
-// Secrets: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_MESSAGING_SERVICE_SID
-// (or TWILIO_FROM_NUMBER). SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY injected.
+// Secrets: KUDOSITY_API_KEY, KUDOSITY_API_SECRET, KUDOSITY_FROM_NUMBER,
+// optional KUDOSITY_API_BASE (default https://api.transmitsms.com).
+// SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY injected automatically.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
@@ -22,14 +21,31 @@ const CORS = {
 };
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
-const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
-const MSG_SVC = Deno.env.get("TWILIO_MESSAGING_SERVICE_SID");
-const FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER");
+const K_KEY = Deno.env.get("KUDOSITY_API_KEY");
+const K_SECRET = Deno.env.get("KUDOSITY_API_SECRET");
+const K_FROM = Deno.env.get("KUDOSITY_FROM_NUMBER");
+const K_BASE = (Deno.env.get("KUDOSITY_API_BASE") || "https://api.transmitsms.com").replace(/\/+$/, "");
 
 // last-9-digits normaliser so +61412…, 0412…, 412… compare equal
 export function normPhone(n: string) {
   return String(n || "").replace(/\D/g, "").slice(-9);
+}
+// to E.164-ish AU international (61XXXXXXXXX) that Kudosity expects
+function toIntl(n: string) {
+  let d = String(n || "").replace(/\D/g, "");
+  if (d.startsWith("0")) d = "61" + d.slice(1);
+  else if (d.length === 9) d = "61" + d;           // bare 4XXXXXXXX
+  return d;
+}
+// ISO -> "YYYY-MM-DD HH:MM:SS" in Australia/Sydney (Kudosity send_at is account-tz)
+function toKudosityWhen(iso: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false, timeZone: "Australia/Sydney",
+  }).formatToParts(new Date(iso));
+  const g = (t: string) => parts.find((p) => p.type === t)?.value || "00";
+  return `${g("year")}-${g("month")}-${g("day")} ${g("hour")}:${g("minute")}:${g("second")}`;
 }
 
 async function sbFetch(path: string, init: RequestInit = {}) {
@@ -42,15 +58,12 @@ async function sbFetch(path: string, init: RequestInit = {}) {
     },
   });
 }
-
 function inQuietHours(): boolean {
-  // 21:00–07:59 Australia/Sydney
   const h = Number(new Intl.DateTimeFormat("en-AU", {
     hour: "2-digit", hour12: false, timeZone: "Australia/Sydney",
   }).format(new Date()));
   return h >= 21 || h < 8;
 }
-
 async function logSms(row: Record<string, unknown>) {
   try { await sbFetch("sms_messages", { method: "POST", body: JSON.stringify(row) }); }
   catch (_) { /* logging must never block a send */ }
@@ -60,50 +73,44 @@ export async function sendSms(opts: {
   to: string; body: string; lead_id?: string | null; assessment_id?: string | null;
   kind?: string; send_at?: string | null;
 }) {
-  if (!TWILIO_SID || !TWILIO_TOKEN || (!MSG_SVC && !FROM_NUMBER)) {
-    return { ok: false, status: 503, error: "twilio not configured" };
-  }
-  // opt-out gate: has any customer on this number said STOP?
+  if (!K_KEY || !K_SECRET || !K_FROM) return { ok: false, status: 503, error: "kudosity not configured" };
+
+  // opt-out gate
   const digits = normPhone(opts.to);
   if (digits) {
-    const rows = await (await sbFetch(
-      `customers?sms_opt_out=eq.true&select=mobile`
-    )).json().catch(() => []);
+    const rows = await (await sbFetch(`customers?sms_opt_out=eq.true&select=mobile`)).json().catch(() => []);
     if (Array.isArray(rows) && rows.some((r: { mobile?: string }) => normPhone(r.mobile || "") === digits)) {
       return { ok: false, status: 403, error: "recipient opted out" };
     }
   }
   const scheduled = !!opts.send_at;
-  if (!scheduled && inQuietHours()) {
-    return { ok: false, status: 425, error: "quiet hours — send deferred" };
-  }
+  if (!scheduled && inQuietHours()) return { ok: false, status: 425, error: "quiet hours — send deferred" };
 
   const form = new URLSearchParams();
-  form.set("To", opts.to);
-  form.set("Body", opts.body);
-  if (MSG_SVC) form.set("MessagingServiceSid", MSG_SVC);
-  else form.set("From", FROM_NUMBER!);
-  if (scheduled) {
-    if (!MSG_SVC) return { ok: false, status: 400, error: "scheduled send needs a Messaging Service" };
-    form.set("ScheduleType", "fixed");
-    form.set("SendAt", opts.send_at!);
-  }
+  form.set("to", toIntl(opts.to));
+  form.set("from", K_FROM);
+  form.set("message", opts.body);
+  if (scheduled) form.set("send_at", toKudosityWhen(opts.send_at!));
 
-  const auth = btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`);
-  const res = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
-    { method: "POST", headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" }, body: form },
-  );
+  const auth = btoa(`${K_KEY}:${K_SECRET}`);
+  const res = await fetch(`${K_BASE}/send-sms.json`, {
+    method: "POST",
+    headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body: form,
+  });
   const data = await res.json().catch(() => ({}));
+  const errCode = data?.error?.code;
+  const ok = res.ok && (!errCode || errCode === "SUCCESS" || errCode === 0 || errCode === "0" || data?.message_id);
+
   await logSms({
     lead_id: opts.lead_id ?? null, assessment_id: opts.assessment_id ?? null,
-    direction: "out", to_number: opts.to, from_number: MSG_SVC || FROM_NUMBER,
-    body: opts.body, twilio_sid: data?.sid ?? null,
-    status: res.ok ? (scheduled ? "scheduled" : (data?.status ?? "sent")) : "failed",
+    direction: "out", to_number: opts.to, from_number: K_FROM,
+    body: opts.body, twilio_sid: data?.message_id ? String(data.message_id) : null,
+    status: ok ? (scheduled ? "scheduled" : "sent") : "failed",
     kind: opts.kind ?? "out",
   });
-  if (!res.ok) return { ok: false, status: 502, error: data?.message || "twilio send failed" };
-  return { ok: true, sid: data?.sid, status: data?.status };
+  if (!ok) return { ok: false, status: 502, error: data?.error?.description || "kudosity send failed", detail: data };
+  return { ok: true, sid: data?.message_id, status: scheduled ? "scheduled" : "sent" };
 }
 
 Deno.serve(async (req) => {

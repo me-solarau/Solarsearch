@@ -1,44 +1,26 @@
-// sms-inbound — the Twilio inbound webhook and the conversational engine.
-// Twilio POSTs (application/x-www-form-urlencoded) every customer reply here.
-// We validate X-Twilio-Signature so only Twilio can drive scheduling, match the
-// number to an open offer, and act:
-//   1|2|3 (or a matched time) -> sms_confirm_visit + confirm SMS (+ schedule the
-//                                day-of reminder as a Twilio Scheduled Message)
-//   RESCHEDULE                 -> sms_mark_reschedule + re-run sms-offer-windows
-//   CANCEL                     -> sms_release_assessment (lead returns to pool)
-//   STOP/UNSUBSCRIBE           -> set customers.sms_opt_out, never message again
-//   anything else              -> fallback reply + leave for HQ to phone
-// Reply is TwiML so Twilio delivers our confirmation in-thread.
+// sms-inbound — Kudosity reply webhook ("Reply options → Forward to URL").
+// Kudosity has no request signature, so we authenticate with a shared secret in
+// the URL (?secret=…) that matches the SMS_INBOUND_SECRET function secret. Parses
+// the customer's reply and drives the schedule state machine:
+//   1|2|3            -> sms_confirm_visit + confirm SMS (+ schedule day-of reminder)
+//   RESCHEDULE       -> sms_mark_reschedule + re-run sms-offer-windows
+//   CANCEL           -> sms_release_assessment (lead back to pool)
+//   STOP/UNSUBSCRIBE -> set customers.sms_opt_out
+//   anything else    -> fallback reply
+// Kudosity can't reply inline (no TwiML), so every reply is sent as a normal
+// outbound message via sms-send. The confirm path calls SECURITY DEFINER RPCs
+// granted to service_role only, so no browser can forge a confirmation.
 //
-// Set the Messaging Service inbound webhook to this function's URL. Because the
-// confirm path calls SECURITY DEFINER RPCs granted to service_role only, no
-// browser can forge a confirmation.
+// Set the number's Reply option "Forward to URL" to:
+//   https://<project>.supabase.co/functions/v1/sms-inbound?secret=<SMS_INBOUND_SECRET>
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-const WEBHOOK_URL_OVERRIDE = Deno.env.get("SMS_INBOUND_URL"); // set if a proxy rewrites the URL
+const INBOUND_SECRET = Deno.env.get("SMS_INBOUND_SECRET");
 
 const normPhone = (n: string) => String(n || "").replace(/\D/g, "").slice(-9);
-
-// Twilio signature: base64( HMAC-SHA1( authToken, url + sorted(key+value)... ) )
-async function validSignature(url: string, params: Record<string, string>, sig: string) {
-  if (!sig) return false;
-  const data = url + Object.keys(params).sort().map((k) => k + params[k]).join("");
-  const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(TWILIO_TOKEN),
-    { name: "HMAC", hash: "SHA-1" }, false, ["sign"],
-  );
-  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
-  const b64 = btoa(String.fromCharCode(...new Uint8Array(mac)));
-  // constant-time-ish compare
-  if (b64.length !== sig.length) return false;
-  let diff = 0;
-  for (let i = 0; i < b64.length; i++) diff |= b64.charCodeAt(i) ^ sig.charCodeAt(i);
-  return diff === 0;
-}
 
 async function sbFetch(path: string, init: RequestInit = {}) {
   return fetch(`${SB_URL}/rest/v1/${path}`, {
@@ -64,12 +46,9 @@ async function callFn(name: string, payload: Record<string, unknown>) {
     body: JSON.stringify(payload),
   });
 }
-
-function twiml(msg?: string) {
-  const body = msg
-    ? `<Response><Message>${msg.replace(/[<&>]/g, (c) => ({ "<": "&lt;", "&": "&amp;", ">": "&gt;" }[c]!))}</Message></Response>`
-    : `<Response></Response>`;
-  return new Response(body, { status: 200, headers: { "Content-Type": "text/xml" } });
+async function reply(to: string, body: string, assessment_id?: string | null, lead_id?: string | null, kind = "confirm") {
+  if (!to || !body) return;
+  await callFn("sms-send", { to, body, assessment_id: assessment_id ?? null, lead_id: lead_id ?? null, kind }).catch(() => {});
 }
 function fmtWhen(iso: string) {
   return new Date(iso).toLocaleString("en-AU", {
@@ -77,43 +56,50 @@ function fmtWhen(iso: string) {
     timeZone: "Australia/Sydney",
   });
 }
+const ok = () => new Response("OK", { status: 200 });
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
   try {
-    const raw = await req.text();
-    const params: Record<string, string> = {};
-    new URLSearchParams(raw).forEach((v, k) => { params[k] = v; });
-
-    // Reconstruct the exact URL Twilio signed (honour proxy headers).
-    const proto = req.headers.get("x-forwarded-proto");
-    const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+    // gather params from query string AND body (Kudosity may GET or POST)
     const u = new URL(req.url);
-    const url = WEBHOOK_URL_OVERRIDE || (proto && host ? `${proto}://${host}${u.pathname}${u.search}` : req.url);
+    const params: Record<string, string> = {};
+    u.searchParams.forEach((v, k) => { params[k] = v; });
+    if (req.method === "POST") {
+      const ct = req.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        const j = await req.json().catch(() => ({}));
+        for (const k of Object.keys(j || {})) params[k] = String((j as Record<string, unknown>)[k] ?? "");
+      } else {
+        const raw = await req.text();
+        new URLSearchParams(raw).forEach((v, k) => { params[k] = v; });
+      }
+    }
 
-    const sig = req.headers.get("X-Twilio-Signature") || "";
-    if (!(await validSignature(url, params, sig))) return new Response("invalid signature", { status: 403 });
+    // authenticate via shared secret
+    if (!INBOUND_SECRET || params.secret !== INBOUND_SECRET) return new Response("forbidden", { status: 403 });
 
-    const from = params.From || "";
-    const bodyRaw = (params.Body || "").trim();
+    const from = params.mobile || params.msisdn || params.from || "";
+    const bodyRaw = (params.response || params.message || params.body || params.sms || "").trim();
     const upper = bodyRaw.toUpperCase();
     const fromDigits = normPhone(from);
+    if (!from) return ok();
 
-    // Log the inbound line first (dispute protection), regardless of parse.
+    // log inbound
     await sbFetch("sms_messages", { method: "POST", body: JSON.stringify({
-      direction: "in", from_number: from, to_number: params.To || null, body: bodyRaw,
-      twilio_sid: params.MessageSid || null, status: "received", kind: "inbound",
+      direction: "in", from_number: from, to_number: params.longcode || params.to || null,
+      body: bodyRaw, twilio_sid: params.message_id ? String(params.message_id) : null,
+      status: "received", kind: "inbound",
     }) }).catch(() => {});
 
-    // STOP / opt-out (Twilio also enforces this at the carrier level).
+    // STOP / opt-out (Kudosity also handles this on its side)
     if (/^(STOP|STOPALL|UNSUBSCRIBE|CANCEL ALL|END|QUIT)$/.test(upper)) {
       const custs = await (await sbFetch(`customers?select=id,mobile`)).json().catch(() => []);
       const ids = (custs || []).filter((c: { mobile?: string }) => normPhone(c.mobile || "") === fromDigits).map((c: { id: string }) => c.id);
       for (const id of ids) await sbFetch(`customers?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ sms_opt_out: true }) });
-      return twiml(); // Twilio sends the standard opt-out confirmation
+      return ok();
     }
 
-    // Find this number's open offer.
+    // find this number's open offer
     const rows = await (await sbFetch(
       `assessments?schedule_state=in.(offered,reschedule,confirmed)&status=in.(claimed,scheduled)` +
       `&select=id,lead_id,offered_windows,schedule_state,status,leads(customers(id,mobile,full_name))&order=claimed_at.desc`
@@ -121,35 +107,31 @@ Deno.serve(async (req) => {
     const match = (Array.isArray(rows) ? rows : []).find(
       (r: any) => normPhone(r.leads?.customers?.mobile || "") === fromDigits,
     );
-    if (!match) return twiml("Thanks — we couldn't match this to a booking. We'll call you shortly.");
+    if (!match) { await reply(from, "Thanks — we couldn't match this to a booking. We'll call you shortly.", null, null, "fallback"); return ok(); }
 
     const wins: { iso: string; label: string }[] = match.offered_windows || [];
     const first = (match.leads?.customers?.full_name || "").split(" ")[0];
 
-    // CANCEL -> release the claim back to the pool.
     if (/^(CANCEL|NO|NOT INTERESTED)$/.test(upper)) {
       await rpc("sms_release_assessment", { p_assessment_id: match.id, p_reason: "customer_cancel" });
-      return twiml("No problem — your visit is cancelled. Reply anytime to rebook.");
+      await reply(from, "No problem — your visit is cancelled. Reply anytime to rebook.", match.id, match.lead_id, "cancel");
+      return ok();
     }
-    // RESCHEDULE -> fresh windows.
     if (/^(RESCHEDULE|OTHER|DIFFERENT|CHANGE)$/.test(upper)) {
       await rpc("sms_mark_reschedule", { p_assessment_id: match.id });
       const r = await callFn("sms-offer-windows", { assessment_id: match.id });
-      if (r.ok) return twiml(); // offer function sends the new windows
-      return twiml("We'll text you fresh times shortly.");
+      if (!r.ok) await reply(from, "We'll text you fresh times shortly.", match.id, match.lead_id, "reschedule");
+      return ok();
     }
-    // Numbered choice 1|2|3.
     const num = upper.match(/^([1-9])\b/);
-    let chosen: { iso: string; label: string } | undefined;
-    if (num) chosen = wins[Number(num[1]) - 1];
+    const chosen = num ? wins[Number(num[1]) - 1] : undefined;
     if (chosen) {
       const res = await rpc("sms_confirm_visit", { p_assessment_id: match.id, p_scheduled_at: chosen.iso });
-      if (!res.ok) return twiml("Sorry — that slot just closed. Reply RESCHEDULE for fresh times.");
-      // Day-of reminder as a Twilio Scheduled Message (fires 08:00 Sydney on visit day, if >15 min out).
+      if (!res.ok) { await reply(from, "Sorry — that slot just closed. Reply RESCHEDULE for fresh times.", match.id, match.lead_id, "confirm"); return ok(); }
+      // day-of reminder as a scheduled send (~3h before, if >15 min out)
       const visit = new Date(chosen.iso);
       const remind = new Date(visit); remind.setHours(remind.getHours() - 3);
-      const nowPlus = new Date(Date.now() + 16 * 60 * 1000);
-      if (remind > nowPlus) {
+      if (remind > new Date(Date.now() + 16 * 60 * 1000)) {
         await callFn("sms-send", {
           to: from, assessment_id: match.id, lead_id: match.lead_id, kind: "reminder",
           send_at: remind.toISOString(),
@@ -157,13 +139,14 @@ Deno.serve(async (req) => {
         });
         await sbFetch(`assessments?id=eq.${match.id}`, { method: "PATCH", body: JSON.stringify({ reminder_sent_at: new Date().toISOString() }) });
       }
-      return twiml(`Confirmed${first ? " " + first : ""}! Your assessment is booked for ${fmtWhen(chosen.iso)}. See you then.`);
+      await reply(from, `Confirmed${first ? " " + first : ""}! Your assessment is booked for ${fmtWhen(chosen.iso)}. See you then.`, match.id, match.lead_id, "confirm");
+      return ok();
     }
 
-    // Unparseable -> fallback + leave flagged (schedule_state stays 'offered' for HQ).
-    return twiml(`Thanks! To confirm reply with a number (1, 2 or 3). Reply RESCHEDULE for other times or CANCEL to release. We'll also call if needed.`);
+    await reply(from, "Thanks! To confirm reply with a number (1, 2 or 3). Reply RESCHEDULE for other times or CANCEL to release.", match.id, match.lead_id, "fallback");
+    return ok();
   } catch (e) {
-    console.error("sms-inbound error", e);
-    return twiml(); // never 500 back to Twilio; log and move on
+    console.error("sms-inbound (kudosity) error", e);
+    return ok(); // never error back to the provider
   }
 });

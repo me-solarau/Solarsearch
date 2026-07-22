@@ -27,24 +27,26 @@ Already deployed & live (no action): `send-booking-confirmation`,
 The whole conversational scheduling loop is built (server generates windows →
 texts the customer → they reply 1/2/3 → it books itself → day-of reminder →
 "On my way"). To make it send for real:
-- [ ] Set Edge Function secrets: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and
-      `TWILIO_MESSAGING_SERVICE_SID` (a Messaging Service is required for the
-      scheduled day-of reminder; a bare `TWILIO_FROM_NUMBER` also works for
-      live sends but not scheduling). Optional: `PUBLIC_SITE_URL` (defaults to
-      `https://solarsearch.com.au`) for the trust-badge link in the intro SMS.
-- [ ] In the Twilio Console, set the Messaging Service **inbound webhook** to
-      the deployed `sms-inbound` URL
-      (`https://<project>.supabase.co/functions/v1/sms-inbound`), method POST.
-      The function verifies `X-Twilio-Signature` with your auth token, so only
-      Twilio can drive scheduling. If a proxy rewrites the URL and signatures
-      fail (Twilio error 57012), set the `SMS_INBOUND_URL` secret to the exact
-      public webhook URL.
+Provider = **Kudosity** (Transmit SMS API, `https://api.transmitsms.com`), AU
+2-way number **61430251786**. (Twilio was dropped — US 10DLC compliance pain.)
+- [ ] Set Edge Function secrets (Supabase → Edge Functions → Secrets):
+      `KUDOSITY_API_KEY` + `KUDOSITY_API_SECRET` (from Kudosity → Developers →
+      API Settings), `KUDOSITY_FROM_NUMBER` = `61430251786`, and
+      `SMS_INBOUND_SECRET` = any long random string (webhook auth). Optional:
+      `PUBLIC_SITE_URL` (defaults `https://solarsearch.com.au`) for the badge link,
+      `KUDOSITY_API_BASE` only if the API host ever changes.
+- [ ] In Kudosity → Developers → **API Settings** → **Receive Message Callback
+      URL**, paste:
+      `https://vbpzigwgfmchdpvxetge.supabase.co/functions/v1/sms-inbound?secret=<SMS_INBOUND_SECRET>`
+      (same secret value as the function secret). This is the reply webhook —
+      `sms-inbound` authenticates on that `?secret=` since Kudosity doesn't sign
+      requests. "Global Opt Out List" stays Enabled (Kudosity honours STOP too).
+- [ ] Reminders go out as Kudosity scheduled sends (`send_at`), computed in
+      Australia/Sydney — keep the Kudosity account timezone on Sydney so the
+      day-of reminder lands at the right time.
 - [ ] (Recommended) A **server-restricted Google key** for Distance Matrix if
       you later want travel-time-optimised windows; today the generator uses
       availability + same-day clustering, no external key needed.
-- [ ] Optional: point a scheduler (pg_cron / GitHub Action) at `sms-reminder`
-      as a belt-and-braces backstop — the primary reminder already goes out as
-      a Twilio Scheduled Message at confirm time.
 
 ### 2b. Web push — "ping, new job near you" (B1)
 No external account needed — VAPID keys are self-generated.
