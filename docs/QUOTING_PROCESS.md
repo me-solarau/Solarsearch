@@ -66,10 +66,27 @@ Prices are kept current automatically by the **invoice inbox loop** (`ingest-inv
 - Config: `pricing_config.seat_fee`, `pricing_config.winner_fee_pct`, `pricing_config.winner_fee_base`.
 - The **installer's** margin is separate — the 34% material markup + labour rate card (their price to the customer). me-solar earns only seat + winner fee.
 
+## Payment milestones (job value)
+Payment is released in three milestones against the job:
+- **10% deposit** on **job acceptance** (installer/subcontractor accepts the job).
+- **60%** on the **day of completion** — gated by the mandatory install evidence
+  (`submit_install`: full photo set + completion report, locked + hashed).
+- **30%** on **STC verification** (certificates confirmed/created).
+
+These map to system events: acceptance → deposit; `install.submitted` (status `installed`)
+→ 60%; STC verification → final 30%. The payment rails (Stripe) are still stubbed — this is
+the schedule to implement.
+
+## Retailer subcontract pipeline
+A **retailer** has sold their own job and subcontracts the **installation** to a Solarsearch
+accredited installer. They receive the full **compliant installation report** (the guided
+install photo set + completion report, start to finish — geotagged, hashed, locked) as their
+compliance / warranty / handover record. Same install-evidence gate as every install.
+
 ## Gaps still to build (were missing from the first pass)
 These sit between the stages above and are needed to make the pipeline complete:
 
-- **Deposit + balance payments** — collect a deposit on `signed` (Pylon `gateway_payments`) and balance on completion. Nothing collects money yet.
+- **Deposit + balance payments** — implement the 10% / 60% / 30% milestone schedule above (Pylon `gateway_payments` / Stripe). Nothing collects money yet.
 - **DNSP pre-approval** — Ausgrid export approval before install (Pylon has the field).
 - **Install scheduling** — book the install date with customer + installer.
 - **STC assignment** — customer assigns STCs to realise the rebate (paperwork).
