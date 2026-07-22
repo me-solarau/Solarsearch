@@ -222,40 +222,40 @@ let navStack=['v-pool'], curTab='pool';
 
 /* ===== capture spec (scope §4) ===== */
 const STEPS=[
- {key:'front',title:'Front of property',req:true,
+ {key:'front',title:'Front of property',req:true,multi:true,max:6,
   hint:'The whole front of the house with its roof line, and where a truck/ladder can access.',
   guide:'Stand back on the street or driveway, phone sideways (landscape). Fit the whole house AND its full roof in the frame. Make sure the driveway / side access is visible.'},
  {key:'roof_planes',title:'Roof planes + panel area',req:true,multi:true,max:4,
   hint:'Every roof face that could hold panels, and anything that shades or blocks them. Up to 4 photos.',
   guide:'Add up to 4 photos — one per roof face is ideal. Drone shots are perfect here: tap "Upload photos" to add them from your camera roll. From the ground, shoot each face square-on and include chimneys, vents, skylights, aerials and any shading trees.'},
- {key:'roof_material',title:'Roof material close-up',req:true,
+ {key:'roof_material',title:'Roof material close-up',req:true,multi:true,max:6,
   hint:'A close shot where the exact roof material AND its condition are obvious.',
   guide:'Get as close as you safely can (zoom in from the ground is fine). Fill the frame with the roof surface so we can tell tile vs metal/Colorbond vs terracotta, and spot cracks, rust or brittle sheets.'},
- {key:'board_closed',title:'Switchboard — door closed',req:true,
+ {key:'board_closed',title:'Switchboard — door closed',req:true,multi:true,max:6,
   hint:'The whole switchboard in its surroundings, door shut.',
   guide:'Step back about 1.5 m so you capture the whole board, the wall it\'s on, its height off the ground, and any meters next to it. Door closed for this one.'},
- {key:'board_open',title:'Switchboard — door open',req:true,
+ {key:'board_open',title:'Switchboard — door open',req:true,multi:true,max:6,
   hint:'Door open, EVERY breaker and circuit label readable, and spare space visible.',
   guide:'Open the door fully. Hold the phone square-on (not at an angle) and close enough that every label reads clearly. Tap the screen to focus before you shoot. If any text looks fuzzy, retake — this is the shot that makes or breaks the quote.'},
- {key:'main_switch',title:'Main switch + rating',req:true,
+ {key:'main_switch',title:'Main switch + rating',req:true,multi:true,max:6,
   hint:'Close-up of the main switch, its amp rating, and the existing circuit labelling.',
   guide:'Zoom into the main switch. The amp rating stamped on it and the nearby circuit labels must be sharp and readable.'},
- {key:'meter',title:'Meter / metering',req:true,
+ {key:'meter',title:'Meter / metering',req:true,multi:true,max:6,
   hint:'The meter face (numbers/NMI legible) and the whole metering arrangement.',
   guide:'Frame the meter so the display and any NMI/serial sticker are readable. If there\'s more than one meter, get them all in one shot or take a second photo.'},
- {key:'main_earth',title:'Main earth connection',req:true,
+ {key:'main_earth',title:'Main earth connection',req:true,multi:true,max:6,
   hint:'The main earthing conductor/electrode and its connection.',
   guide:'Find the earth cable running from the board to a stake/water pipe and shoot it close enough to see the connection and roughly the cable size. If you genuinely can\'t locate it, mark N/A with a note.'},
- {key:'inverter_loc',title:'Proposed inverter location',req:true,
+ {key:'inverter_loc',title:'Proposed inverter location',req:true,multi:true,max:6,
   hint:'The exact wall/spot for the inverter, with the clearances around it visible.',
   guide:'Show the exact wall you\'d mount the inverter on, standing back enough to see the space above, below and to the sides (inverters need air gaps). Note shade/sun, height, and how far it is from the switchboard. Put your hand or a tape in frame for scale if it helps.'},
- {key:'battery_loc',title:'Proposed battery location',req:true,
+ {key:'battery_loc',title:'Proposed battery location',req:true,multi:true,max:6,
   hint:'The battery spot with enough around it to judge floor/wall space, ventilation and clearances.',
   guide:'Show where the battery would go with plenty of surroundings — floor space or wall, ventilation, and anything nearby that matters (windows, doorways, exits, heat sources, direct sun). Batteries have strict clearance rules, so give us the full context.'},
- {key:'cable_route',title:'Cable route',req:true,
+ {key:'cable_route',title:'Cable route',req:true,multi:true,max:6,
   hint:'The path cables would run: roof → switchboard, and switchboard → inverter/battery.',
   guide:'Take a couple of shots showing the likely cable path — where cables leave the roof, and the run from the board to the inverter/battery. Point out any hard bits (double storey, no roof space, long external run).'},
- {key:'existing_system',title:'Existing system (if any)',req:false,
+ {key:'existing_system',title:'Existing system (if any)',req:false,multi:true,max:6,
   hint:'Any existing solar/battery: panels, inverter, isolators and labels.',
   guide:'If there\'s already solar or a battery, photograph the panels, the inverter, the isolators and any rating labels. If there\'s nothing existing, mark this step N/A.'},
 ];
@@ -597,7 +597,7 @@ function renderSingle(url){
 function renderMulti(){
   const s=STEPS[curStepIx], photos=((capStore[s.key]||{}).photos)||[];
   const z=$('photoArea');
-  if(!photos.length){ z.innerHTML=`<div class="photo-zone" onclick="$('camInput').click()">${CAM_SVG}<span>Take or upload up to ${s.max} roof photos — drone shots welcome</span></div>`; }
+  if(!photos.length){ z.innerHTML=`<div class="photo-zone" onclick="$('camInput').click()">${CAM_SVG}<span>Take a photo or upload from your camera roll — add up to ${s.max} angles (more is better)</span></div>`; }
   else{
     z.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`+photos.map(p=>{
       const st=p.verdict==='fail'?['var(--red)','RESHOOT','var(--red)','#fff']:(p.verdict==='pass'&&p.configured===false?['#F2D48A','UNVERIFIED','var(--ambers)','#7A5A00']:(p.verdict==='pass'?['var(--green)','✓','var(--green)','#fff']:['var(--line)','…','#7A5A00','#fff']));
