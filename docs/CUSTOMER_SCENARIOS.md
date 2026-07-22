@@ -128,11 +128,16 @@ reference in frame** and gives the sales tech immediate feedback (an amber "Site
 — clearances" note in the app). Advisories are **feedback, not a photo failure** — the
 shot still passes as long as the location context is visible.
 
-**Scale ruler — Australian brickwork** (the reliable reference on most homes):
-- Standard clay brick: **230 (L) × 110 (W) × 76 (H) mm**, laid with **10 mm** mortar joints.
-- So one **course ≈ 86 mm** high, and **one brick + perpend ≈ 240 mm** long.
-- Count courses/bricks to turn the photo into millimetres. Fallbacks if no brick: GPO
-  power point ≈ 115 mm tall, standard door ≈ 2040 mm, downpipe ≈ 90 mm.
+**Scale reference library** — anything of known datasheet size in frame is a ruler
+(and its size doubles as a spec hint). The shared `SCALE_REFS` block feeds every
+measurement step:
+- **Australian clay brick**: **230 (L) × 110 (W) × 76 (H) mm** with **10 mm** joints →
+  one **course ≈ 86 mm** high, **one brick + perpend ≈ 240 mm** long. Count courses/bricks.
+- **NSW meter board / switchboard**: standard **~600 × 600 mm** (260 mm deep); a full
+  DIN row is **~12 poles** wide (used to gauge spare capacity).
+- **Residential solar panel**: newer high-output (~350 W+) **~1722–1762 (H) × 1134 (W) mm**;
+  older ~250 W **~1650 (H) × 1000 (W) mm**. Width tells you the vintage/wattage.
+- Fallbacks: GPO power point ≈ 115 mm tall, standard door ≈ 2040 mm, downpipe ≈ 90 mm.
 
 **Standards checked (design-review flags, not a compliance sign-off):**
 - **Inverter** (manufacturer ventilation + good practice): ≈ **300 mm above & below**,
@@ -146,6 +151,23 @@ shot still passes as long as the location context is visible.
 
 The AI returns `est_clearances_mm` (above/below/left/right/front), a `clearance_ok`
 flag, the `scale_reference` it used, and `advisories[]` — stored in
-`assessment_photos.ai_observations` and shown to the tech on site so a tight or
-non-compliant spot gets caught before the truck leaves. Final clearances are still
-confirmed by the designer/installer against the specific product datasheet.
+`assessment_photos.ai_observations` and shown to the tech on site (amber **"AI site
+check"** note) so a tight or non-compliant spot gets caught before the truck leaves.
+Final clearances are still confirmed by the designer/installer against the specific
+product datasheet.
+
+**Same scale ruler, other steps** — the reference library also powers rough
+estimates that ride back as advisories in the same note:
+- **`existing_panels`** — counts the array and reads each panel's **width** to guess
+  vintage/wattage (~1134 mm ⇒ newer ~350 W+; ~1000 mm ⇒ older ~250 W), then estimates
+  the **existing kW** (`panel_count`, `est_panel_watts`, `panel_vintage`,
+  `est_existing_kw`). Confirmed off the inverter nameplate.
+- **`roof_planes`** — using a modern panel footprint (~1.13 × 1.76 m) it gives a
+  **rough panel-fit** count for the main plane (`est_panels_fit`), heavily hedged and
+  noting obstructions — a sizing feel for the designer.
+- **`board_open`** — estimates **spare DIN poles** against the ~12-pole standard row
+  (`est_spare_poles`); a near-full board raises a *switchboard-upgrade likely* advisory
+  that lines up with the `switchboard_upgrade` quote flag.
+
+All of these are **estimates for feedback/triage**, never a compliance or final-design
+call — the datasheet and the designer have the last word.

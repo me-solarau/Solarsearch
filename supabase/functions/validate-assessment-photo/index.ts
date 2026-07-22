@@ -96,10 +96,20 @@ This is the METER + SERVICE FUSE step. As well as the pass/fail, READ the meteri
 - SERVICE FUSE: the sealed supply-authority service fuse / service protection device (often a black fuse carrier, sometimes labelled "SERVICE FUSE"). "present" if you can see one, "absent" if the metering is clearly shown and there is none, "unknown" if the shot doesn't establish it.
   - If service_fuse is "absent", a Level 2 electrician is required (external work).` : "";
 
-    // Inverter/battery location steps: estimate real clearances from the photo using
-    // whatever is a known-size reference — Australian brickwork is the reliable ruler.
+    // Measurement steps turn pixels into millimetres using a known-size object in
+    // frame — every standard bit of kit (brick, meter board, solar panel) is a ruler,
+    // and its datasheet size also hints at the spec (panel width -> wattage/vintage).
     const LOC_STEPS = new Set(["inverter_loc", "battery_loc"]);
+    const MEASURE_STEPS = new Set(["inverter_loc", "battery_loc", "existing_panels", "roof_planes", "board_open"]);
+    const OBS_STEPS = new Set(["meter", ...MEASURE_STEPS]);
     const isBat = photo.step_key === "battery_loc";
+
+    const SCALE_REFS = `SCALE REFERENCE — use a known-size object in frame to turn pixels into millimetres, and say which one you used:
+- Australian clay brick: 230mm long x 110mm wide x 76mm high with 10mm mortar joints -> one COURSE (height) ~86mm, one brick+perpend (length) ~240mm. Count courses/bricks.
+- NSW meter board / switchboard enclosure: standard ~600 x 600mm (260mm deep); a full row of DIN breakers is ~12 poles wide.
+- Residential solar panel: newer high-output modules (~350W and up) ~1722-1762mm tall x ~1134mm wide; older ~250W modules ~1650mm tall x ~1000mm wide.
+- Other: GPO power point ~115mm tall, standard door ~2040mm tall, downpipe ~90mm.`;
+
     const CLEARANCE_REQS = isBat
       ? `Home battery (BESS) siting, per AS/NZS 5139 and manufacturer rules — flag if the spot looks non-compliant:
 - Keep a ~600mm exclusion zone clear of building exits/entries, opening windows, vents, HVAC/air intakes, and other appliances/heat sources.
@@ -110,22 +120,46 @@ This is the METER + SERVICE FUSE step. As well as the pass/fail, READ the meteri
 - Ventilation gaps: typically >=300mm above and below, >=100-200mm each side; ~1m clear working space in front.
 - Not boxed into an unventilated cavity, not directly above/below a heat source, avoid direct west/afternoon sun (heat derating).
 - Outdoors needs an IP-rated unit; keep clear of gas meters (~600mm) and out of habitable-room noise zones.`;
-    const LOC_EXTRACT = LOC_STEPS.has(photo.step_key) ? `
 
-This is a PROPOSED ${isBat ? "BATTERY" : "INVERTER"} LOCATION step. As well as pass/fail, ESTIMATE the available clearances and give the sales tech feedback.
-SCALE REFERENCE — use a known-size object in frame to turn pixels into millimetres. Australian brickwork is ideal:
-- A standard clay brick is 230mm long x 110mm wide x 76mm high, laid with 10mm mortar joints.
-- So one brick COURSE (height) is about 86mm, and one brick + perpend joint (length) is about 240mm. Count courses/bricks to estimate distances.
-- If no brick is visible, use another known reference (a power point/GPO is ~115mm tall, a standard door ~2040mm, a downpipe ~90mm) and say which you used.
+    // Per-step extraction instructions + the observations JSON fragment to return.
+    let EXTRACT = METER_EXTRACT, OBS = "";
+    if (LOC_STEPS.has(photo.step_key)) {
+      EXTRACT += `
+
+This is a PROPOSED ${isBat ? "BATTERY" : "INVERTER"} LOCATION step. As well as pass/fail, ESTIMATE the clearances and give the sales tech feedback.
+${SCALE_REFS}
 STANDARDS TO CHECK:
 ${CLEARANCE_REQS}
-Estimate the space above/below/left/right (and in front) of the marked spot in mm. If a required clearance does not appear to be there, add a short, practical ADVISORY for the tech in a tradesperson's words (what's tight, by roughly how much, and what to do — e.g. move it, pick another wall, or measure it). If it looks fine, say so. Advisories are FEEDBACK, not a photo failure — still PASS the photo if the location context is clearly visible.` : "";
+Estimate the space above/below/left/right (and in front) of the marked spot in mm. If a required clearance is not there, add a short practical ADVISORY (what's tight, by roughly how much, what to do — move it, pick another wall, measure it). Advisories are FEEDBACK, not a photo failure — still PASS if the location context is clearly visible.`;
+      OBS = `,"observations":{"scale_reference":"what you measured against","est_clearances_mm":{"above":n|null,"below":n|null,"left":n|null,"right":n|null,"front":n|null},"clearance_ok":true|false|"unsure","advisories":["short plain-English feedback for the tech", ...]}`;
+    } else if (photo.step_key === "existing_panels") {
+      EXTRACT += `
 
-    const EXTRACT = METER_EXTRACT + LOC_EXTRACT;
+This is the EXISTING PANELS step. As well as pass/fail, SIZE UP the existing array.
+${SCALE_REFS}
+- COUNT the panels visible. Estimate each panel's WIDTH from the scale reference: ~1134mm wide (and ~1722-1762mm tall) = a NEWER high-output module (~350W or more); ~1000mm wide (and ~1650mm tall) = an OLDER module (~250W). Datasheets confirm exact size/watts, so treat this as an estimate.
+- From count x estimated watts, estimate the existing array size in kW. Add a short ADVISORY summarising what you found (e.g. "~16 older ~250W panels ≈ ~4kW existing — confirm off the inverter nameplate").`;
+      OBS = `,"observations":{"panel_count":n|null,"est_panel_watts":n|null,"panel_vintage":"newer_350w_plus"|"older_250w"|"unknown","est_existing_kw":n|null,"scale_reference":"what you used","advisories":["short plain-English feedback", ...]}`;
+    } else if (photo.step_key === "roof_planes") {
+      EXTRACT += `
+
+This is the ROOF PLANES step. As well as pass/fail, give a ROUGH capacity feel.
+${SCALE_REFS}
+- A modern panel footprint is ~1.13m x ~1.76m (~2.0 m2). Using any scale reference visible (existing panels, brick, a door), estimate ROUGHLY how many standard panels the main visible roof plane could hold, allowing edge setbacks. This is a very rough guide for the designer, so hedge it and note obstructions (vents, skylights, shading). Put it in an ADVISORY.`;
+      OBS = `,"observations":{"est_panels_fit":n|null,"scale_reference":"what you used","advisories":["short plain-English feedback", ...]}`;
+    } else if (photo.step_key === "board_open") {
+      EXTRACT += `
+
+For this open-switchboard shot, also JUDGE SPARE CAPACITY for the new solar/battery circuits.
+${SCALE_REFS}
+- A standard NSW board row is ~12 DIN poles. Estimate how many SPARE poles / blanked spaces are free for the new breakers. If it looks full or nearly full, add an ADVISORY that a switchboard upgrade is likely needed. This is a heads-up for the designer, not a compliance call.`;
+      OBS = `,"observations":{"est_spare_poles":n|null,"advisories":["short plain-English feedback", ...]}`;
+    }
+
     const RETURN_SHAPE = photo.step_key === "meter"
       ? `Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":[...],"observations":{"meter_kind":"dial"|"smart"|"unknown","phase":1|3|null,"service_fuse":"present"|"absent"|"unknown","meter_upgrade_required":true|false}}.`
-      : LOC_STEPS.has(photo.step_key)
-      ? `Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":[...],"observations":{"scale_reference":"what you measured against","est_clearances_mm":{"above":n|null,"below":n|null,"left":n|null,"right":n|null,"front":n|null},"clearance_ok":true|false|"unsure","advisories":["short plain-English feedback for the tech", ...]}}.`
+      : OBS
+      ? `Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":[...]${OBS}}.`
       : `Return ONLY compact JSON: {"verdict":"pass"|"fail","reasons":["short plain-English reason", ...]}.`;
 
     const prompt = `You are the on-site QA checker for a solar site assessment and the LAST line of defence before a design team quotes a job off these photos. Judge ONLY this one photo, for the step "${photo.step_key}".
@@ -143,7 +177,7 @@ ${RETURN_SHAPE} On fail give at most two specific, actionable reasons in a trade
       method: "POST",
       headers: { "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
-        model: MODEL, max_tokens: 400,
+        model: MODEL, max_tokens: 500,
         messages: [{ role: "user", content: [
           { type: "image", source: { type: "base64", media_type: mime, data: b64 } },
           { type: "text", text: prompt },
@@ -160,7 +194,7 @@ ${RETURN_SHAPE} On fail give at most two specific, actionable reasons in a trade
       const parsed = JSON.parse(m ? m[0] : text);
       verdict = parsed.verdict === "pass" ? "pass" : "fail";
       reasons = Array.isArray(parsed.reasons) ? parsed.reasons.slice(0, 3).map(String) : [];
-      if ((photo.step_key === "meter" || LOC_STEPS.has(photo.step_key)) && parsed.observations && typeof parsed.observations === "object") {
+      if (OBS_STEPS.has(photo.step_key) && parsed.observations && typeof parsed.observations === "object") {
         observations = parsed.observations as Record<string, unknown>;
       }
     } catch { /* keep fail default */ }

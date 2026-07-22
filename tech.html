@@ -636,7 +636,7 @@ function renderMulti(){
   const anyFail=photos.some(p=>p.verdict==='fail');
   const advs=[...new Set(photos.flatMap(p=>p.advisories||[]))];
   let note=anyFail?'<div class="ai-note" style="background:var(--reds);border-color:#F0C7BC;color:var(--red)">A photo needs a reshoot — tap ✕ to remove it, then add a better one.</div>':'';
-  if(advs.length) note+='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ Site check — clearances</b><br>'+advs.map(a=>'• '+a).join('<br>')+'</div>';
+  if(advs.length) note+='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ AI site check</b><br>'+advs.map(a=>'• '+a).join('<br>')+'</div>';
   $('aiResult').innerHTML=note;
 }
 async function handleFiles(files){
