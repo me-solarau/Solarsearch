@@ -63,6 +63,14 @@ The framing is much stronger, but before any deduction runs:
   pay for equipment.
 - Confirm the tech's **classification** (employee vs contractor) — it drives super, leave,
   workers' comp and sham-contracting risk (s357), not just this deduction.
+  - *Uber precedent:* Australian Uber drivers are **independent contractors** (Fair Work
+    Ombudsman 2019; FWC *Gupta* 2020), and since 26 Aug 2024 also **"employee-like workers"**
+    — still contractors for tax/most law, but the FWC can set minimum standards. **The label
+    doesn't decide it** — the *real substance* of the relationship does (Fair Work Act s15AA):
+    control over how/when work is done, financial risk, who supplies tools, integration.
+    Our model (assigned "grab" jobs, mandated capture process, required kit, pay deductions)
+    carries employee-leaning factors, so don't assume "like Uber = contractor." Get it
+    confirmed before scaling.
 - **Safest fallback** if in doubt: a **company-OWNED loaner** (Solarsearch keeps title, tech
   returns it on exit, no deduction) — sidesteps s324/326 entirely.
 
