@@ -167,7 +167,8 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
 <section class="view" id="v-step">
   <span class="mono" id="stSec" style="font-size:.62rem;color:var(--ink3);letter-spacing:.1em;font-weight:700"></span>
   <h1 id="stTitle" style="margin-top:2px"></h1>
-  <div class="card"><div style="font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--amberd);font-weight:700;margin-bottom:6px">WHAT THIS PHOTO MUST SHOW</div><p id="stHint" style="font-size:.88rem;color:var(--ink2)"></p></div>
+  <div class="card"><div style="font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--amberd);font-weight:700;margin-bottom:6px">WHAT THIS PHOTO MUST SHOW</div><p id="stHint" style="font-size:.88rem;color:var(--ink2)"></p>
+    <div style="margin-top:11px;padding-top:11px;border-top:1px solid var(--line)"><div style="font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--green);font-weight:700;margin-bottom:6px">HOW TO NAIL THE SHOT</div><p id="stGuide" style="font-size:.88rem;color:var(--ink2);line-height:1.5"></p></div></div>
   <div class="photo-zone" id="photoZone">
     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="6" width="19" height="14" rx="3" stroke="#6D8781" stroke-width="1.8"/><path d="M8.5 6l1.4-2.4h4.2L15.5 6" stroke="#6D8781" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="#6D8781" stroke-width="1.8"/></svg>
     <span>Tap to take photo</span>
@@ -218,18 +219,42 @@ let navStack=['v-pool'], curTab='pool';
 
 /* ===== capture spec (scope §4) ===== */
 const STEPS=[
- {key:'front',title:'Front of property',hint:'Whole front elevation showing access and parking.',req:true},
- {key:'roof_planes',title:'Roof planes + panel area',hint:'Each usable roof plane where panels would go, from ground or ladder edge.',req:true},
- {key:'roof_material',title:'Roof material close-up',hint:'Close shot of the roof surface so material and condition are clear.',req:true},
- {key:'board_closed',title:'Switchboard — door closed',hint:'Location context — the board in its surroundings, door shut.',req:true},
- {key:'board_open',title:'Switchboard — door open',hint:'Door open, every circuit label legible. Get close.',req:true},
- {key:'main_switch',title:'Main switch + circuit labels',hint:'Close-up of the main switch and existing circuit labelling.',req:true},
- {key:'meter',title:'Meter / metering',hint:'Meter face and the whole metering arrangement.',req:true},
- {key:'main_earth',title:'Main earth connection',hint:'The main earth connection and electrode where visible.',req:true},
- {key:'inverter_loc',title:'Proposed inverter location',hint:'The wall/spot for the inverter with clearances visible.',req:true},
- {key:'battery_loc',title:'Proposed battery location',hint:'Battery spot with surroundings for clearance/ventilation.',req:true},
- {key:'cable_route',title:'Cable route',hint:'Route indication shots: roof to board, board to inverter.',req:true},
- {key:'existing_system',title:'Existing system (if any)',hint:'Existing panels, old inverter, isolators. N/A if none.',req:false},
+ {key:'front',title:'Front of property',req:true,
+  hint:'The whole front of the house with its roof line, and where a truck/ladder can access.',
+  guide:'Stand back on the street or driveway, phone sideways (landscape). Fit the whole house AND its full roof in the frame. Make sure the driveway / side access is visible.'},
+ {key:'roof_planes',title:'Roof planes + panel area',req:true,
+  hint:'Every roof face that could hold panels, and anything that shades or blocks them.',
+  guide:'Photograph each roof face that faces up/north/east/west — one shot per face, square-on from the ground. Include chimneys, vents, skylights, aerials, and any trees that cast shade. If one photo can\'t show all faces, retake from another corner of the yard.'},
+ {key:'roof_material',title:'Roof material close-up',req:true,
+  hint:'A close shot where the exact roof material AND its condition are obvious.',
+  guide:'Get as close as you safely can (zoom in from the ground is fine). Fill the frame with the roof surface so we can tell tile vs metal/Colorbond vs terracotta, and spot cracks, rust or brittle sheets.'},
+ {key:'board_closed',title:'Switchboard — door closed',req:true,
+  hint:'The whole switchboard in its surroundings, door shut.',
+  guide:'Step back about 1.5 m so you capture the whole board, the wall it\'s on, its height off the ground, and any meters next to it. Door closed for this one.'},
+ {key:'board_open',title:'Switchboard — door open',req:true,
+  hint:'Door open, EVERY breaker and circuit label readable, and spare space visible.',
+  guide:'Open the door fully. Hold the phone square-on (not at an angle) and close enough that every label reads clearly. Tap the screen to focus before you shoot. If any text looks fuzzy, retake — this is the shot that makes or breaks the quote.'},
+ {key:'main_switch',title:'Main switch + rating',req:true,
+  hint:'Close-up of the main switch, its amp rating, and the existing circuit labelling.',
+  guide:'Zoom into the main switch. The amp rating stamped on it and the nearby circuit labels must be sharp and readable.'},
+ {key:'meter',title:'Meter / metering',req:true,
+  hint:'The meter face (numbers/NMI legible) and the whole metering arrangement.',
+  guide:'Frame the meter so the display and any NMI/serial sticker are readable. If there\'s more than one meter, get them all in one shot or take a second photo.'},
+ {key:'main_earth',title:'Main earth connection',req:true,
+  hint:'The main earthing conductor/electrode and its connection.',
+  guide:'Find the earth cable running from the board to a stake/water pipe and shoot it close enough to see the connection and roughly the cable size. If you genuinely can\'t locate it, mark N/A with a note.'},
+ {key:'inverter_loc',title:'Proposed inverter location',req:true,
+  hint:'The exact wall/spot for the inverter, with the clearances around it visible.',
+  guide:'Show the exact wall you\'d mount the inverter on, standing back enough to see the space above, below and to the sides (inverters need air gaps). Note shade/sun, height, and how far it is from the switchboard. Put your hand or a tape in frame for scale if it helps.'},
+ {key:'battery_loc',title:'Proposed battery location',req:true,
+  hint:'The battery spot with enough around it to judge floor/wall space, ventilation and clearances.',
+  guide:'Show where the battery would go with plenty of surroundings — floor space or wall, ventilation, and anything nearby that matters (windows, doorways, exits, heat sources, direct sun). Batteries have strict clearance rules, so give us the full context.'},
+ {key:'cable_route',title:'Cable route',req:true,
+  hint:'The path cables would run: roof → switchboard, and switchboard → inverter/battery.',
+  guide:'Take a couple of shots showing the likely cable path — where cables leave the roof, and the run from the board to the inverter/battery. Point out any hard bits (double storey, no roof space, long external run).'},
+ {key:'existing_system',title:'Existing system (if any)',req:false,
+  hint:'Any existing solar/battery: panels, inverter, isolators and labels.',
+  guide:'If there\'s already solar or a battery, photograph the panels, the inverter, the isolators and any rating labels. If there\'s nothing existing, mark this step N/A.'},
 ];
 const SITE_FIELDS=[
  {key:'storeys',label:'Storeys',opts:[['single','Single'],['double','Double'],['multi','Multi-storey'],['multiple_buildings','Multiple buildings']]},
@@ -515,7 +540,7 @@ function openStep(key){ curStepIx=STEPS.findIndex(s=>s.key===key); loadStep(); s
 function loadStep(){
   const s=STEPS[curStepIx], e=capStore[s.key]||{};
   $('stSec').textContent='STEP '+(curStepIx+1)+' OF '+STEPS.length+(s.req?' · REQUIRED':' · OPTIONAL');
-  $('stTitle').textContent=s.title; $('stHint').textContent=s.hint;
+  $('stTitle').textContent=s.title; $('stHint').textContent=s.hint; $('stGuide').textContent=s.guide||'';
   $('stNote').value=e.note||'';
   $('aiResult').innerHTML=e.verdict==='pass'?(e.configured===false?'<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ Not verified</b> — AI checks are off (set ANTHROPIC_API_KEY).</div>':'<div class="ai-note">✓ AI check passed — subject clear and legible.</div>'):'';
   renderPhoto(e.localUrl);
