@@ -11,6 +11,8 @@ Run via Supabase SQL editor / CLI (0054 is already applied):
   (`access_applications`, `apply_for_access`, `decide_access`).
 - `supabase/migrations/0057_account_deletion.sql` — `account_deletions` +
   `request_account_deletion` (Apple in-app deletion).
+- `supabase/migrations/0058_auto_provision_on_grant.sql` — grant now auto-provisions the
+  role (sales_rep / installer) as `approved`, so approval is one click (apply after 0056).
 
 If the Supabase MCP is back, they'll also apply cleanly via `apply_migration`.
 
@@ -18,7 +20,9 @@ If the Supabase MCP is back, they'll also apply cleanly via `apply_migration`.
 - **Access is by application** — `apply.html`: a signed-in user applies for sales_tech /
   installer / inspector, **must accept the T&Cs**, sees status. Admin grants in
   **HQ → Vetting → "App access applications"** (Grant is blocked until T&Cs accepted).
-  After granting, complete provisioning with the existing Onboard technician/installer.
+  **Grant auto-provisions the role** (0058) as `approved` — the person can use the app
+  immediately; no separate onboarding step. (Inspector is recorded only — its app is
+  outside this repo.)
 - **Account deletion** — "Delete my account" in `tech.html`, `install.html`, `apply.html`.
 - **Installer app** (`install.html`) — install evidence capture (0054 backend already applied);
   uploads work once 0055's storage policy is in.

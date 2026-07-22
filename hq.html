@@ -1136,9 +1136,10 @@ function renderVetting(){
 async function decideAccess(id,granted){
   const a=(accessApps||[]).find(x=>x.id===id);
   const note=granted?null:(prompt('Reason for denial (optional):','')||null);
-  const { error } = await db.rpc('decide_access',{p_id:id,p_granted:granted,p_note:note});
+  const { data, error } = await db.rpc('decide_access',{p_id:id,p_granted:granted,p_note:note});
   if(error){ toast('Failed: '+error.message); return; }
-  toast(granted?`Granted — now onboard ${a?APP_LABEL[a.app]:'them'}`:'Application denied');
+  const prov=data&&data.provisioned;
+  toast(granted?(prov==='failed'?'Granted — auto-provision failed, onboard manually':`Granted — ${a?APP_LABEL[a.app]:'access'} active`):'Application denied');
   await loadData(); renderVetting();
 }
 async function convertApplication(id){
