@@ -78,7 +78,9 @@ const db=getSupabaseClient();
 
 function show(id){ ['loading','gate','apply','done'].forEach(s=>$(s).classList.toggle('hide',s!==id)); }
 window.showGate=()=>show('gate');
-window.showApply=()=>show('apply');
+// Route to the canonical application flow (account + required T&C acknowledgement +
+// access_applications). Replaces the old role_applications insert (no longer reached).
+window.showApply=()=>{ location.href='/apply.html?role=installer'; };
 
 window.submitApply=async()=>{
   const company_name=$('fCompany').value.trim(), full_name=$('fName').value.trim();

@@ -84,7 +84,10 @@ let role='technician';
 
 function show(id){ ['loading','gate','apply','done'].forEach(s=>$(s).classList.toggle('hide',s!==id)); }
 window.showGate=()=>show('gate');
-window.showApply=()=>show('apply');
+// Route to the canonical application flow (creates account if needed, records the
+// required T&C acknowledgement, writes access_applications). Replaces the old
+// role_applications insert below (kept only as a fallback and no longer reached).
+window.showApply=()=>{ location.href='/apply.html?role=sales_tech'; };
 
 document.querySelectorAll('#roleSeg button').forEach(b=>b.onclick=()=>{
   role=b.dataset.role; document.querySelectorAll('#roleSeg button').forEach(x=>x.classList.toggle('on',x===b));
