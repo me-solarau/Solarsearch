@@ -169,11 +169,14 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
   <h1 id="stTitle" style="margin-top:2px"></h1>
   <div class="card"><div style="font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--amberd);font-weight:700;margin-bottom:6px">WHAT THIS PHOTO MUST SHOW</div><p id="stHint" style="font-size:.88rem;color:var(--ink2)"></p>
     <div style="margin-top:11px;padding-top:11px;border-top:1px solid var(--line)"><div style="font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:var(--green);font-weight:700;margin-bottom:6px">HOW TO NAIL THE SHOT</div><p id="stGuide" style="font-size:.88rem;color:var(--ink2);line-height:1.5"></p></div></div>
-  <div class="photo-zone" id="photoZone">
-    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="6" width="19" height="14" rx="3" stroke="#6D8781" stroke-width="1.8"/><path d="M8.5 6l1.4-2.4h4.2L15.5 6" stroke="#6D8781" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="#6D8781" stroke-width="1.8"/></svg>
-    <span>Tap to take photo</span>
-  </div>
+  <div id="photoArea"></div>
   <input type="file" accept="image/*" capture="environment" id="camInput" hidden>
+  <input type="file" accept="image/*" id="galInput" hidden>
+  <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+    <button class="btn btn-ink btn-sm" style="flex:1" onclick="$('camInput').click()">📷 Take photo</button>
+    <button class="btn btn-ghost btn-sm" style="flex:1" onclick="$('galInput').click()">⬆ Upload photos</button>
+    <span class="mono" id="btnCount" style="font-size:.72rem;color:var(--ink3);min-width:34px;text-align:right"></span>
+  </div>
   <div id="aiResult"></div>
   <textarea id="stNote" placeholder="Optional note — access constraint, asbestos suspicion, old wiring, shading…"></textarea>
   <button class="btn btn-ghost btn-block" style="margin-top:10px" onclick="markNA()">Mark this step N/A</button>
@@ -222,9 +225,9 @@ const STEPS=[
  {key:'front',title:'Front of property',req:true,
   hint:'The whole front of the house with its roof line, and where a truck/ladder can access.',
   guide:'Stand back on the street or driveway, phone sideways (landscape). Fit the whole house AND its full roof in the frame. Make sure the driveway / side access is visible.'},
- {key:'roof_planes',title:'Roof planes + panel area',req:true,
-  hint:'Every roof face that could hold panels, and anything that shades or blocks them.',
-  guide:'Photograph each roof face that faces up/north/east/west — one shot per face, square-on from the ground. Include chimneys, vents, skylights, aerials, and any trees that cast shade. If one photo can\'t show all faces, retake from another corner of the yard.'},
+ {key:'roof_planes',title:'Roof planes + panel area',req:true,multi:true,max:4,
+  hint:'Every roof face that could hold panels, and anything that shades or blocks them. Up to 4 photos.',
+  guide:'Add up to 4 photos — one per roof face is ideal. Drone shots are perfect here: tap "Upload photos" to add them from your camera roll. From the ground, shoot each face square-on and include chimneys, vents, skylights, aerials and any shading trees.'},
  {key:'roof_material',title:'Roof material close-up',req:true,
   hint:'A close shot where the exact roof material AND its condition are obvious.',
   guide:'Get as close as you safely can (zoom in from the ground is fine). Fill the frame with the roof surface so we can tell tile vs metal/Colorbond vs terracotta, and spot cracks, rust or brittle sheets.'},
@@ -500,7 +503,22 @@ async function startVisit(){
 async function openCapture(){
   capStore={};
   const { data } = await db.from('assessment_photos').select('id,step_key,storage_path,ai_verdict,na_reason,note').eq('assessment_id',curJob.assessment_id);
-  (data||[]).forEach(p=>{ capStore[p.step_key]={rowId:p.id,verdict:p.ai_verdict,na:p.na_reason,note:p.note,has:!!(p.storage_path||p.na_reason)}; });
+  for(const p of (data||[])){
+    const s=STEPS.find(x=>x.key===p.step_key);
+    if(s&&s.multi){
+      const e=capStore[p.step_key]=capStore[p.step_key]||{multi:true,photos:[],na:null,note:p.note};
+      if(p.na_reason){ e.na=p.na_reason; }
+      else if(p.storage_path){
+        let url=null; try{ const { data:su }=await db.storage.from('assessment-photos').createSignedUrl(p.storage_path,3600); url=su&&su.signedUrl; }catch(_){ }
+        e.photos.push({rowId:p.id,verdict:p.ai_verdict,configured:p.ai_verdict==='pass'?undefined:undefined,storage_path:p.storage_path,localUrl:url});
+      }
+    } else {
+      capStore[p.step_key]={rowId:p.id,verdict:p.ai_verdict,na:p.na_reason,note:p.note,has:!!(p.storage_path||p.na_reason),storage_path:p.storage_path};
+    }
+  }
+  // bind the camera + gallery inputs (idempotent)
+  $('camInput').onchange=()=>{ const fs=[...($('camInput').files||[])]; $('camInput').value=''; if(fs.length) handleFiles(fs); };
+  $('galInput').onchange=()=>{ const fs=[...($('galInput').files||[])]; $('galInput').value=''; if(fs.length) handleFiles(fs); };
   // preload existing site_data
   const { data:a } = await db.from('assessments').select('site_data').eq('id',curJob.assessment_id).maybeSingle();
   siteData=(a&&a.site_data)||{};
@@ -519,63 +537,130 @@ function renderSiteForm(){
      <input class="f-input mono" inputmode="decimal" value="${siteData.board_to_inverter_m||''}" onchange="setSite('board_to_inverter_m',this.value)" placeholder="e.g. 12">`;
 }
 function setSite(k,v){ siteData[k]=v; }
+function isMulti(s){ return !!(s&&s.multi); }
+function stepDone(s){
+  const e=capStore[s.key]||{};
+  if(e.na) return true;
+  if(isMulti(s)) return !!(e.photos&&e.photos.length&&e.photos.every(p=>p.verdict==='pass'));
+  return e.verdict==='pass';
+}
 function renderStepList(){
   $('stepList').innerHTML=STEPS.map(s=>{
     const e=capStore[s.key]||{};
-    const chip=e.na?'<span class="chip na">N/A</span>':(e.verdict==='pass'?(e.configured===false?'<span class="chip" style="background:var(--ambers);color:#7A5A00">⚠ UNVERIFIED</span>':'<span class="chip pass">✓ PASS</span>'):'<span class="chip todo">TO DO</span>');
-    const thumb=e.has&&!e.na?'📷':(e.na?'—':'📷');
+    let chip;
+    if(e.na) chip='<span class="chip na">N/A</span>';
+    else if(isMulti(s)){
+      const n=(e.photos||[]).length;
+      if(!n) chip='<span class="chip todo">TO DO</span>';
+      else if(e.photos.some(p=>p.verdict==='fail')) chip='<span class="chip" style="background:var(--reds);color:var(--red)">FIX · '+n+'</span>';
+      else if(e.photos.some(p=>p.configured===false)) chip='<span class="chip" style="background:var(--ambers);color:#7A5A00">⚠ '+n+'</span>';
+      else chip='<span class="chip pass">✓ '+n+' PHOTOS</span>';
+    }
+    else if(e.verdict==='pass') chip=(e.configured===false?'<span class="chip" style="background:var(--ambers);color:#7A5A00">⚠ UNVERIFIED</span>':'<span class="chip pass">✓ PASS</span>');
+    else chip='<span class="chip todo">TO DO</span>';
+    const done=stepDone(s);
+    const has=e.na||e.has||(e.photos&&e.photos.length);
+    const thumb=has&&!e.na?'📷':(e.na?'—':'📷');
     return `<button class="step-row" onclick="openStep('${s.key}')">
-      <span class="thumb">${thumb}${s.req&&!(e.verdict==='pass'||e.na)?'<span class="req"></span>':''}</span>
+      <span class="thumb">${thumb}${s.req&&!done?'<span class="req"></span>':''}</span>
       <span class="st"><b>${s.title}</b><small>${s.hint}</small></span>${chip}</button>`;
   }).join('');
   updateGate();
 }
 function updateGate(){
-  const missing=STEPS.filter(s=>s.req&&!((capStore[s.key]||{}).verdict==='pass'||(capStore[s.key]||{}).na));
+  const missing=STEPS.filter(s=>s.req&&!stepDone(s));
   const g=$('capGate');
-  if(missing.length){ g.classList.add('show'); g.textContent=`${missing.length} required photo step${missing.length>1?'s':''} still need a passing shot or N/A.`; $('submitBtn').disabled=true; }
+  if(missing.length){ g.classList.add('show'); g.textContent=`${missing.length} required step${missing.length>1?'s':''} still need a passing photo or N/A.`; $('submitBtn').disabled=true; }
   else{ g.classList.remove('show'); $('submitBtn').disabled=false; }
 }
 function openStep(key){ curStepIx=STEPS.findIndex(s=>s.key===key); loadStep(); showView('v-step'); }
 function loadStep(){
   const s=STEPS[curStepIx], e=capStore[s.key]||{};
-  $('stSec').textContent='STEP '+(curStepIx+1)+' OF '+STEPS.length+(s.req?' · REQUIRED':' · OPTIONAL');
+  $('stSec').textContent='STEP '+(curStepIx+1)+' OF '+STEPS.length+(s.req?' · REQUIRED':' · OPTIONAL')+(isMulti(s)?' · UP TO '+s.max:'');
   $('stTitle').textContent=s.title; $('stHint').textContent=s.hint; $('stGuide').textContent=s.guide||'';
   $('stNote').value=e.note||'';
-  $('aiResult').innerHTML=e.verdict==='pass'?(e.configured===false?'<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ Not verified</b> — AI checks are off (set ANTHROPIC_API_KEY).</div>':'<div class="ai-note">✓ AI check passed — subject clear and legible.</div>'):'';
-  renderPhoto(e.localUrl);
+  $('galInput').multiple=isMulti(s);
+  if(isMulti(s)){ $('aiResult').innerHTML=''; renderMulti(); }
+  else{
+    $('aiResult').innerHTML=e.verdict==='pass'?(e.configured===false?'<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ Not verified</b> — AI checks are off (set ANTHROPIC_API_KEY).</div>':'<div class="ai-note">✓ AI check passed — subject clear and legible.</div>'):'';
+    renderSingle(e.localUrl);
+  }
+  refreshCount();
 }
-function renderPhoto(url){
-  const z=$('photoZone');
-  z.innerHTML=(url?`<img src="${url}" alt=""><button class="btn btn-ghost retake" style="background:#fff" onclick="event.preventDefault();event.stopPropagation();$('camInput').click()">Retake</button>`
-        :`<svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="6" width="19" height="14" rx="3" stroke="#6D8781" stroke-width="1.8"/><path d="M8.5 6l1.4-2.4h4.2L15.5 6" stroke="#6D8781" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="#6D8781" stroke-width="1.8"/></svg><span>Tap to take photo</span>`);
-  const inp=$('camInput');
-  z.onclick=e=>{ if(e.target.closest('.retake'))return; inp.click(); };
-  // capture the file, then clear value so re-selecting the same shot still fires change (iOS)
-  inp.onchange=()=>{ const f=inp.files&&inp.files[0]; inp.value=''; if(f) uploadPhoto(f); };
+function refreshCount(){ const s=STEPS[curStepIx]; $('btnCount').textContent=isMulti(s)?`${((capStore[s.key]||{}).photos||[]).length}/${s.max}`:''; }
+const CAM_SVG=`<svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="6" width="19" height="14" rx="3" stroke="#6D8781" stroke-width="1.8"/><path d="M8.5 6l1.4-2.4h4.2L15.5 6" stroke="#6D8781" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="4" stroke="#6D8781" stroke-width="1.8"/></svg>`;
+function renderSingle(url){
+  $('photoArea').innerHTML=url
+    ? `<div class="photo-zone" style="cursor:default"><img src="${url}" alt=""></div>`
+    : `<div class="photo-zone" onclick="$('camInput').click()">${CAM_SVG}<span>Tap to take a photo, or Upload below</span></div>`;
 }
-async function uploadPhoto(f){
+function renderMulti(){
+  const s=STEPS[curStepIx], photos=((capStore[s.key]||{}).photos)||[];
+  const z=$('photoArea');
+  if(!photos.length){ z.innerHTML=`<div class="photo-zone" onclick="$('camInput').click()">${CAM_SVG}<span>Take or upload up to ${s.max} roof photos — drone shots welcome</span></div>`; }
+  else{
+    z.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">`+photos.map(p=>{
+      const st=p.verdict==='fail'?['var(--red)','RESHOOT','var(--red)','#fff']:(p.verdict==='pass'&&p.configured===false?['#F2D48A','UNVERIFIED','var(--ambers)','#7A5A00']:(p.verdict==='pass'?['var(--green)','✓','var(--green)','#fff']:['var(--line)','…','#7A5A00','#fff']));
+      return `<div style="position:relative;border:2px solid ${st[0]};border-radius:12px;overflow:hidden;aspect-ratio:4/3;background:#0F2E27">${p.localUrl?`<img src="${p.localUrl}" alt="" style="width:100%;height:100%;object-fit:cover">`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#6D8781;font-size:.7rem">saved photo</div>'}<span style="position:absolute;bottom:6px;left:6px;background:${st[2]};color:${st[3]};font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:99px">${st[1]}</span><button onclick="removePhoto('${p.rowId}')" aria-label="Remove" style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:.85rem;line-height:1;cursor:pointer">✕</button></div>`;
+    }).join('')+`</div>`;
+  }
+  const anyFail=photos.some(p=>p.verdict==='fail');
+  $('aiResult').innerHTML=anyFail?'<div class="ai-note" style="background:var(--reds);border-color:#F0C7BC;color:var(--red)">A photo needs a reshoot — tap ✕ to remove it, then add a better one.</div>':'';
+}
+async function handleFiles(files){
+  const s=STEPS[curStepIx];
+  if(isMulti(s)){
+    const cur=((capStore[s.key]||{}).photos||[]).length;
+    const room=s.max-cur;
+    if(room<=0){ toast(`Max ${s.max} photos — remove one first`); return; }
+    const take=files.slice(0,room);
+    if(files.length>room) toast(`Only ${room} more allowed — added ${take.length}`);
+    for(const f of take){ await uploadOne(f,true); }
+  }else{
+    await uploadOne(files[0],false);
+  }
+}
+async function uploadOne(f,multi){
   if(!f)return;
   const s=STEPS[curStepIx];
   const localUrl=URL.createObjectURL(f);
-  (capStore[s.key]=capStore[s.key]||{}).localUrl=localUrl;
-  renderPhoto(localUrl);
   toast('Uploading…');
-  // GPS is best-effort and must never block the save — grab a quick cached fix.
   let lat=null,lng=null;
   try{ const p=await new Promise((r,j)=>{ navigator.geolocation.getCurrentPosition(r,j,{timeout:2500,maximumAge:60000}); setTimeout(()=>j(new Error('geo timeout')),2600); }); lat=p.coords.latitude; lng=p.coords.longitude; }catch(e){}
-  const path=`${curJob.assessment_id}/${s.key}-${Date.now()}.jpg`;
+  const path=`${curJob.assessment_id}/${s.key}-${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`;
   const { error:up } = await db.storage.from('assessment-photos').upload(path,f,{contentType:f.type||'image/jpeg',upsert:true});
-  if(up){ toast('Upload failed: '+up.message); renderPhoto(null); return; }
+  if(up){ toast('Upload failed: '+up.message); return; }
   const row={ assessment_id:curJob.assessment_id, step_key:s.key, storage_path:path, lat, lng, taken_at:new Date().toISOString(), ai_verdict:'pending', ai_reasons:[], note:$('stNote').value.trim()||null, na_reason:null };
-  let rowId=(capStore[s.key]||{}).rowId;
-  if(rowId){ const { error:ue } = await db.from('assessment_photos').update(row).eq('id',rowId); if(ue){ toast('Save failed: '+ue.message); return; } }
-  else{ const { data, error:ie } = await db.from('assessment_photos').insert(row).select('id').single(); if(ie){ toast('Save failed: '+ie.message); return; } rowId=data&&data.id; }
-  capStore[s.key]={rowId,verdict:'pending',na:null,note:row.note,has:true,localUrl};
-  $('aiResult').innerHTML='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00">Checking photo…</div>';
-  const v=await validatePhoto(rowId);
-  applyVerdict(s.key,v);
-  toast(v.verdict==='pass'?'Photo passed':'Reshoot needed');
+  if(multi){
+    const { data, error:ie } = await db.from('assessment_photos').insert(row).select('id').single();
+    if(ie){ toast('Save failed: '+ie.message); return; }
+    const e=capStore[s.key]=capStore[s.key]||{multi:true,photos:[]}; e.multi=true; e.photos=e.photos||[]; e.na=null;
+    const ph={rowId:data&&data.id,verdict:'pending',configured:undefined,storage_path:path,localUrl};
+    e.photos.push(ph);
+    renderMulti(); refreshCount(); updateGate();
+    const v=await validatePhoto(ph.rowId);
+    ph.verdict=v.verdict; ph.configured=v.configured;
+    renderMulti(); refreshCount(); updateGate();
+    toast(v.verdict==='pass'?(v.configured===false?'Added — not verified':'Photo passed'):'That one needs a reshoot');
+  }else{
+    renderSingle(localUrl);
+    let rowId=(capStore[s.key]||{}).rowId;
+    if(rowId){ const { error:ue } = await db.from('assessment_photos').update(row).eq('id',rowId); if(ue){ toast('Save failed: '+ue.message); return; } }
+    else{ const { data, error:ie } = await db.from('assessment_photos').insert(row).select('id').single(); if(ie){ toast('Save failed: '+ie.message); return; } rowId=data&&data.id; }
+    capStore[s.key]={rowId,verdict:'pending',na:null,note:row.note,has:true,localUrl,storage_path:path};
+    $('aiResult').innerHTML='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00">Checking photo…</div>';
+    const v=await validatePhoto(rowId);
+    applyVerdict(s.key,v); updateGate();
+    toast(v.verdict==='pass'?'Photo passed':'Reshoot needed');
+  }
+}
+async function removePhoto(rowId){
+  const s=STEPS[curStepIx], e=capStore[s.key]||{};
+  const ph=(e.photos||[]).find(p=>p.rowId===rowId);
+  try{ await db.from('assessment_photos').delete().eq('id',rowId); if(ph&&ph.storage_path) await db.storage.from('assessment-photos').remove([ph.storage_path]); }catch(_){ }
+  e.photos=(e.photos||[]).filter(p=>p.rowId!==rowId);
+  renderMulti(); refreshCount(); updateGate();
+  toast('Removed');
 }
 // Calls the Claude-vision validator. Falls back to a pass if the function isn't
 // deployed yet, so the loop still works pre-launch.
@@ -618,8 +703,13 @@ async function markNA(){
 }
 function saveStepNext(){
   const s=STEPS[curStepIx], e=capStore[s.key]||{};
-  if(e.verdict==='fail'){ toast('Reshoot — this photo didn\'t pass the check'); return; }
-  if(!(e.verdict==='pass'||e.na)){ toast('Take the photo or mark N/A first'); return; }
+  if(isMulti(s)){
+    if(e.photos&&e.photos.some(p=>p.verdict==='fail')){ toast('Remove the reshoot photo(s) first'); return; }
+    if(!e.na&&!(e.photos&&e.photos.length)){ toast('Add at least one photo or mark N/A'); return; }
+  }else{
+    if(e.verdict==='fail'){ toast('Reshoot — this photo didn\'t pass the check'); return; }
+    if(!(e.verdict==='pass'||e.na)){ toast('Take the photo or mark N/A first'); return; }
+  }
   if(curStepIx<STEPS.length-1){ curStepIx++; loadStep(); window.scrollTo({top:0}); }
   else{ renderStepList(); showView('v-capture',false); navStack.pop(); }
 }
@@ -711,7 +801,7 @@ async function toggleAlerts(){
 if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.type==='open-pool') switchTab('pool'); });
 
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts,removePhoto});
 window.$=$;
 
 (async () => {
