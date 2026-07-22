@@ -536,7 +536,8 @@ async function openCapture(){
       if(p.na_reason){ e.na=p.na_reason; }
       else if(p.storage_path){
         let url=null; try{ const { data:su }=await db.storage.from('assessment-photos').createSignedUrl(p.storage_path,3600); url=su&&su.signedUrl; }catch(_){ }
-        e.photos.push({rowId:p.id,verdict:p.ai_verdict,configured:p.ai_verdict==='pass'?undefined:undefined,storage_path:p.storage_path,localUrl:url,advisories:(p.ai_observations&&p.ai_observations.advisories)||[],needsMeasure:!!(p.ai_observations&&p.ai_observations.needs_measure)});
+        e.photos.push({rowId:p.id,verdict:p.ai_verdict,configured:p.ai_verdict==='pass'?undefined:undefined,storage_path:p.storage_path,localUrl:url,obs:p.ai_observations||null,advisories:(p.ai_observations&&p.ai_observations.advisories)||[],needsMeasure:!!(p.ai_observations&&p.ai_observations.needs_measure)});
+        if(p.ai_observations&&p.ai_observations.measured_note) e.measuredNote=p.ai_observations.measured_note;
       }
     } else {
       capStore[p.step_key]={rowId:p.id,verdict:p.ai_verdict,na:p.na_reason,note:p.note,has:!!(p.storage_path||p.na_reason),storage_path:p.storage_path};
@@ -566,10 +567,18 @@ function renderSiteForm(){
 }
 function setSite(k,v){ siteData[k]=v; }
 function isMulti(s){ return !!(s&&s.multi); }
+// A location shot the AI flagged as tight/uncertain (needs_measure) is a HARD gate:
+// the tech must resolve it on site (a readable tape-measure photo, or a logged
+// measurement) rather than leave a gap that forces a return visit. Outstanding =
+// something is flagged and nothing in the step has confirmed the scale yet.
+function measureOutstanding(e){
+  const ps=(e&&e.photos)||[];
+  return ps.some(p=>p.needsMeasure===true) && !ps.some(p=>p.needsMeasure===false) && !(e&&e.measuredNote);
+}
 function stepDone(s){
   const e=capStore[s.key]||{};
   if(e.na) return true;
-  if(isMulti(s)) return !!(e.photos&&e.photos.length&&e.photos.every(p=>p.verdict==='pass'));
+  if(isMulti(s)) return !!(e.photos&&e.photos.length&&e.photos.every(p=>p.verdict==='pass')) && !measureOutstanding(e);
   return e.verdict==='pass';
 }
 function renderStepList(){
@@ -597,8 +606,10 @@ function renderStepList(){
 }
 function updateGate(){
   const missing=STEPS.filter(s=>s.req&&!stepDone(s));
+  const measureBlocks=STEPS.filter(s=>isMulti(s)&&measureOutstanding(capStore[s.key]||{}));
   const g=$('capGate');
-  if(missing.length){ g.classList.add('show'); g.textContent=`${missing.length} required step${missing.length>1?'s':''} still need a passing photo or N/A.`; $('submitBtn').disabled=true; }
+  if(measureBlocks.length){ g.classList.add('show'); g.textContent=`📏 ${measureBlocks.map(s=>s.title).join(' & ')}: tight spot needs a tape-measure photo (or a logged measurement) before you leave — no return visits.`; $('submitBtn').disabled=true; }
+  else if(missing.length){ g.classList.add('show'); g.textContent=`${missing.length} required step${missing.length>1?'s':''} still need a passing photo or N/A.`; $('submitBtn').disabled=true; }
   else{ g.classList.remove('show'); $('submitBtn').disabled=false; }
 }
 function openStep(key){ curStepIx=STEPS.findIndex(s=>s.key===key); loadStep(); showView('v-step'); }
@@ -638,7 +649,9 @@ function renderMulti(){
   const needMeasure=photos.some(p=>p.needsMeasure);
   let note=anyFail?'<div class="ai-note" style="background:var(--reds);border-color:#F0C7BC;color:var(--red)">A photo needs a reshoot — tap ✕ to remove it, then add a better one.</div>':'';
   if(advs.length) note+='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>⚠ AI site check</b><br>'+advs.map(a=>'• '+a).join('<br>')+'</div>';
-  if(needMeasure) note+='<div class="ai-note" style="background:var(--ambers);border-color:#F2D48A;color:#7A5A00"><b>📏 Tight fit — measure it</b><br>Hold a tape measure across the tightest gap and add one more photo so we can lock the exact scale.<br><button class="btn btn-ink btn-sm" style="margin-top:8px" onclick="$(\'camInput\').click()">📷 Add tape-measure photo</button></div>';
+  const outstanding=measureOutstanding(capStore[s.key]||{});
+  if(needMeasure&&outstanding) note+='<div class="ai-note" style="background:var(--reds);border-color:#F0C7BC;color:var(--red)"><b>📏 Required — measure it before you leave</b><br>This spot is tight. We can\'t return for a second visit, so lock it now: hold a tape across the tightest gap and add one more photo. If the tape won\'t read on camera, tap "Log measurement" and type the mm.<br><button class="btn btn-ink btn-sm" style="margin-top:8px" onclick="$(\'camInput\').click()">📷 Add tape-measure photo</button> <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="confirmMeasured()">✔ Log measurement</button></div>';
+  else if(capStore[s.key]&&capStore[s.key].measuredNote) note+='<div class="ai-note"><b>📏 Measured on site:</b> '+capStore[s.key].measuredNote+'</div>';
   $('aiResult').innerHTML=note;
 }
 async function handleFiles(files){
@@ -673,7 +686,7 @@ async function uploadOne(f,multi){
     e.photos.push(ph);
     renderMulti(); refreshCount(); updateGate();
     const v=await validatePhoto(ph.rowId);
-    ph.verdict=v.verdict; ph.configured=v.configured; ph.advisories=(v.observations&&v.observations.advisories)||[]; ph.needsMeasure=!!(v.observations&&v.observations.needs_measure);
+    ph.verdict=v.verdict; ph.configured=v.configured; ph.obs=v.observations||null; ph.advisories=(v.observations&&v.observations.advisories)||[]; ph.needsMeasure=!!(v.observations&&v.observations.needs_measure);
     renderMulti(); refreshCount(); updateGate();
     toast(v.verdict==='pass'?(v.configured===false?'Added — not verified':(ph.needsMeasure?'Tight — add a tape-measure shot':(ph.advisories.length?'Passed — check site note':'Photo passed'))):'That one needs a reshoot');
   }else{
@@ -736,11 +749,30 @@ async function markNA(){
   capStore[s.key]={rowId,verdict:null,na:row.na_reason,note:row.note,has:true};
   toast('Marked N/A'); saveStepNext();
 }
+// On-site override when the AI can't read a tape off the photo: the tech types the
+// measured gap so the value still reaches the designer (no return visit). Logged
+// against the flagged photos, so it's an accountable record, not a silent skip.
+async function confirmMeasured(){
+  const s=STEPS[curStepIx], e=capStore[s.key]||{};
+  const val=prompt('Type the measured clearance (e.g. "280mm above, 150mm left"). This is logged for the designer.','');
+  if(val===null) return;
+  const clean=val.trim(); if(!clean){ toast('Enter the measurement'); return; }
+  e.measuredNote=clean;
+  const flagged=(e.photos||[]).filter(p=>p.needsMeasure===true);
+  for(const ph of flagged){
+    const newObs={...(ph.obs||{}),needs_measure:false,measured_note:clean};
+    ph.obs=newObs; ph.needsMeasure=false;
+    try{ await db.from('assessment_photos').update({ai_observations:newObs}).eq('id',ph.rowId); }catch(_){ }
+  }
+  renderMulti(); updateGate();
+  toast('Measurement logged');
+}
 function saveStepNext(){
   const s=STEPS[curStepIx], e=capStore[s.key]||{};
   if(isMulti(s)){
     if(e.photos&&e.photos.some(p=>p.verdict==='fail')){ toast('Remove the reshoot photo(s) first'); return; }
     if(!e.na&&!(e.photos&&e.photos.length)){ toast('Add at least one photo or mark N/A'); return; }
+    if(measureOutstanding(e)){ toast('📏 Measure this tight spot first — tape photo or Log measurement'); return; }
   }else{
     if(e.verdict==='fail'){ toast('Reshoot — this photo didn\'t pass the check'); return; }
     if(!(e.verdict==='pass'||e.na)){ toast('Take the photo or mark N/A first'); return; }
@@ -837,7 +869,7 @@ async function toggleAlerts(){
 if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message',e=>{ if(e.data&&e.data.type==='open-pool') switchTab('pool'); });
 
 /* expose for inline handlers */
-Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts,removePhoto});
+Object.assign(window,{switchTab,navBack,grab,openJob,confirmTime,offerBySms,sendEta,startVisit,openCapture,openStep,markNA,confirmMeasured,saveStepNext,submitJob,goJobs,showView,setSite,setAvail,saveAvail,calcRun,pickWindow,manualTime,closeSheet,toggleAlerts,removePhoto});
 window.$=$;
 
 (async () => {

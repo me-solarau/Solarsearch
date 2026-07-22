@@ -178,12 +178,22 @@ estimates that ride back as advisories in the same note:
 All of these are **estimates for feedback/triage**, never a compliance or final-design
 call — the datasheet and the designer have the last word.
 
-**Ground-truth loop — `needs_measure`.** A single-photo estimate is only so good, so on
-the location steps when a clearance looks **tight/marginal** or the AI **can't establish
-scale**, it sets `needs_measure=true`. The app then shows a prominent **"📏 Tight fit —
-measure it"** prompt with a camera button: the tech holds a tape measure across the
-tightest gap and adds one more shot, and the AI reads the tape graduations directly
-(ground truth) instead of guessing. If a tape/ruler is already in frame it clears the flag.
+**Ground-truth loop — `needs_measure` (HARD GATE).** A single-photo estimate is only so
+good, so on the location steps when a clearance looks **tight/marginal** or the AI
+**can't establish scale**, it sets `needs_measure=true`. This is a **hard capture gate**,
+not a suggestion: the step won't complete and the job can't be submitted until it's
+resolved on site. The deliberate trade-off — **a strong measure requirement on site beats
+a return visit**, because the tech can't come back (cost). Two ways to clear it:
+1. **Tape photo** (preferred) — hold a tape/ruler across the tightest gap and add one more
+   shot; the AI reads the graduations directly (ground truth) and clears the flag.
+2. **Log measurement** (fallback, if the tape won't read on camera) — the tech types the
+   measured mm, which is logged against the flagged photos (`measured_note`) for the
+   designer. Accountable record, not a silent skip.
+
+Keeping the blow-out in check: the gate is **narrow** — only the two location steps, and
+only when the shot is genuinely tight or scale-less. With a scale reference habitually in
+frame (brick/tile/panel), most visits never trip it, so it costs seconds when it fires and
+saves a whole second truck roll when it matters.
 
 ## Sales-tech field toolkit
 What the tech carries to make the capture (and the AI's job) reliable:
