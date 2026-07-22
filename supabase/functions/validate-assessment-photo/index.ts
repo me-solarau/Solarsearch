@@ -109,6 +109,7 @@ This is the METER + SERVICE FUSE step. As well as the pass/fail, READ the meteri
 - Australian clay brick: 230mm long x 110mm wide x 76mm high with 10mm mortar joints -> one COURSE (height) ~86mm, one brick+perpend (length) ~240mm. Count courses/bricks.
 - NSW meter board / switchboard enclosure: standard ~600 x 600mm (260mm deep); a full row of DIN breakers is ~12 poles wide.
 - Residential solar panel: newer high-output modules (~350W and up) ~1722-1762mm tall x ~1134mm wide; older ~250W modules ~1650mm tall x ~1000mm wide.
+- Australian roof tile (good ruler on tiled roofs): concrete ~420-440mm long x ~330-345mm wide; terracotta ~420-445mm long x ~265-275mm wide (tiles overlap when laid, so the exposed course is a bit less than the full length). The width also distinguishes the type: ~330-345mm = concrete, ~265-275mm = terracotta.
 - Vehicle: an Australian number plate is 372 x 134mm (precise); a typical car is ~4.5m long x ~1.8m wide, wheel diameter ~650mm.
 - Other: GPO power point ~115mm tall, standard door ~2040mm tall, downpipe ~90mm.`;
 

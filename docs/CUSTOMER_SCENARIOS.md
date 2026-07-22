@@ -137,6 +137,12 @@ measurement step:
   DIN row is **~12 poles** wide (used to gauge spare capacity).
 - **Residential solar panel**: newer high-output (~350 W+) **~1722–1762 (H) × 1134 (W) mm**;
   older ~250 W **~1650 (H) × 1000 (W) mm**. Width tells you the vintage/wattage.
+- **Australian roof tile** (the ruler on tiled roofs): concrete **~420–440 (L) × 330–345 (W) mm**;
+  terracotta **~420–445 (L) × 265–275 (W) mm** (tiles overlap when laid, so the exposed
+  course is a bit less than full length). **Width also IDs the type** — ~330–345 mm =
+  concrete, ~265–275 mm = terracotta.
+- **Vehicle**: AU number plate **372 × 134 mm** (precise); car ~4.5 × 1.8 m, wheel ~650 mm.
+- **Tape measure / ruler** in frame = ground truth (the `needs_measure` fallback below).
 - Fallbacks: GPO power point ≈ 115 mm tall, standard door ≈ 2040 mm, downpipe ≈ 90 mm.
 
 **Standards checked (design-review flags, not a compliance sign-off):**
