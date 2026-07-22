@@ -204,14 +204,14 @@ frame (brick/tile/panel), most visits never trip it, so it costs seconds when it
 saves a whole second truck roll when it matters.
 
 ## Sales-tech field toolkit
-What the tech carries to make the capture (and the AI's job) reliable:
+Full toolkit + drone financing + CASA legals: **`docs/TECH_TOOLKIT.md`**. In short:
 - **A good phone camera** — the whole capture runs off it; clean glass, good light.
-- **Tape measure** — the ground-truth tool. Whenever the AI flags a tight fit
-  (`needs_measure`), a tape held across the gap beats any pixel estimate.
-- **Drone (preferred for roofs)** — gets the roof-plane and array shots without anyone
-  going up. **Removes the ladder → WHS/EHS risk reduction**; upload drone frames the same
-  way as phone photos.
-- **Ladder (least desired)** — only when a drone can't get the shot; height access is the
-  main on-site hazard, so avoid it where the drone will do.
-- **The vehicle** — parked in frame it's a coarse scale reference (AU number plate is a
-  precise 372 × 134 mm) when nothing else of known size is around.
+- **Drone (MANDATORY, sub-250g)** — roof planes/material from the air so the tech **never
+  gets on the roof** (eliminates the un-contractable WHS risk). Sub-250g (e.g. DJI Neo) is
+  exempt from the 30 m-from-people rule, so it works tight blocks. Needs CASA registration
+  + Operator Accreditation (commercial use). **No ladders onto roofs — ever.**
+- **Tape measure** — ground-truth tool for the `needs_measure` gate.
+- **The vehicle** — reaches jobs; also a coarse scale reference (AU plate 372 × 134 mm).
+
+The drone is required kit like a car+licence is for a rideshare driver; Solarsearch fronts
+it and the tech repays **$5/job** until it's theirs (`drone_loans`).
