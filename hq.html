@@ -438,6 +438,11 @@ tbody tr:hover{background:var(--tint2)}
       <div style="display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:20px;align-items:start">
         <!-- inputs -->
         <div class="card" style="padding:16px">
+          <div style="display:flex;gap:8px;align-items:end;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+            <div style="flex:1"><label class="src">Load a lead's captured facts</label>
+              <input id="qLead" class="search mono" placeholder="SS-ref e.g. SS-1004" style="width:100%"></div>
+            <button class="btn btn-ghost btn-sm" onclick="loadQuoteFromLead()">Load</button>
+          </div>
           <div class="eyebrow" style="margin-bottom:10px">System</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label class="src">Solar kW</label><input id="qKw" class="search mono" value="7.44" inputmode="decimal" style="width:100%"></div>
@@ -1496,6 +1501,21 @@ async function computeQuote(){
    </div>`;
 }
 
+async function loadQuoteFromLead(){
+  const ref=$('qLead').value.trim(); if(!ref) return; $('qErr').textContent='';
+  const { data:site } = await db.from('sites').select('id').ilike('ss_ref',ref).maybeSingle();
+  if(!site){ $('qErr').textContent='No site '+ref; return; }
+  const { data:lead } = await db.from('leads').select('id').eq('site_id',site.id).order('created_at',{ascending:false}).limit(1).maybeSingle();
+  if(!lead){ $('qErr').textContent='No lead for '+ref; return; }
+  const { data, error } = await db.rpc('quote_prefill',{ p_lead_id:lead.id });
+  if(error){ $('qErr').textContent='Prefill failed: '+error.message; return; }
+  const p=data||{};
+  if(p.phase) $('qPhase').value=String(p.phase);
+  if(p.storey) $('qStorey').value=String(p.storey);
+  if(p.ac_run_m!=null) $('qAc').value=p.ac_run_m;
+  toast(`Loaded ${p.ss_ref||ref} — ${p.roof||'roof?'} · ${p.phase?p.phase+'-phase':'phase?'}${p.ac_run_m!=null?' · AC '+p.ac_run_m+'m':''}`);
+}
+
 function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }
 async function boot(){ await loadData(); renderAll(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
@@ -1525,6 +1545,7 @@ window.applyInvoice = applyInvoice;
 window.buildRfq = buildRfq;
 window.copyRfq = copyRfq;
 window.computeQuote = computeQuote;
+window.loadQuoteFromLead = loadQuoteFromLead;
 window.openAssignConsultant = openAssignConsultant;
 window.confirmAssignConsultant = confirmAssignConsultant;
 window.openDesignForm = openDesignForm;
