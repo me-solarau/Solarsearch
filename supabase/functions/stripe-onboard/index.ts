@@ -37,8 +37,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     let party = body?.party as string | undefined; // optional hint: 'installer' | 'retailer'
 
+    // installers link to the auth user via auth_uid; retailers via user_id.
     const { data: inst } = await admin.from("installers")
-      .select("id, contact_email, stripe_account_id").eq("user_id", uid).maybeSingle();
+      .select("id, contact_email, stripe_account_id").eq("auth_uid", uid).maybeSingle();
     const { data: ret } = await admin.from("retailers")
       .select("id, contact_email, stripe_account_id").eq("user_id", uid).maybeSingle();
 
