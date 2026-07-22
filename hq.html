@@ -490,10 +490,29 @@ function calcScore(bill,type,timeline){
   const tw={asap:22,'1_3_months':14,'3_6_months':6,researching:0}[timeline]||0;
   return Math.min(98, 35 + Math.floor((bill||0)/40) + (type!=='solar'?12:0) + tw);
 }
-function estSystem(bill,type){
-  const kw = type==='battery_retrofit'?0:(bill<700?6.6:bill<1100?8.8:10.6);
-  const kwh = type==='solar'?0:13.5;
-  return {kw,kwh};
+// Honest, increment-only estimate: what we'd ADD (new kW / new kWh), never the
+// existing kit. Driven off the two-fact scope (existing × wants); falls back to
+// the legacy lead_type when a lead predates the two-question funnel. New solar is
+// capped to 9.99 kW because a single-phase site must export <10 kW/phase (three-
+// phase lifts this — flagged once we capture phase at inspection).
+function estSystem(bill,r){
+  r=r||{};
+  const ex=r.existing||{}, wa=r.wants||{}, exSys=r.existing_system||{};
+  const legacy = (r.wants==null && r.existing==null);
+  const type=r.lead_type;
+  const wantSolar = legacy ? (type==='solar'||type==='solar_battery') : !!wa.solar;
+  const wantBatt  = legacy ? (type==='battery'||type==='battery_retrofit'||type==='solar_battery') : !!wa.battery;
+  const hasSolar  = legacy ? (type==='battery_retrofit') : !!ex.solar;
+  const hasBatt   = legacy ? false : !!ex.battery;
+  const existKw  = hasSolar ? (parseFloat(exSys.size)||null) : 0;
+  const existKwh = hasBatt  ? (parseFloat(exSys.battery_kwh)||null) : 0;
+  // new solar sized off the bill (only if they want solar)
+  const fromBill = bill<700?6.6:bill<1100?8.8:10.6;
+  let newKw = wantSolar ? fromBill : 0;
+  let note='';
+  if(newKw>=10){ newKw=9.99; note='new solar capped to 9.99 kW (single-phase export <10 kW; 3-phase lifts this)'; }
+  const newKwh = wantBatt ? 13.5 : 0;
+  return { kw:newKw, kwh:newKwh, newKw, newKwh, existKw:existKw||0, existKwh:existKwh||0, note };
 }
 const EVLABEL={
   'lead.captured':['Lead captured','From the funnel · consent recorded',''],
@@ -524,7 +543,7 @@ function evToTl(e,nowMs){
 async function loadData(){
   const nowMs=Date.now();
   const { data:L, error } = await db.from('leads')
-    .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,choice_token,created_at,sites(ss_ref,postcode,address),customers(full_name)')
+    .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,choice_token,created_at,existing,wants,existing_system,sites(ss_ref,postcode,address),customers(full_name)')
     .order('created_at',{ascending:false});
   if(error){ toast('Load error: '+error.message); return; }
   const ids=(L||[]).map(r=>r.id);
@@ -546,7 +565,7 @@ async function loadData(){
   leads=(L||[]).map((r,ix)=>{
     const bill=r.bill_quarterly_cents?Math.round(r.bill_quarterly_cents/100):0;
     const type=r.lead_type, tl=r.timeline||'researching';
-    const es=estSystem(bill,type);
+    const es=estSystem(bill,r);
     const site=r.sites||{}, cust=r.customers||{};
     const design=designBySite[r.site_id]||null;
     const stamps={captured:r.created_at};
@@ -556,6 +575,7 @@ async function loadData(){
       type, state:r.state, score:(r.score!=null?r.score:calcScore(bill,type,tl)),
       bill, kw:(design&&design.system_kw!=null)?Number(design.system_kw):es.kw,
       kwh:(design&&design.battery_kwh!=null)?Number(design.battery_kwh):es.kwh,
+      existKw:es.existKw, existKwh:es.existKwh, estNote:es.note,
       design, seats:seatBySite[r.site_id]||0, quotes:quoteBySite[r.site_id]||0,
       plat:r.source_platform||'organic',
       creative:(r.utm&&r.utm.utm_campaign)||'—',
@@ -1123,8 +1143,10 @@ function openDrawer(id){
   $('dDetails').innerHTML=`
     <dt>Bill / quarter</dt><dd class="mono">${fmt$(l.bill)}</dd>
     <dt>Timeline</dt><dd>${l.timeline.replace(/_/g,'–')}</dd>
-    <dt>System (est.)</dt><dd class="mono">${l.kw?l.kw+' kW ':''}${l.kwh?l.kwh+' kWh':''}</dd>
-    <dt>Est. STCs</dt><dd class="mono">${totalStc(l.kw,l.kwh)}</dd>`;
+    <dt>New system (est.)</dt><dd class="mono">${l.kw?l.kw+' kW ':''}${l.kwh?l.kwh+' kWh':''}${(!l.kw&&!l.kwh)?'—':''}</dd>
+    ${(l.existKw||l.existKwh)?`<dt>Existing on site</dt><dd class="mono">${l.existKw?l.existKw+' kW ':''}${l.existKwh?l.existKwh+' kWh':''}</dd>`:''}
+    <dt>Est. STCs (new)</dt><dd class="mono">${totalStc(l.kw,l.kwh)}</dd>
+    ${l.estNote?`<dt></dt><dd class="src" style="font-size:.72rem;color:var(--ink3)">${l.estNote}</dd>`:''}`;
   $('dAttr').innerHTML=`
     <dt>Platform</dt><dd>${l.plat}</dd>
     <dt>Creative</dt><dd>${l.creative}</dd>
