@@ -149,6 +149,7 @@ tbody tr:hover{background:var(--tint2)}
     <button class="nav-btn" data-page="analytics"><span class="ic">▧</span><span class="lbl">Analytics</span></button>
     <button class="nav-btn" data-page="campaigns"><span class="ic">▲</span><span class="lbl">Campaigns</span></button>
     <button class="nav-btn" data-page="vetting"><span class="ic">⚑</span><span class="lbl">Vetting</span></button>
+    <button class="nav-btn" data-page="pricing"><span class="ic">$</span><span class="lbl">Supplier pricing</span></button>
     <div class="foot">HUNTER PILOT · RULES v2026.05<br>LIVE DATA</div>
   </aside>
 
@@ -361,6 +362,69 @@ tbody tr:hover{background:var(--tint2)}
       <div class="card"><table>
         <thead><tr><th>Type</th><th>Name</th><th>Status</th><th>Docs</th><th>Created</th></tr></thead>
         <tbody id="vettingRows"></tbody>
+      </table></div>
+    </section>
+
+    <!-- ============ SUPPLIER PRICING ============ -->
+    <section class="page" id="page-pricing">
+      <div class="page-head">
+        <div><span class="eyebrow">Material price book · invoices · RFQ</span><h1>Supplier pricing</h1>
+          <div class="sub" id="pricingStats">Loading catalog…</div></div>
+      </div>
+
+      <!-- Update prices from a supplier invoice (AI-read) -->
+      <div class="card" style="margin-bottom:20px;padding:18px">
+        <div class="eyebrow" style="margin-bottom:4px">Update prices from an invoice</div>
+        <div class="sub" style="margin-bottom:12px;color:var(--ink3);font-size:.82rem">Drop a supplier invoice (PDF, image, or paste the text). AI reads the part numbers &amp; prices you actually paid, matches them to the catalog, and updates that supplier — flagging price changes. This is the ground-truth price source.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end">
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Supplier (leave on Auto to let the AI detect)</label>
+            <select class="search" id="invSupplier" style="width:100%"><option value="">Auto-detect</option></select></div>
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Invoice file (PDF / image)</label>
+            <input class="search" id="invFile" type="file" accept="application/pdf,image/*" style="width:100%"></div>
+        </div>
+        <div style="margin-top:10px"><label class="f-label" style="font-size:.72rem;color:var(--ink3)">…or paste invoice text</label>
+          <textarea class="search" id="invText" rows="3" style="width:100%;font-family:var(--mono,monospace)" placeholder="Paste invoice / quote text here if you don't have a file"></textarea></div>
+        <div class="field-err" id="invErr" style="margin-top:8px"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+          <button class="btn btn-ink btn-sm" id="invReadBtn" onclick="readInvoice()">Read invoice with AI</button>
+        </div>
+        <div id="invReview" style="display:none;margin-top:14px">
+          <div class="eyebrow" style="margin-bottom:8px">Review — extracted lines <span id="invMeta" class="mono" style="color:var(--ink3);font-weight:400"></span></div>
+          <div class="card" style="max-height:320px;overflow:auto"><table>
+            <thead><tr><th>Part no</th><th>Description</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit $ (ex-GST)</th></tr></thead>
+            <tbody id="invRows"></tbody>
+          </table></div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+            <button class="btn btn-ghost btn-sm" onclick="cancelInvoice()">Cancel</button>
+            <button class="btn btn-amber btn-sm" onclick="applyInvoice()">Apply to catalog</button>
+          </div>
+        </div>
+        <div id="invResult" style="display:none;margin-top:14px"></div>
+      </div>
+
+      <!-- Build an RFQ from the in-use kit -->
+      <div class="card" style="margin-bottom:20px;padding:18px">
+        <div class="eyebrow" style="margin-bottom:4px">Request a quote (fallback)</div>
+        <div class="sub" style="margin-bottom:12px;color:var(--ink3);font-size:.82rem">Builds a part list from the SKUs you actually install (auto-flagged by invoices) to send a supplier for a fresh quote. Their reply comes back through the invoice reader above.</div>
+        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+          <div><label class="f-label" style="font-size:.72rem;color:var(--ink3)">Supplier</label>
+            <select class="search" id="rfqSupplier" style="min-width:220px"></select></div>
+          <button class="btn btn-ink btn-sm" onclick="buildRfq()">Build RFQ from in-use items</button>
+        </div>
+        <div id="rfqOut" style="display:none;margin-top:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="eyebrow" id="rfqMeta"></div>
+            <button class="btn btn-ghost btn-sm" onclick="copyRfq()">Copy list</button>
+          </div>
+          <textarea class="search mono" id="rfqText" rows="10" style="width:100%;font-size:.78rem" readonly></textarea>
+        </div>
+      </div>
+
+      <!-- Recent price movements -->
+      <div class="eyebrow" style="margin-bottom:8px">Recent price movements — from invoices</div>
+      <div class="card"><table>
+        <thead><tr><th>When</th><th>Supplier</th><th>Part no</th><th style="text-align:right">Was</th><th style="text-align:right">Now</th><th style="text-align:right">Change</th></tr></thead>
+        <tbody id="driftRows"><tr><td colspan="6" style="color:var(--ink3)">No invoice-driven changes yet.</td></tr></tbody>
       </table></div>
     </section>
   </main>
@@ -1223,7 +1287,96 @@ document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>
   $('page-'+b.dataset.page).classList.add('active');
 }));
 
-function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics(); }
+/* ===================== SUPPLIER PRICING ===================== */
+let SUPPLIERS_CACHE=[]; let invExtract=null;
+function escP(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
+
+async function renderPricing(){
+  const { data:sups } = await db.from('suppliers').select('code,name,branch,email').eq('active',true).order('name');
+  SUPPLIERS_CACHE=sups||[];
+  const opts=SUPPLIERS_CACHE.map(s=>`<option value="${escP(s.code)}">${escP(s.name)}${s.branch?(' — '+escP(s.branch)):''}</option>`).join('');
+  $('invSupplier').innerHTML='<option value="">Auto-detect</option>'+opts;
+  $('rfqSupplier').innerHTML=opts;
+  loadPricingStats(); loadDrift();
+}
+async function loadPricingStats(){
+  const t=await db.from('supplier_materials').select('*',{count:'exact',head:true});
+  const p=await db.from('supplier_materials').select('*',{count:'exact',head:true}).not('unit_price','is',null);
+  const u=await db.from('supplier_materials').select('*',{count:'exact',head:true}).eq('in_use',true);
+  $('pricingStats').textContent=`${t.count||0} items · ${p.count||0} priced · ${u.count||0} flagged in-use · ${SUPPLIERS_CACHE.length} suppliers`;
+}
+async function loadDrift(){
+  const { data } = await db.from('invoice_lines')
+    .select('part_no,unit_price,prev_price,price_delta,supplier_invoices(supplier_code,invoice_date,created_at)')
+    .neq('price_delta',0).limit(50);
+  const rows=(data||[]).filter(r=>r.price_delta!=null&&r.supplier_invoices)
+    .sort((a,b)=>new Date(b.supplier_invoices.created_at)-new Date(a.supplier_invoices.created_at)).slice(0,25);
+  const tb=$('driftRows');
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="6" style="color:var(--ink3)">No invoice-driven changes yet.</td></tr>'; return; }
+  const nm=c=>{const s=SUPPLIERS_CACHE.find(x=>x.code===c);return s?s.name:c;};
+  tb.innerHTML=rows.map(r=>{
+    const pct=r.prev_price?Math.round((r.price_delta/r.prev_price)*1000)/10:null;
+    const up=Number(r.price_delta)>0;
+    return `<tr><td>${escP(r.supplier_invoices.invoice_date||'')}</td><td>${escP(nm(r.supplier_invoices.supplier_code))}</td>
+      <td class="mono">${escP(r.part_no)}</td><td style="text-align:right" class="mono">${r.prev_price!=null?Number(r.prev_price).toFixed(2):'—'}</td>
+      <td style="text-align:right" class="mono">${r.unit_price!=null?Number(r.unit_price).toFixed(2):'—'}</td>
+      <td style="text-align:right;color:${up?'#b23':'#177A53'}">${up?'+':''}${Number(r.price_delta).toFixed(2)}${pct!=null?(' ('+(up?'+':'')+pct+'%)'):''}</td></tr>`;
+  }).join('');
+}
+async function readInvoice(){
+  const err=$('invErr'); err.textContent='';
+  const file=$('invFile').files[0], text=$('invText').value.trim();
+  if(!file && !text){ err.textContent='Add a file or paste invoice text.'; return; }
+  const btn=$('invReadBtn'); btn.disabled=true; btn.textContent='Reading…';
+  try{
+    const body={ supplier_code:$('invSupplier').value||undefined, source:'upload' };
+    if(file){ body.file_base64=await fileToB64(file); body.media_type=file.type||'application/pdf'; body.source_ref=file.name; }
+    if(text) body.text=text;
+    const { data:{ session } } = await db.auth.getSession();
+    const res=await fetch(SUPABASE_URL+'/functions/v1/ingest-invoice',{method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+(session?session.access_token:SUPABASE_ANON_KEY),'Content-Type':'application/json'},
+      body:JSON.stringify(body)});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok){ err.textContent=(j.error||('HTTP '+res.status))+(j.detail?(' — '+String(j.detail).slice(0,140)):''); return; }
+    invExtract=j; if(!invExtract.supplier_code && $('invSupplier').value) invExtract.supplier_code=$('invSupplier').value;
+    $('invMeta').textContent=(j.supplier_name?('· '+j.supplier_name):'')+(j.invoice_no?(' · #'+j.invoice_no):'')+(j.invoice_date?(' · '+j.invoice_date):'')+' · '+(j.line_count||0)+' lines';
+    $('invRows').innerHTML=(j.lines||[]).map(l=>`<tr><td class="mono">${escP(l.part_no||'')}</td><td>${escP(l.description||'')}</td><td style="text-align:right">${l.qty??''}</td><td style="text-align:right" class="mono">${l.unit_price!=null?Number(l.unit_price).toFixed(2):'—'}</td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--ink3)">No lines detected.</td></tr>';
+    $('invReview').style.display='block'; $('invResult').style.display='none';
+  }catch(e){ err.textContent='Failed: '+e.message; }
+  finally{ btn.disabled=false; btn.textContent='Read invoice with AI'; }
+}
+function cancelInvoice(){ invExtract=null; $('invReview').style.display='none'; }
+async function applyInvoice(){
+  if(!invExtract) return;
+  const supplier=$('invSupplier').value||invExtract.supplier_code;
+  if(!supplier){ $('invErr').textContent='Could not detect the supplier — pick one from the dropdown.'; return; }
+  const p_invoice={ invoice_no:invExtract.invoice_no, invoice_date:invExtract.invoice_date, source:invExtract.source||'upload',
+    source_ref:invExtract.source_ref, subtotal:invExtract.subtotal, lines:invExtract.lines };
+  const { data, error } = await db.rpc('invoice_apply',{ p_supplier_code:supplier, p_invoice });
+  if(error){ $('invErr').textContent='Apply failed: '+error.message; return; }
+  const r=data||{}, drift=r.drift||[];
+  $('invResult').innerHTML=`<div class="card" style="padding:12px"><b>${r.matched||0}</b> matched · <b>${r.new_for_supplier||0}</b> new for this supplier · <b>${r.unmatched_count||0}</b> unmatched${r.unmatched_count?(' <span class="mono" style="color:var(--ink3)">('+r.unmatched.map(escP).join(', ')+')</span>'):''}${drift.length?('<div style="margin-top:6px">Price changes: '+drift.map(d=>escP(d.part_no)+' '+d.old+'→'+d.new+' ('+(d.pct>0?'+':'')+d.pct+'%)').join('; ')+'</div>'):''}</div>`;
+  $('invResult').style.display='block'; $('invReview').style.display='none'; invExtract=null;
+  $('invFile').value=''; $('invText').value='';
+  toast('Prices updated for '+supplier);
+  loadPricingStats(); loadDrift();
+}
+async function buildRfq(){
+  const supplier=$('rfqSupplier').value; if(!supplier) return;
+  const { data, error } = await db.rpc('rfq_build',{ p_supplier_code:supplier });
+  if(error){ toast('RFQ failed: '+error.message); return; }
+  const { data:lines } = await db.from('rfq_lines').select('part_no,brand,description,qty').eq('rfq_id',data.rfq_id).order('part_no');
+  if(!lines||!lines.length){ toast('No in-use items yet — apply an invoice first to flag what you install.'); $('rfqOut').style.display='none'; return; }
+  const sup=SUPPLIERS_CACHE.find(s=>s.code===supplier)||{};
+  $('rfqText').value='RFQ from Solarsearch — please quote your best price (ex-GST) for:\n\n'+
+    lines.map(l=>`${l.part_no}\t${l.description||''}\tqty ${l.qty||1}`).join('\n');
+  $('rfqMeta').textContent=lines.length+' items · '+(sup.name||supplier)+(sup.email?(' · '+sup.email):' · (no email on file)');
+  $('rfqOut').style.display='block';
+}
+function copyRfq(){ const t=$('rfqText'); t.select(); (navigator.clipboard?navigator.clipboard.writeText(t.value):Promise.reject()).then(()=>toast('RFQ copied')).catch(()=>{document.execCommand('copy');toast('RFQ copied');}); }
+
+function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing(); }
 async function boot(){ await loadData(); renderAll(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
 
@@ -1246,6 +1399,11 @@ window.runPayoutBatch = runPayoutBatch;
 window.markPaid = markPaid;
 window.toggleNewLeadForm = toggleNewLeadForm;
 window.submitNewLead = submitNewLead;
+window.readInvoice = readInvoice;
+window.cancelInvoice = cancelInvoice;
+window.applyInvoice = applyInvoice;
+window.buildRfq = buildRfq;
+window.copyRfq = copyRfq;
 window.openAssignConsultant = openAssignConsultant;
 window.confirmAssignConsultant = confirmAssignConsultant;
 window.openDesignForm = openDesignForm;
