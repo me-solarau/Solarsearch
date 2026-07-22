@@ -34,6 +34,8 @@ const STEP_CRITERIA: Record<string, string> = {
   battery_loc: "A location proposed for a home battery, with enough surroundings to judge clearance and ventilation. Reject if surroundings are not visible.",
   cable_route: "A cable route indication — roof-to-board or board-to-inverter path. Reject if no plausible route is shown.",
   existing_system: "Existing solar equipment (panels, inverter, isolators). Reject only if the shot is unusable; absence of a system should be marked N/A in-app, not sent here.",
+  existing_inverter: "An existing solar inverter mounted on site, ideally with its make/model/rating nameplate label legible (or a close-up of that label). Reject if it is not an inverter, or if it is too far/blurry to read the nameplate on a nameplate close-up.",
+  existing_panels: "An existing solar panel array on a roof (or a legible close-up of a panel's rating label). Reject if no solar panels are visible.",
 };
 
 async function fetchImageBase64(admin: ReturnType<typeof createClient>, path: string) {
@@ -61,9 +63,10 @@ Deno.serve(async (req) => {
     const { photo_id } = await req.json().catch(() => ({}));
     if (!photo_id) return json({ error: "photo_id required" }, 400);
     if (!ANTHROPIC_API_KEY) {
-      // graceful fallback so the app keeps working before the key is set
-      await admin.from("assessment_photos").update({ ai_verdict: "pass", ai_reasons: ["AI validation not configured — auto-passed"] }).eq("id", photo_id);
-      return json({ verdict: "pass", reasons: ["AI validation not configured — auto-passed"], configured: false });
+      // graceful fallback so the app keeps working before the key is set. The app
+      // surfaces this as "Not verified" (amber), NOT a green pass.
+      await admin.from("assessment_photos").update({ ai_verdict: "pass", ai_reasons: ["AI validation not configured — not checked"] }).eq("id", photo_id);
+      return json({ verdict: "pass", reasons: ["AI validation not configured — not checked"], configured: false });
     }
 
     // load photo + ownership check

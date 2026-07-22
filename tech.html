@@ -221,7 +221,7 @@ let MY_NAME='Tech', MY_REP_ID=null;
 let navStack=['v-pool'], curTab='pool';
 
 /* ===== capture spec (scope §4) ===== */
-const STEPS=[
+const DEFAULT_STEPS=[
  {key:'front',title:'Front of property',req:true,multi:true,max:6,
   hint:'The whole front of the house with its roof line, and where a truck/ladder can access.',
   guide:'Stand back on the street or driveway, phone sideways (landscape). Fit the whole house AND its full roof in the frame. Make sure the driveway / side access is visible.'},
@@ -259,6 +259,29 @@ const STEPS=[
   hint:'Any existing solar/battery: panels, inverter, isolators and labels.',
   guide:'If there\'s already solar or a battery, photograph the panels, the inverter, the isolators and any rating labels. If there\'s nothing existing, mark this step N/A.'},
 ];
+
+/* Battery-retrofit jobs (existing solar, adding a battery) get a tailored list:
+   the existing inverter nameplate is the make-or-break shot, the existing array
+   helps size it, and the new-panel roof-layout steps are dropped. */
+const EXISTING_INVERTER={key:'existing_inverter',title:'Existing inverter — nameplate',req:true,multi:true,max:6,
+  hint:'The existing inverter, with its make / model / rating label readable.',
+  guide:'Photograph the whole existing inverter, then a sharp close-up of its nameplate label so the make, model and rating are readable — this decides whether we add an AC-coupled battery or swap to a hybrid. Include the DC and AC isolators beside it.'};
+const EXISTING_PANELS={key:'existing_panels',title:'Existing solar panels',req:false,multi:true,max:6,
+  hint:'The existing panel array on the roof — layout and rough count/condition.',
+  guide:'Show the existing array on each roof face (drone shots are ideal — tap Upload). Capture roughly how many panels and their condition. If you can safely reach one, a close-up of a panel\'s back label tells us the wattage.'};
+const _D=Object.fromEntries(DEFAULT_STEPS.map(s=>[s.key,s]));
+const RETROFIT_STEPS=[
+  _D.front,
+  EXISTING_PANELS,
+  EXISTING_INVERTER,
+  _D.board_closed, _D.board_open, _D.main_switch, _D.meter, _D.main_earth,
+  _D.battery_loc,
+  {..._D.inverter_loc, req:false, title:'New / hybrid inverter spot (if any)',
+   hint:'Only if a new or hybrid inverter/gateway is being added — where it would mount.',
+   guide:'If the battery needs its own inverter, hybrid or backup gateway, show the wall/spot with clearances. Skip or mark N/A if the battery AC-couples to the existing inverter.'},
+  _D.cable_route,
+];
+let STEPS=DEFAULT_STEPS;
 const SITE_FIELDS=[
  {key:'storeys',label:'Storeys',opts:[['single','Single'],['double','Double'],['multi','Multi-storey'],['multiple_buildings','Multiple buildings']]},
  {key:'roof_type',label:'Roof type',opts:[['flat','Flat'],['metal_corrugated','Metal — corrugated'],['tile_concrete','Tile — concrete'],['tile_terracotta','Tile — terracotta'],['other','Other']]},
@@ -502,6 +525,8 @@ async function startVisit(){
 /* ===== capture ===== */
 async function openCapture(){
   capStore={};
+  // battery-retrofit jobs get the tailored checklist (existing inverter + array)
+  STEPS = (curJob&&curJob.lead_type==='battery_retrofit') ? RETROFIT_STEPS : DEFAULT_STEPS;
   const { data } = await db.from('assessment_photos').select('id,step_key,storage_path,ai_verdict,na_reason,note').eq('assessment_id',curJob.assessment_id);
   for(const p of (data||[])){
     const s=STEPS.find(x=>x.key===p.step_key);
