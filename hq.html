@@ -1011,7 +1011,8 @@ async function openGallery(aid,ref,addr){
   const nPhotos=(photos||[]).filter(p=>p.storage_path).length;
   const sdChips=[['Storeys',sd.storeys],['Roof',sd.roof_type],['Pitch',sd.roof_pitch],['Meter',sd.meter_type],['Switchboard',sd.switchboard_condition],['Board→inverter',sd.board_to_inverter_m?sd.board_to_inverter_m+' m':null]]
     .filter(x=>x[1]).map(x=>`<span style="background:var(--tint2);border:1px solid var(--line);border-radius:99px;padding:4px 10px;font-size:.76rem;color:var(--ink2)"><b style="color:var(--ink)">${x[0]}:</b> ${esc(String(x[1]).replace(/_/g,' '))}</span>`).join(' ');
-  const header=`<div style="margin-bottom:14px"><div style="font-size:.85rem;color:var(--ink2)">${cust?('Customer: <b>'+esc(cust)+'</b> · '):''}${nPhotos} photo${nPhotos===1?'':'s'}${gps?' · attendance '+gps:''}</div>${sdChips?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+sdChips+'</div>':''}</div>`;
+  const verifyRow=nPhotos?`<div style="margin-top:12px;display:flex;align-items:center;gap:10px"><button class="btn btn-ghost btn-sm" onclick="verifyEvidence('${aid}')">🔒 Verify evidence</button><span id="galVerify" style="font-size:.78rem;color:var(--ink3)"></span></div>`:'';
+  const header=`<div style="margin-bottom:14px"><div style="font-size:.85rem;color:var(--ink2)">${cust?('Customer: <b>'+esc(cust)+'</b> · '):''}${nPhotos} photo${nPhotos===1?'':'s'}${gps?' · attendance '+gps:''}</div>${sdChips?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+sdChips+'</div>':''}${verifyRow}</div>`;
   const groups={}; (photos||[]).forEach(p=>{ (groups[p.step_key]=groups[p.step_key]||[]).push(p); });
   const keys=[...GAL_STEP_ORDER.filter(k=>groups[k]),...Object.keys(groups).filter(k=>!GAL_STEP_ORDER.includes(k))];
   const sections=keys.map(k=>{
@@ -1028,6 +1029,28 @@ async function openGallery(aid,ref,addr){
   $('galBody').innerHTML=header+(sections||'<div class="empty" style="padding:40px">No photos on this inspection.</div>');
 }
 function closeGallery(){ $('galBack').style.display='none'; document.body.style.overflow=''; }
+// Re-hash every stored image and compare to the baseline captured at upload — detects any
+// post-submission swap. Green = intact; red = tampered/missing.
+async function verifyEvidence(aid){
+  const el=$('galVerify'); if(!el) return;
+  el.innerHTML='Verifying…';
+  try{
+    const { data:{ session } } = await db.auth.getSession();
+    const res=await fetch(SUPABASE_URL+'/functions/v1/verify-evidence',{ method:'POST',
+      headers:{ apikey:SUPABASE_ANON_KEY, 'Authorization':'Bearer '+(session?session.access_token:SUPABASE_ANON_KEY), 'Content-Type':'application/json' },
+      body:JSON.stringify({ assessment_id:aid }) });
+    const j=await res.json();
+    if(!res.ok){ el.innerHTML=`<span style="color:var(--red)">Verify failed: ${esc(j.error||('HTTP '+res.status))}</span>`; return; }
+    const nohash=(j.results||[]).filter(r=>r.status==='no_baseline_hash').length;
+    const missing=(j.results||[]).filter(r=>r.status==='missing_file').length;
+    const extra=[nohash?`${nohash} un-hashed`:'',missing?`${missing} missing`:''].filter(Boolean).join(' · ');
+    if(j.all_intact){
+      el.innerHTML=`<span style="background:#177A5322;color:#177A53;border:1px solid #177A5344;border-radius:99px;padding:4px 10px;font-weight:700">✓ Evidence intact — ${j.verified} verified</span>${extra?` <span style="color:var(--ink3)">(${extra})</span>`:''}`;
+    }else{
+      el.innerHTML=`<span style="background:var(--reds);color:var(--red);border:1px solid #F0C7BC;border-radius:99px;padding:4px 10px;font-weight:700">⚠ ${j.tampered} TAMPERED</span>${extra?` <span style="color:var(--ink3)">(${extra})</span>`:''}`;
+    }
+  }catch(e){ el.innerHTML='<span style="color:var(--red)">Verify error</span>'; }
+}
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('galBack').style.display==='block') closeGallery(); });
 
 async function runPayoutBatch(){
@@ -1578,6 +1601,7 @@ window.submitOnboardTech = submitOnboardTech;
 window.smsOfferForLead = smsOfferForLead;
 window.pingTechs = pingTechs;
 window.openGallery = openGallery;
+window.verifyEvidence = verifyEvidence;
 window.closeGallery = closeGallery;
 
 (async () => {
