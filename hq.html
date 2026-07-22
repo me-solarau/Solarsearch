@@ -513,7 +513,7 @@ import { attachAddressAutocomplete } from "/src/lib/address-autocomplete.js";
 // the scheme's 2030 end. BATTERY: matches the Cheaper Home Batteries program tiers
 // exactly (100% 0-14kWh, 60% 14-28, 15% 28-50, cap 50kWh) x 6.8 factor.
 // TODO: postcode -> exact STC zone for non-Zone-3 jobs; stcPrice tracks the market.
-const RULES={v:'v2026.07',stcFactor:6.8,stcPrice:37,zoneRating:1.382,deemingYears:5,tiers:[[14,1],[28,.6],[50,.15]],commissionPerStc:1.10,seatPrice:200};
+const RULES={v:'v2026.07',stcFactor:6.8,stcPrice:37,zoneRating:1.382,deemingYears:5,tiers:[[14,1],[28,.6],[50,.15]],seatPrice:80,winnerFeePct:7,commissionPerStc:1.10};
 function solarStc(kw){return Math.floor((kw||0)*RULES.zoneRating*RULES.deemingYears)}
 function batteryStc(kwh){let s=0,p=0;for(const[c,r]of RULES.tiers){s+=Math.max(0,Math.min(kwh,c)-p)*RULES.stcFactor*r;p=c;if(kwh<=c)break}return Math.floor(s)}
 function totalStc(kw,kwh){return solarStc(kw)+(kwh?batteryStc(kwh):0)}
