@@ -996,11 +996,13 @@ function galBadge(p){
   return '<span style="background:var(--line);color:var(--ink2);font-size:.58rem;padding:2px 7px;border-radius:99px">…</span>';
 }
 const esc=s=>String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+let galAid,galRefV,galAddrV;
 async function openGallery(aid,ref,addr){
+  galAid=aid; galRefV=ref; galAddrV=addr;
   $('galRef').textContent=ref||''; $('galTitle').textContent=addr||'Inspection photos';
   $('galBody').innerHTML='<div class="empty" style="padding:50px;text-align:center">Loading photos…</div>';
   $('galBack').style.display='block'; document.body.style.overflow='hidden';
-  const { data:a } = await db.from('assessments').select('site_data,outcome,submitted_at,start_gps,leads(customers(full_name))').eq('id',aid).maybeSingle();
+  const { data:a } = await db.from('assessments').select('site_data,outcome,submitted_at,start_gps,sales_rep_id,sales_reps(full_name,status),leads(customers(full_name))').eq('id',aid).maybeSingle();
   const { data:photos } = await db.from('assessment_photos').select('id,step_key,storage_path,ai_verdict,ai_reasons,na_reason,note,lat,lng,taken_at,created_at').eq('assessment_id',aid).order('created_at');
   const paths=(photos||[]).filter(p=>p.storage_path).map(p=>p.storage_path);
   const urlMap={};
@@ -1012,7 +1014,10 @@ async function openGallery(aid,ref,addr){
   const sdChips=[['Storeys',sd.storeys],['Roof',sd.roof_type],['Pitch',sd.roof_pitch],['Meter',sd.meter_type],['Switchboard',sd.switchboard_condition],['Board→inverter',sd.board_to_inverter_m?sd.board_to_inverter_m+' m':null]]
     .filter(x=>x[1]).map(x=>`<span style="background:var(--tint2);border:1px solid var(--line);border-radius:99px;padding:4px 10px;font-size:.76rem;color:var(--ink2)"><b style="color:var(--ink)">${x[0]}:</b> ${esc(String(x[1]).replace(/_/g,' '))}</span>`).join(' ');
   const verifyRow=nPhotos?`<div style="margin-top:12px;display:flex;align-items:center;gap:10px"><button class="btn btn-ghost btn-sm" onclick="verifyEvidence('${aid}')">🔒 Verify evidence</button><span id="galVerify" style="font-size:.78rem;color:var(--ink3)"></span></div>`:'';
-  const header=`<div style="margin-bottom:14px"><div style="font-size:.85rem;color:var(--ink2)">${cust?('Customer: <b>'+esc(cust)+'</b> · '):''}${nPhotos} photo${nPhotos===1?'':'s'}${gps?' · attendance '+gps:''}</div>${sdChips?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+sdChips+'</div>':''}${verifyRow}</div>`;
+  const rep=a&&a.sales_reps; const repId=a&&a.sales_rep_id;
+  const repActive=rep&&['approved','active','conditionally_active'].includes(rep.status);
+  const techRow=repId?`<div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.78rem"><span style="color:var(--ink2)">Tech: <b>${esc((rep&&rep.full_name)||'—')}</b> · <span class="mono" style="color:${repActive?'var(--ink2)':'var(--red)'}">${esc((rep&&rep.status)||'')}</span></span>${repActive?`<button class="btn btn-ghost btn-sm" onclick="setTechStatus('${repId}','suspended')">Suspend</button><button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="setTechStatus('${repId}','banned')">Ban</button>`:`<button class="btn btn-ghost btn-sm" onclick="setTechStatus('${repId}','approved')">Reinstate</button>`}</div>`:'';
+  const header=`<div style="margin-bottom:14px"><div style="font-size:.85rem;color:var(--ink2)">${cust?('Customer: <b>'+esc(cust)+'</b> · '):''}${nPhotos} photo${nPhotos===1?'':'s'}${gps?' · attendance '+gps:''}</div>${sdChips?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">'+sdChips+'</div>':''}${verifyRow}${techRow}</div>`;
   const groups={}; (photos||[]).forEach(p=>{ (groups[p.step_key]=groups[p.step_key]||[]).push(p); });
   const keys=[...GAL_STEP_ORDER.filter(k=>groups[k]),...Object.keys(groups).filter(k=>!GAL_STEP_ORDER.includes(k))];
   const sections=keys.map(k=>{
@@ -1029,6 +1034,19 @@ async function openGallery(aid,ref,addr){
   $('galBody').innerHTML=header+(sections||'<div class="empty" style="padding:40px">No photos on this inspection.</div>');
 }
 function closeGallery(){ $('galBack').style.display='none'; document.body.style.overflow=''; }
+// Integrity enforcement (T&Cs): dishonesty/tampering/fraud -> suspend or ban. Instantly cuts
+// off grab/start/submit because current_sales_rep_id() only resolves active statuses.
+async function setTechStatus(repId,status){
+  const verb=status==='banned'?'BAN':status==='suspended'?'suspend':'reinstate';
+  const reason=prompt(`Reason to ${verb} this technician (logged):`, status==='approved'?'Reinstated':'Dishonesty / tampering / fraud');
+  if(reason===null) return;
+  if(status==='banned'&&!confirm('Ban is permanent — the technician loses all app access. Continue?')) return;
+  const { error } = await db.rpc('set_tech_status',{p_rep:repId,p_status:status,p_reason:reason||null});
+  if(error){ toast('Failed: '+error.message); return; }
+  toast(`Technician ${status==='approved'?'reinstated':status}`);
+  await loadData();
+  if(galAid) openGallery(galAid,galRefV,galAddrV);
+}
 // Re-hash every stored image and compare to the baseline captured at upload — detects any
 // post-submission swap. Green = intact; red = tampered/missing.
 async function verifyEvidence(aid){
@@ -1602,6 +1620,7 @@ window.smsOfferForLead = smsOfferForLead;
 window.pingTechs = pingTechs;
 window.openGallery = openGallery;
 window.verifyEvidence = verifyEvidence;
+window.setTechStatus = setTechStatus;
 window.closeGallery = closeGallery;
 
 (async () => {

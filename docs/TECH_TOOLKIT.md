@@ -139,3 +139,12 @@ only if a tech genuinely wants a registered business name; don't budget it for e
 **Get a lawyer/accountant to draft the T&Cs and confirm the whole-of-relationship supports
 contractor status** (and the super position) before scaling — the paperwork is necessary but
 not sufficient.
+
+### Integrity enforcement (T&Cs)
+The technician terms (draft: `docs/TECH_TERMS.md`) make **dishonesty, tampering or fraud =
+immediate suspension and/or ban**. Enforced in-system: `set_tech_status(rep, 'suspended' |
+'banned' | 'approved', reason)` (admin) flips `sales_reps.status`, which **instantly cuts off
+grab/start/submit and the job pool** (because `current_sales_rep_id()` only resolves active
+statuses). Every change is logged to `tech_status_log`. HQ exposes Suspend / Ban / Reinstate
+in the inspection photo gallery, next to **Verify evidence** — so a tamper result can be
+actioned on the spot.
