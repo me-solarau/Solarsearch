@@ -16,19 +16,19 @@ export async function requireRole(allowedRoles, { loginPage = "/login.html" } = 
     return null;
   }
 
-  const { data: roleRow } = await db
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", session.user.id)
-    .single();
-
-  const role = roleRow?.role;
-  if (!role || !allowedRoles.includes(role)) {
+  // A user can legitimately hold several roles at once (admin via user_roles; sales_rep /
+  // installer / retailer via their approved identity records). my_access() returns all of
+  // them, so a page admits anyone holding ANY of its allowed roles — one login can enter
+  // every app it genuinely holds, not just a single user_roles.role.
+  const { data: access } = await db.rpc("my_access");
+  const held = access || {};
+  const matched = (allowedRoles || []).find((r) => held[r]);
+  if (!matched) {
     location.href = loginPage;
     return null;
   }
 
-  return { session, role, db };
+  return { session, role: matched, db };
 }
 
 export function homeForRole(role) {
