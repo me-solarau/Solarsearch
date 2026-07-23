@@ -151,24 +151,33 @@ async function flush(){ if(flushing||!navigator.onLine) return; flushing=true; t
 window.addEventListener('online',flush); setInterval(flush,30000);
 
 /* ---- data ---- */
+let JOBS=[];
 async function loadInstalls(){
-  const { data } = await db.from('installs').select('id,status,pipeline,leads(sites(ss_ref,address,postcode))').in('status',['scheduled','in_progress']).order('created_at',{ascending:false});
-  const rows=data||[];
-  $('list').innerHTML = rows.length ? rows.map(i=>{
-    const s=(i.leads&&i.leads.sites)||{}; const addr=[s.address,s.postcode].filter(Boolean).join(' ');
-    return `<div class="card"><div class="row"><div><b>${esc(addr||s.ss_ref||'Install')}</b><div class="sub">${s.ss_ref||''} · ${i.status.replace('_',' ')}${i.pipeline==='subcontractor'?' · sub':''}</div></div><button class="btn btn-ink btn-sm" onclick="openInstall('${i.id}')">Open</button></div></div>`;
+  // installer_jobs() is the scoped reveal — returns the site address + customer contact
+  // for THIS installer's own assigned jobs (RLS blocks the raw leads/sites tables).
+  const { data } = await db.rpc('installer_jobs');
+  JOBS = (data||[]).map(j=>({ ...j, id:j.install_id }));
+  const rows = JOBS.filter(j=>['scheduled','in_progress'].includes(j.status));
+  $('list').innerHTML = rows.length ? rows.map(j=>{
+    const addr=[j.address,j.postcode].filter(Boolean).join(' ')||j.suburb||j.ss_ref||'Install';
+    return `<div class="card"><div class="row"><div><b>${esc(addr)}</b><div class="sub">${esc(j.ss_ref||'')} · ${esc(j.status.replace('_',' '))}${j.pipeline==='subcontractor'?' · sub':''}</div></div><button class="btn btn-ink btn-sm" onclick="openInstall('${j.id}')">Open</button></div></div>`;
   }).join('') : '<div class="card sub">No installs assigned yet.</div>';
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 async function openInstall(id){
   curId=id; store={};
-  const { data:i } = await db.from('installs').select('id,status,pipeline,start_gps,lead_id,leads(sites(ss_ref,address,postcode))').eq('id',id).maybeSingle();
+  let i=JOBS.find(j=>j.id===id);
+  if(!i){ const { data }=await db.rpc('installer_jobs'); JOBS=(data||[]).map(j=>({...j,id:j.install_id})); i=JOBS.find(j=>j.id===id); }
   if(!i){ toast('Install not found'); return; }
   curInstall=i;
-  const s=(i.leads&&i.leads.sites)||{};
-  $('jobAddr').textContent=[s.address,s.postcode].filter(Boolean).join(' ')||s.ss_ref||'Install';
-  $('jobMeta').textContent=`${s.ss_ref||''} · ${i.status.replace('_',' ')}${i.pipeline==='subcontractor'?' · subcontractor':''}`;
+  $('jobAddr').textContent=[i.address,i.postcode].filter(Boolean).join(' ')||i.suburb||i.ss_ref||'Install';
+  // Reveal the customer contact for this won job (tap-to-call), plus job status.
+  const tel=(i.customer_mobile||'').replace(/[^\d+]/g,'');
+  const contact = i.customer_name
+    ? `<br>👤 ${esc(i.customer_name)}${tel?` · <a href="tel:${tel}">${esc(i.customer_mobile)}</a>`:''}`
+    : '';
+  $('jobMeta').innerHTML=`${esc(i.ss_ref||'')} · ${esc(i.status.replace('_',' '))}${i.pipeline==='subcontractor'?' · subcontractor':''}${contact}`;
   const { data:ph } = await db.from('install_photos').select('id,step_key,storage_path,na_reason').eq('install_id',id);
   const paths=(ph||[]).filter(p=>p.storage_path).map(p=>p.storage_path); const urlMap={};
   if(paths.length){ const { data:su } = await db.storage.from('assessment-photos').createSignedUrls(paths,3600); (su||[]).forEach(x=>{ if(x.path&&x.signedUrl) urlMap[x.path]=x.signedUrl; }); }
