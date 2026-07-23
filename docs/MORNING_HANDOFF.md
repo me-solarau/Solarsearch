@@ -1,49 +1,64 @@
-# Morning handoff — apply + verify
+# Morning handoff
 
-Overnight work is committed to `main`. The **DB migrations below could not be applied**
-(the Supabase tooling was offline), so apply them first, then the rest works.
+Everything below is **committed to `main` and live** unless marked PARKED or NEEDS YOU.
+Overnight the DB tooling was intermittently declining writes, so anything requiring a new
+migration that wasn't already applied is called out explicitly.
 
-## 1. Apply migrations (in order)
-Run via Supabase SQL editor / CLI (0054 is already applied):
-- `supabase/migrations/0055_install_photos_storage.sql` — installer storage policy
-  (install/ prefix in the existing `assessment-photos` bucket).
-- `supabase/migrations/0056_access_applications.sql` — access-application + T&C gate
-  (`access_applications`, `apply_for_access`, `decide_access`).
-- `supabase/migrations/0057_account_deletion.sql` — `account_deletions` +
-  `request_account_deletion` (Apple in-app deletion).
-- `supabase/migrations/0058_auto_provision_on_grant.sql` — grant now auto-provisions the
-  role (sales_rep / installer) as `approved`, so approval is one click (apply after 0056).
+## ✅ Shipped & live tonight
+- **Email signups fixed** — Supabase SMTP now uses username `resend` + the branded sender
+  `noreply@solarsearch.com.au` (domain verified in Resend). Confirmation emails deliver;
+  Confirm-email can stay ON. This was the last hard blocker. (Dashboard change — no code.)
+- **`admin@solarsearch.com.au` is the admin** — `user_roles.role = 'admin'` set. Sign in with
+  it → HQ. `johan@me-solar.com.au` was **repurposed** (see next).
+- **Multi-role access** (migration `0065` applied + `auth-guard.js` + build pushed):
+  - `my_access()` returns every role a login holds (admin via `user_roles`; sales_rep /
+    installer / retailer via approved identity records).
+  - `requireRole()` now admits a page if the user holds ANY of its allowed roles — one login
+    can enter every app it legitimately holds. Admin pages still require admin; field pages
+    admit identity-holders. No RLS change.
+  - **`johan@me-solar.com.au`** is now a multi-role test account: `sales_rep` + `installer` +
+    `retailer` (all approved), primary landing = Tech. **No longer admin.** Verified via
+    impersonation: `my_access` = {sales_rep:true, installer:true, retailer:true, admin:false}.
+- **Role switcher** — a small floating "Apps ▾" control appears for multi-role logins
+  (`mountRoleSwitcher`), wired into `tech.html` / `install.html` / `installer.html`. No-op for
+  single-role users. (Retailer has no portal page yet, so it's omitted from the switcher.)
 
-If the Supabase MCP is back, they'll also apply cleanly via `apply_migration`.
+## ✅ Already live from earlier (unchanged)
+- **Stripe Connect (sandbox)** — `stripe-onboard`, `create-milestone-payment`, `stripe-webhook`
+  deployed; migration `0061` (10/60/30 milestone ledger); webhook Active; both secrets set.
+- **apply→grant→provision** fixed (`0062`) — installer provisioning uses `auth_uid` (was the
+  silent-failure bug).
+- **Installer contact reveal** (`0063`) — `installer_jobs()` reveals customer name/mobile/email
+  + address to the **assigned** installer only; `install.html` wired; DB-verified (owner sees,
+  rival sees nothing).
+- **Apple prep** — two clean Capacitor projects (`mobile/field`, `mobile/installer`), correct
+  `www` domain, T&C apply flow, `app-privacy.html` filled. See `docs/APPLE_TESTFLIGHT_TODAY.md`.
 
-## 2. What's live once applied
-- **Access is by application** — `apply.html`: a signed-in user applies for sales_tech /
-  installer / inspector, **must accept the T&Cs**, sees status. Admin grants in
-  **HQ → Vetting → "App access applications"** (Grant is blocked until T&Cs accepted).
-  **Grant auto-provisions the role** (0058) as `approved` — the person can use the app
-  immediately; no separate onboarding step. (Inspector is recorded only — its app is
-  outside this repo.)
-- **Account deletion** — "Delete my account" in `tech.html`, `install.html`, `apply.html`.
-- **Installer app** (`install.html`) — install evidence capture (0054 backend already applied);
-  uploads work once 0055's storage policy is in.
+## ⏸️ PARKED (written, not applied, not committed) — your call
+- **Retailer STC link** — `supabase/migrations/0064_stc_verification.sql` holds the
+  **retailer-approval** design: `submit_stc_photo()` (subcontractor uploads the formal STC
+  photo) + `verify_stc()` (retailer reviews, approves → emits `stc.verified` to authorise the
+  final 30%). Subcontract pipeline only; money movement stays a separate step. **Not applied,
+  not committed** (repeatedly parked). Apply when you're ready; then the 30% has an auditable
+  trigger like the 10%/60% do.
+- **Connection-approval (DNSP) gate** — the rule "install can't start until the DNSP app is
+  approved" is not enforced (`start_install` only checks status). Noted, not built.
 
-## 3. Apple / TestFlight (Mac)
-`mobile/` has both apps scaffolded (`capacitor.config.ts` = tech,
-`capacitor.installer.config.ts` = installer). Follow `mobile/README.md`:
-`npm install → copy web → cap add ios → cap open ios → Archive → TestFlight`.
-You already run TestFlight (inspector, voya), so the org account is set.
+## ⏳ NEEDS YOU (can't be done from here)
+- **Demo accounts for TestFlight** — 3 single-role accounts (Field `sales_rep`, Installer
+  `installer`, Installer rival). Now that email works, sign each up through the app, submit an
+  application, and grant in HQ. Ping me the emails and I'll verify + build a demo assigned-
+  install for the reveal check.
+- **TestFlight** — Mac + Xcode. Runbook: `docs/APPLE_TESTFLIGHT_TODAY.md`. Decisions in there:
+  confirm bundle IDs, installer app home, app icon.
+- **Stripe sandbox card charge** — needs a KYC-completed connected account + card confirmation
+  (`4242…`). I'll drive the DB/function side when you're ready.
+- **Retailer portal** — there's no `retailer.html` yet; the retailer STC approve button + STC
+  photo viewer live there when it's built.
 
-## 4. Open decisions (yours)
-- **Install-photo storage**: 0055 reuses the `assessment-photos` bucket (a dedicated
-  bucket was declined). Fine to keep, or switch to a dedicated bucket later.
-- **Grant → provisioning**: granting an application records the decision; the active role
-  is still created by the existing Onboard flow. Say if you want grant to auto-provision.
-- **Inspector app** lives outside this repo; the same `apply.html` records its applications,
-  but its provisioning/app is separate.
-
-## 5. Sanity checks after applying
-- HQ → Vetting shows the "App access applications" panel.
-- Submit a test application from `apply.html` → it appears in HQ → Grant works only with
-  T&Cs accepted.
-- Installer uploads a photo in `install.html` → lands in `install/<id>/...` and a row in
-  `install_photos` with sha256.
+## Sanity checks when you're back
+- Sign in as `admin@solarsearch.com.au` → lands in HQ.
+- Sign in as `johan@me-solar.com.au` → lands in Tech; the "Apps ▾" switcher (top-right) lets
+  you hop to Installer. (Retailer has no page yet.)
+- A brand-new signup → confirmation email arrives from `noreply@solarsearch.com.au` → confirm →
+  `/apply.html` → submit application → appears in HQ → Vetting → grant → auto-provisions.

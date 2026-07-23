@@ -72,11 +72,16 @@ Payment is released in three milestones against the job:
 - **60%** on **completion** — **completion is defined as the installer submitting the install
   evidence in the app** (`submit_install`): full photo set + completion report, locked + hashed.
   There is no "completion" without that submission — it's the single, hard-gated trigger.
-- **30%** on **STC verification** (certificates confirmed/created).
+- **30%** on **STC verification**. On the **subcontract pipeline** this is the **retailer's
+  release**: the subcontractor uploads a formal STC photo/certificate (`submit_stc_photo`), the
+  retailer reviews it and approves (`verify_stc`), which emits `stc.verified` — the timestamped
+  authorisation for the final 30%. *(Design in `supabase/migrations/0064_stc_verification.sql`,
+  currently PARKED — not yet applied.)*
 
 These map to system events: acceptance → deposit; **`submit_install` → `install.submitted`
-(status `installed`, `installs.submitted_at` set) → 60%**; STC verification → final 30%. The
-payment rails (Stripe) are still stubbed — this is the schedule to implement.
+(status `installed`, `installs.submitted_at` set) → 60%**; **`stc.verified` → final 30%**. The
+Stripe rails exist (sandbox) — `create-milestone-payment` charges each milestone keyed off these
+events; each milestone is one auditable, timestamped trigger.
 
 ## Retailer subcontract pipeline
 A **retailer** has sold their own job and subcontracts the **installation** to a Solarsearch
