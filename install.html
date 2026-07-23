@@ -106,7 +106,7 @@ input.f,textarea.f,select.f{width:100%;border:1px solid var(--line2);border-radi
 
 <script type="module">
 import { getSupabaseClient } from "/src/lib/supabase.js";
-import { requireRole } from "/src/lib/auth-guard.js";
+import { requireRole, mountRoleSwitcher } from "/src/lib/auth-guard.js";
 const db=getSupabaseClient();
 const $=id=>document.getElementById(id);
 let MY_INSTALLER_ID=null, curId=null, curInstall=null, activeStep=null;
@@ -265,6 +265,7 @@ window.$=$;
 (async()=>{
   const auth=await requireRole(['installer'],{ loginPage:'/login.html' });
   if(!auth) return;
+  mountRoleSwitcher(auth.access);
   const { data:me } = await db.from('installers').select('*').eq('user_id',auth.session.user.id).maybeSingle();
   if(me){ MY_INSTALLER_ID=me.id; $('who').textContent=me.company_name||me.contact_name||me.full_name||me.name||''; }
   await boot(); flush();

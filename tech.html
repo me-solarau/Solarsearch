@@ -229,7 +229,7 @@ textarea{width:100%;border:1.5px solid var(--line2);border-radius:12px;backgroun
 
 <script type="module">
 import { getSupabaseClient, SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
-import { requireRole } from "/src/lib/auth-guard.js";
+import { requireRole, mountRoleSwitcher } from "/src/lib/auth-guard.js";
 import { loadGooglePlaces } from "/src/lib/places.js";
 import { pushState, enableJobAlerts, disableJobAlerts, pushSupported } from "/src/lib/push.js";
 
@@ -1031,6 +1031,7 @@ window.$=$;
 (async () => {
   const auth = await requireRole(['sales_rep'], { loginPage: '/login.html' });
   if(!auth) return;
+  mountRoleSwitcher(auth.access);
   const { data:me } = await db.from('sales_reps').select('id,full_name').eq('user_id',auth.session.user.id).maybeSingle();
   if(me){ MY_REP_ID=me.id; if(me.full_name){ MY_NAME=me.full_name; $('topTag').textContent=me.full_name.split(' ')[0].toUpperCase(); } }
   loadPool();

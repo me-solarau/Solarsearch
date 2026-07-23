@@ -144,7 +144,7 @@ tr:last-child td{border-bottom:none}
 
 <script type="module">
 import { getSupabaseClient } from "/src/lib/supabase.js";
-import { requireRole } from "/src/lib/auth-guard.js";
+import { requireRole, mountRoleSwitcher } from "/src/lib/auth-guard.js";
 
 const $=id=>document.getElementById(id);
 let tT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2600)}
@@ -289,6 +289,7 @@ renderRect(); // static honest state, no auth needed
 (async () => {
   const auth = await requireRole(['installer'], { loginPage: '/login.html' });
   if (!auth) return;
+  mountRoleSwitcher(auth.access);
   const { data:me } = await db.from('installers').select('company_name').eq('auth_uid',auth.session.user.id).maybeSingle();
   if(me&&me.company_name){ const co=document.querySelector('.co'); if(co) co.textContent=me.company_name.toUpperCase(); }
   await loadBoard();
