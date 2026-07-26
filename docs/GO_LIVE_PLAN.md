@@ -22,15 +22,20 @@ retailer approval · 60%/30% milestone payments · Stripe live.
 
 ## Locked stream designs
 
-### Edge protection (mandatory height-safety) — INSTALLER-BILLED, not a customer quote line
-- Solarsearch provides edge protection via the **Edge Protection Installer** contractor and
-  **bills the installer**: **$180 incl per 20m linear, rounded up to whole 20m blocks**, based on
-  the **roof edge/perimeter length captured at the site assessment**. **$30/day** after **3
-  included days**.
-- The **installer** may pass this on to their customer as a variation — Solarsearch does **not**
-  put edge protection on the customer-facing quote.
-- Runway build: capture roof perimeter at assessment; an edge-protection job billed to the
-  installer + paid to the contractor.
+### Edge protection (mandatory height-safety) — provider-billed, not a customer quote line
+- **Mandatory on EVERY winning installation** — all installers must use the Solarsearch edge-
+  protection service (via the **Edge Protection Installer** contractor). Not optional.
+- Solarsearch provides it and bills **$180 incl per 20m linear, rounded up to whole 20m blocks**,
+  based on the **roof edge/perimeter length captured at the site assessment**, plus **$30/day**
+  after **3 included days**.
+- **Who pays depends on the pipeline:**
+  - **Main pipeline** (installer wins a board job) → the **winning installer** is billed. They may
+    pass a variation on to their customer.
+  - **Retailer / subcontract pipeline** (retailer places the job on the dashboard) → the
+    **RETAILER** is billed — **NOT the subcontractor** doing the install.
+- Solarsearch does **not** put edge protection on the customer-facing quote.
+- Runway build: capture roof perimeter at assessment; an edge-protection job that bills the right
+  party per pipeline (installer vs retailer) and pays the contractor.
 
 ### Solar cleaning — standalone service, lead-based
 - Enters as a **lead** (marketing funnel) or **manual lead input** in HQ, on request.
