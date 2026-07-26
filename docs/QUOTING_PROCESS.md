@@ -66,22 +66,26 @@ Prices are kept current automatically by the **invoice inbox loop** (`ingest-inv
 - Config: `pricing_config.seat_fee`, `pricing_config.winner_fee_pct`, `pricing_config.winner_fee_base`.
 - The **installer's** margin is separate — the 34% material markup + labour rate card (their price to the customer). me-solar earns only seat + winner fee.
 
-## Payment milestones (job value)
-Payment is released in three milestones against the job:
-- **10% deposit** on **job acceptance** (installer/subcontractor accepts the job).
-- **60%** on **completion** — **completion is defined as the installer submitting the install
-  evidence in the app** (`submit_install`): full photo set + completion report, locked + hashed.
-  There is no "completion" without that submission — it's the single, hard-gated trigger.
-- **30%** on **STC verification**. On the **subcontract pipeline** this is the **retailer's
-  release**: the subcontractor uploads a formal STC photo/certificate (`submit_stc_photo`), the
-  retailer reviews it and approves (`verify_stc`), which emits `stc.verified` — the timestamped
-  authorisation for the final 30%. *(Design in `supabase/migrations/0064_stc_verification.sql`,
-  currently PARKED — not yet applied.)*
+## Payment milestones (job value) — TWO schedules by pipeline
+The schedule differs because the **main-pipeline installer fronts the full system materials**
+(big cash outlay) while a **subcontractor** does not (minor material only).
 
-These map to system events: acceptance → deposit; **`submit_install` → `install.submitted`
-(status `installed`, `installs.submitted_at` set) → 60%**; **`stc.verified` → final 30%**. The
-Stripe rails exist (sandbox) — `create-milestone-payment` charges each milestone keyed off these
-events; each milestone is one auditable, timestamped trigger.
+**Installer (main pipeline):**
+- **10%** on **job acceptance** (`accept_install` → `install.accepted`).
+- **40%** on **materials ordered / job scheduled** (covers the installer's material outlay).
+- **50%** on **day of completion** (`submit_install` → `install.submitted`: full photo set +
+  report, locked + hashed).
+
+**Subcontractor (retailer subcontract pipeline):**
+- **10%** on **job acceptance**.
+- **60%** on **completion** (`submit_install`).
+- **30%** on **STC verification** — the **retailer's release**: the subcontractor uploads a
+  formal STC photo (`submit_stc_photo`), the retailer approves (`verify_stc` → `stc.verified`).
+  *(Design in `0064_stc_verification.sql`; retailer-approval STC currently PARKED.)*
+
+Each milestone maps to a timestamped event and is charged by `create-milestone-payment`
+(Stripe sandbox). **DER registration is NOT a payment gate** — it's the final compliance step,
+required within **21 days of completion** (metering / DERR grid registration).
 
 ## Retailer subcontract pipeline
 A **retailer** has sold their own job and subcontracts the **installation** to a Solarsearch
