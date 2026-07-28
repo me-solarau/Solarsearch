@@ -25,10 +25,33 @@
 >    `open_board` both work; this is the first design and first board-open the
 >    system has ever produced.
 >
-> **Still untested: `buy_seat` onward** (seat purchase → quote → choose → sign).
-> That needs a browser login and may touch Stripe. SS-1017 is sitting on the
-> board ready for exactly that test — log into `installer.html` as
-> johan@me-solar.com.au and click **Buy seat**.
+> 5. **FULL FUNNEL NOW PROVEN, END TO END.** By simulating the installer's auth
+>    context in SQL, SS-1017 was driven all the way:
+>    `capture → booked → inspected → designed → quoted → seat bought → customer
+>    chose → SIGNED`, producing the system's **first ever** design, seat, quote,
+>    proposal and **deal**. `buy_seat` needs no Stripe — it's pure SQL.
+>
+> ### 🐞 Real production bug found and fixed (migration `0071`)
+> `customer_board()` — the function behind the customer's quote-comparison page
+> (`choose.html`) — **crashed for every customer**:
+> `ERROR: missing FROM-clause entry for table "q"`. It ordered the aggregate by
+> `q.price_after_cents`, but `q` only exists inside the derived table, which the
+> outer query sees as `t`. Postgres only raises this at execution time, so it
+> survived undetected until the funnel was first run end to end. Fixed, applied
+> live, and verified returning the correct payload
+> (before $14,910 − rebate $10,804 = **$4,106**, 292 STCs — arithmetic
+> independently hand-checked).
+>
+> ### Two more things to look at
+> - **Price book rates look like test values.** ME-SOLAR's book has
+>   `solar_per_kw_cents = 35000` ($350/kW) where the code default is `135000`
+>   ($1,350/kW). That is what makes the test quote come out at $4,106. If that
+>   rate reached a real customer it would be sold at a heavy loss — **verify the
+>   real rates before any quote goes out.**
+> - **Equipment renders as raw JSON** on the comparison board when an installer
+>   hasn't set `preferred_equipment` SKUs: it falls back to `components->>'panel'`,
+>   which is an object, so the customer would see
+>   `{"qty": 15, "brand": "Test Panel"...}`. Cosmetic but customer-facing.
 >
 > **New findings worth acting on:**
 > - `create_design` / `open_board` **silently no-op** their state transition when
