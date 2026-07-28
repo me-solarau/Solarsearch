@@ -1366,12 +1366,28 @@ function openDesignForm(leadId){
     <label class="src">Panel</label><input id="dsPanel" style="${inp};margin-bottom:8px" placeholder="e.g. Jinko Tiger Neo 440W">
     <label class="src">Inverter</label><input id="dsInv" style="${inp};margin-bottom:8px" placeholder="e.g. Sungrow SH-RS">
     <label class="src">Battery</label><input id="dsBat" style="${inp};margin-bottom:10px" placeholder="e.g. Sungrow SBR (optional)">
+    <label class="src">Roof edge / perimeter (linear metres)</label>
+    <input id="dsEdge" class="mono" style="${inp}" inputmode="decimal" placeholder="e.g. 47" oninput="edgePreview()">
+    <div id="dsEdgeOut" class="src" style="margin:6px 0 10px">Mandatory height safety — $180 incl per started 20m. Charged to the customer on every quote.</div>
     <button class="btn btn-ink btn-sm" onclick="submitDesign('${leadId}')">Save design & advance</button>`;
+  edgePreview();
+}
+// Show the designer the exact figure the customer will see, before they save.
+function edgePreview(){
+  const out=$('dsEdgeOut'); if(!out)return;
+  const m=parseFloat(($('dsEdge')||{}).value);
+  if(!(m>0)){
+    out.innerHTML='Mandatory height safety — $180 incl per started 20m. <b style="color:var(--amber)">Not measured: the customer is charged the $180 minimum.</b>';
+    return;
+  }
+  const blocks=Math.ceil(m/20), amt=blocks*180;
+  out.innerHTML=`Edge protection <b class="mono">$${amt.toLocaleString()}</b> — ${blocks} × 20m block${blocks>1?'s':''} at $180. Added to every quote the customer sees.`;
 }
 async function submitDesign(leadId){
   const kw=parseFloat($('dsKw').value)||null, kwh=parseFloat($('dsKwh').value)||null;
   const components={panel:$('dsPanel').value.trim()||null, inverter:$('dsInv').value.trim()||null, battery:$('dsBat').value.trim()||null};
-  const { error } = await db.rpc('create_design',{p_lead_id:leadId,p_system_kw:kw,p_battery_kwh:kwh,p_components:components,p_staff_id:MY_STAFF_ID});
+  const edge=parseFloat($('dsEdge').value);
+  const { error } = await db.rpc('create_design',{p_lead_id:leadId,p_system_kw:kw,p_battery_kwh:kwh,p_components:components,p_staff_id:MY_STAFF_ID,p_edge_perimeter_m:(edge>0?edge:null)});
   if(error){ toast('Design failed: '+error.message); return; }
   toast('Design saved — lead advanced to Designed');
   await loadData(); renderAll(); closeDrawer();

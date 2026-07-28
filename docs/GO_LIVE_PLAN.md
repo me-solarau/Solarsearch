@@ -60,9 +60,17 @@ pass-through model or keeps retailer-billed — not yet decided, so nothing has 
 - `customer_sign()` snapshots the full breakdown (installation, rebate, edge protection, perimeter,
   total) into the append-only `proposal.signed` event, so a later re-measure or price-book change
   cannot rewrite what the customer agreed to.
-- Perimeter capture UI in `hq.html` — **still outstanding.** `designs.edge_perimeter_m` exists but
-  nothing collects it, so every live quote currently falls back to the one-block $180 minimum and
-  the customer copy says the figure is confirmed before signing. This is the next piece of work.
+- Perimeter capture — **live** (migration `0076`). The design form in `hq.html` has a
+  *Roof edge / perimeter (linear metres)* field that shows the designer the exact dollar figure
+  the customer will be charged before they save. Left blank, it warns that the customer gets the
+  $180 minimum.
+- `set_edge_perimeter(lead, m, staff)` corrects a mis-measured perimeter after the design is
+  saved. Admin only, writes `design.edge_perimeter_set` with the before/after metres and cents to
+  the append-only log, and is **refused once the customer has signed** — at that point the figure
+  is contractual and a variation is the right instrument, not an edit.
+- The old 5-argument `create_design` overload was dropped. Both overloads were live, and
+  PostgREST resolves by supplied argument names, so any caller omitting `p_edge_perimeter_m`
+  silently hit the 5-arg version and the perimeter was discarded with no error.
 - Runway build: capture roof perimeter at assessment; an edge-protection job that bills the right
   party per pipeline (installer vs retailer) and pays the contractor.
 
