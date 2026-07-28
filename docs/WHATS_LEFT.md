@@ -1,5 +1,48 @@
 # What's Left — full state of play
 
+> ## ⬆️ UPDATE — fixes applied since this was written
+>
+> **The money half of the funnel now works.** It was never broken code — it was
+> a **data deadlock** on the installer side:
+> - "Pilot Installer Pty Ltd" had 44 service postcodes but **no login**.
+> - The ME-SOLAR record that *does* have a login had **0 service postcodes**, and
+>   `installer_board()` inner-joins `installer_service_areas` — so it returned an
+>   empty board no matter what.
+>
+> That is why `seats = 0` and `quotes = 0`: no installer could ever see a job.
+>
+> **Fixed and verified live:**
+> 1. **Sales-rep pool** — Johan's `sales_reps.regions` was `[]`, so `rep_postcodes()`
+>    returned nothing and his job pool was permanently empty. Set to Newcastle &
+>    Greater Hunter → **pool went 0 → 5 jobs**.
+> 2. **Installer board** — gave Johan's login-linked ME-SOLAR record the region's
+>    45 postcodes → **board went 0 → 1 job**.
+> 3. **Auth hardening** (migration `0070`) — staff now carry their own email; the
+>    signup trigger matches on it and grants the admin `user_roles` row
+>    automatically. No more hardcoded address, no more locked-out owner.
+> 4. **Funnel proven** — created demo lead **SS-1017** and drove it
+>    `capture → booked → inspected → designed → quoted`. `create_design` and
+>    `open_board` both work; this is the first design and first board-open the
+>    system has ever produced.
+>
+> **Still untested: `buy_seat` onward** (seat purchase → quote → choose → sign).
+> That needs a browser login and may touch Stripe. SS-1017 is sitting on the
+> board ready for exactly that test — log into `installer.html` as
+> johan@me-solar.com.au and click **Buy seat**.
+>
+> **New findings worth acting on:**
+> - `create_design` / `open_board` **silently no-op** their state transition when
+>   the lead isn't in the expected state (`inspected` / `designed`) — they still
+>   insert the design row and event, and still return success. In HQ that means a
+>   click can appear to work while the lead never advances. Recommend raising an
+>   explicit error instead.
+> - **Duplicate installer records**: "ME-SOLAR PTY LTD" exists twice (created 4
+>   minutes apart — looks like a double-submit). One has the login, the other has
+>   a service area. Worth merging/deleting one.
+> - "Pilot Installer Pty Ltd" still has no login — onboard it from HQ → Vetting if
+>   it's meant to be a real pilot participant.
+
+
 _Written from live-verified data (database, Edge Function logs, deployed
 functions), not from older to-do files. Two products are in play:_
 
