@@ -380,6 +380,17 @@ tbody tr:hover{background:var(--tint2)}
           <div class="sub" id="pricingStats">Loading catalog…</div></div>
       </div>
 
+      <!-- Labour & add-on rate card -->
+      <div class="card" style="margin-bottom:20px;padding:18px">
+        <div class="eyebrow" style="margin-bottom:4px">Labour &amp; add-on rate card</div>
+        <div class="sub" style="margin-bottom:12px;color:var(--ink3);font-size:.82rem">
+          What the job costs on top of materials — labour by roof material and storeys, cable runs, travel, and the electrical extras.
+          Every quote reads these. Rates marked <b style="color:var(--amber)">unconfirmed</b> are placeholders and should be set before you quote on them.
+          Changes are written to the event log.
+        </div>
+        <div id="rateCard"><div class="src">Loading rate card…</div></div>
+      </div>
+
       <!-- Update prices from a supplier invoice (AI-read) -->
       <div class="card" style="margin-bottom:20px;padding:18px">
         <div class="eyebrow" style="margin-bottom:4px">Update prices from an invoice</div>
@@ -609,7 +620,7 @@ function evToTl(e,nowMs){
 async function loadData(){
   const nowMs=Date.now();
   const { data:L, error } = await db.from('leads')
-    .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,choice_token,created_at,existing,wants,existing_system,is_demo,sites(ss_ref,postcode,address),customers(full_name)')
+    .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,choice_token,created_at,existing,wants,existing_system,is_demo,sites(ss_ref,postcode,address,roof_type,storeys),customers(full_name)')
     .order('created_at',{ascending:false});
   if(error){ toast('Load error: '+error.message); return; }
   const ids=(L||[]).map(r=>r.id);
@@ -649,7 +660,8 @@ async function loadData(){
       plat:r.source_platform||'organic',
       creative:(r.utm&&r.utm.utm_campaign)||'—',
       ageH:Math.max(1,Math.round((nowMs-new Date(r.created_at).getTime())/HR)),
-      timeline:tl, isDemo:!!r.is_demo, events:(byLead[r.id]||[]).map(e=>evToTl(e,nowMs)) };
+      timeline:tl, isDemo:!!r.is_demo, roof:site.roof_type||'', storeys:site.storeys||1,
+      events:(byLead[r.id]||[]).map(e=>evToTl(e,nowMs)) };
   });
   leads=showDemo?allLeads:allLeads.filter(l=>!l.isDemo);
   jobs=leads.filter(l=>['designed','quoted','customer_chose','signed'].includes(l.state));
@@ -1435,6 +1447,23 @@ function openDesignForm(leadId){
     <label class="src">Panel</label><input id="dsPanel" style="${inp};margin-bottom:8px" placeholder="e.g. Jinko Tiger Neo 440W">
     <label class="src">Inverter</label><input id="dsInv" style="${inp};margin-bottom:8px" placeholder="e.g. Sungrow SH-RS">
     <label class="src">Battery</label><input id="dsBat" style="${inp};margin-bottom:10px" placeholder="e.g. Sungrow SBR (optional)">
+    <label class="src">Roof material — sets the install labour rate</label>
+    <select id="dsRoof" style="${inp};margin-bottom:8px">
+      <option value="">Use site record${l.roof?` (${l.roof})`:''}</option>
+      <option value="tin">Tin / metal</option>
+      <option value="tile_concrete">Concrete tile</option>
+      <option value="tile_terracotta">Terracotta tile</option>
+      <option value="klip_lok">Klip-Lok</option>
+      <option value="slate">Slate</option>
+      <option value="flat">Flat</option>
+      <option value="other">Other</option>
+    </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+      <div><label class="src">DC run (m)</label><input id="dsDc" class="mono" style="${inp}" inputmode="decimal" placeholder="25"></div>
+      <div><label class="src">AC run (m)</label><input id="dsAc" class="mono" style="${inp}" inputmode="decimal" placeholder="5"></div>
+      <div><label class="src">Travel (km)</label><input id="dsKm" class="mono" style="${inp}" inputmode="decimal" placeholder="0"></div>
+    </div>
+    <div class="src" style="margin-bottom:10px">Cable base rates cover the included run length; only the excess is charged. Travel is free within 75km.</div>
     <label class="src">Roof edge / perimeter (linear metres)</label>
     <input id="dsEdge" class="mono" style="${inp}" inputmode="decimal" placeholder="e.g. 47" oninput="edgePreview()">
     <div id="dsEdgeOut" class="src" style="margin:6px 0 10px">Mandatory height safety — $180 incl per started 20m. Charged to the customer on every quote.</div>
@@ -1456,7 +1485,18 @@ async function submitDesign(leadId){
   const kw=parseFloat($('dsKw').value)||null, kwh=parseFloat($('dsKwh').value)||null;
   const components={panel:$('dsPanel').value.trim()||null, inverter:$('dsInv').value.trim()||null, battery:$('dsBat').value.trim()||null};
   const edge=parseFloat($('dsEdge').value);
+  const num=id=>{ const v=parseFloat(($(id)||{}).value); return isNaN(v)?null:v; };
   const { error } = await db.rpc('create_design',{p_lead_id:leadId,p_system_kw:kw,p_battery_kwh:kwh,p_components:components,p_staff_id:MY_STAFF_ID,p_edge_perimeter_m:(edge>0?edge:null)});
+  // Roof material and run lengths drive the labour, cable and travel lines. They
+  // live on the design row, so they are set immediately after it is created.
+  if(!error){
+    const roof=$('dsRoof').value||null, dc=num('dsDc'), ac=num('dsAc'), km=num('dsKm');
+    if(roof||dc!=null||ac!=null||km!=null){
+      const { error:e2 } = await db.rpc('set_design_job_factors',
+        {p_lead_id:leadId,p_roof_material:roof,p_dc_run_m:dc,p_ac_run_m:ac,p_travel_km:km});
+      if(e2) toast('Design saved, but job factors failed: '+e2.message);
+    }
+  }
   if(error){ toast('Design failed: '+error.message); return; }
   toast('Design saved — lead advanced to Designed');
   await loadData(); renderAll(); closeDrawer();
@@ -1549,7 +1589,47 @@ async function renderPricing(){
   const opts=SUPPLIERS_CACHE.map(s=>`<option value="${escP(s.code)}">${escP(s.name)}${s.branch?(' — '+escP(s.branch)):''}</option>`).join('');
   $('invSupplier').innerHTML='<option value="">Auto-detect</option>'+opts;
   $('rfqSupplier').innerHTML=opts;
-  loadPricingStats(); loadDrift();
+  loadPricingStats(); loadDrift(); loadRateCard();
+}
+
+/* ---- labour & add-on rate card ---- */
+const RC_GROUP={solar_labour:'Install labour — by roof &amp; storeys',electrical:'Electrical &amp; cable runs',
+                logistics:'Travel',access:'Access',labour:'Other labour',admin:'Admin &amp; compliance'};
+async function loadRateCard(){
+  const { data, error } = await db.rpc('rate_card');
+  if(error){ $('rateCard').innerHTML=`<div class="src">Couldn't load the rate card: ${escP(error.message)}</div>`; return; }
+  const rows=data||[];
+  const order=Object.keys(RC_GROUP);
+  const cats=[...new Set(rows.map(r=>r.category))]
+    .sort((a,b)=>(order.indexOf(a)+1||99)-(order.indexOf(b)+1||99));
+  $('rateCard').innerHTML=cats.map(cat=>`
+    <div style="margin-bottom:16px">
+      <div class="eyebrow" style="margin-bottom:6px">${RC_GROUP[cat]||escP(cat)}</div>
+      <table style="width:100%"><thead><tr>
+        <th>Item</th><th style="width:110px">Rate</th><th style="width:110px">Included</th>
+        <th style="width:120px">Then per unit</th><th style="width:70px"></th></tr></thead>
+      <tbody>${rows.filter(r=>r.category===cat).map(r=>`<tr>
+        <td><b>${escP(r.name)}</b>
+            ${r.confirmed?'':'<span style="background:var(--amber);color:var(--ink);border-radius:99px;padding:1px 7px;font-size:.66rem;font-weight:700;margin-left:6px">unconfirmed</span>'}
+            <div class="src">${escP(r.code)} · per ${escP(r.unit)}</div></td>
+        <td><input class="search mono" id="rc_${escP(r.code)}" value="${r.baseline_rate??''}" style="width:100%;padding:5px 7px" inputmode="decimal"></td>
+        <td>${r.included_qty!=null?`<input class="search mono" id="rci_${escP(r.code)}" value="${r.included_qty}" style="width:100%;padding:5px 7px" inputmode="decimal">`:'<span class="src">—</span>'}</td>
+        <td>${r.over_rate!=null?`<input class="search mono" id="rco_${escP(r.code)}" value="${r.over_rate}" style="width:100%;padding:5px 7px" inputmode="decimal"><div class="src">per ${escP(r.over_unit||r.unit)}</div>`:'<span class="src">—</span>'}</td>
+        <td><button class="btn btn-ink btn-sm" onclick="saveRate('${escP(r.code)}')">Save</button></td>
+      </tr>`).join('')}</tbody></table>
+    </div>`).join('')||'<div class="src">No rate-card items.</div>';
+}
+async function saveRate(code){
+  const num=id=>{ const el=$(id); if(!el) return null; const v=parseFloat(el.value); return isNaN(v)?null:v; };
+  const rate=num('rc_'+code);
+  if(rate===null){ toast('Enter a rate first'); return; }
+  // Saving is an explicit confirmation that the number is real, which clears the
+  // "unconfirmed" flag carried by the seeded placeholder rates.
+  const { error } = await db.rpc('set_chargeable_rate',{
+    p_code:code, p_rate:rate, p_included_qty:num('rci_'+code), p_over_rate:num('rco_'+code), p_confirm:true });
+  if(error){ toast('Save failed: '+error.message); return; }
+  toast(code+' saved');
+  loadRateCard();
 }
 async function loadPricingStats(){
   const t=await db.from('supplier_materials').select('*',{count:'exact',head:true});
