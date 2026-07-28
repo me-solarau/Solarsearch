@@ -166,7 +166,7 @@ tbody tr:hover{background:var(--tint2)}
       <div class="pipe" id="pipe"></div>
       <div style="display:grid;grid-template-columns:1.2fr .8fr;gap:14px" id="dashCols">
         <div class="card">
-          <div style="padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:.9rem">Needs attention</div>
+          <div style="padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:.9rem">Your queue — jobs waiting on you</div>
           <table><tbody id="attention"></tbody></table>
         </div>
         <div class="card">
@@ -219,11 +219,12 @@ tbody tr:hover{background:var(--tint2)}
         <button class="chip" data-f="new">New</button>
         <button class="chip" data-f="working">AI working</button>
         <button class="chip" data-f="booked">Booked</button>
+        <button class="chip" data-f="mine">Waiting on me</button>
         <button class="chip" data-f="hot">Score 80+</button>
         <button class="chip" id="demoToggle" onclick="toggleDemo()" title="Demo and test leads are excluded from all boards, KPIs and funnel metrics">Demo hidden</button>
       </div>
       <div class="card"><table>
-        <thead><tr><th>Lead</th><th>Type</th><th>Score</th><th>Stage</th><th>Source</th><th>Bill/qtr</th><th>Age</th></tr></thead>
+        <thead><tr><th>Lead</th><th>Type</th><th>Score</th><th>Stage</th><th>Next step</th><th>Source</th><th>Bill/qtr</th><th>Age</th></tr></thead>
         <tbody id="leadRows"></tbody>
       </table></div>
     </section>
@@ -697,6 +698,58 @@ function pill(state){const[bg,fg]=STAGE_COLOR[state]||['#eee','#333'];return `<s
 function scoreCls(s){return s>=80?'a':s>=60?'b':'c'}
 function age(h){return h<24?h+'h':Math.floor(h/24)+'d'}
 
+/* ================= next step per job =================
+   One source of truth for "what happens next on this job, and whose move is it".
+   `who` is the important half: 'you' means HQ is the bottleneck and the job is
+   sitting still until someone here acts. Anything else is legitimately waiting
+   on a third party and should not read as a task on your list.
+   `act` maps to the same action key the drawer already uses, so the roadmap and
+   the buttons can never drift apart.                                        */
+const NEXT_STEP={
+  captured:          {do:'AI contact the customer',            who:'you',       act:'ai'},
+  contacted:         {do:'Qualify or take over the chat',      who:'you',       act:'human'},
+  qualified:         {do:'Book the site inspection',           who:'you',       act:'book'},
+  appointment_set:   {do:'Tech attends & submits assessment',  who:'tech',      act:'pingtechs'},
+  inspected:         {do:'Create the design',                  who:'you',       act:'design'},
+  designed:          {do:'Open the installer board',           who:'you',       act:'board'},
+  quoted:            {do:'Customer choosing from the board',   who:'customer',  act:'notify'},
+  customer_chose:    {do:'Customer to e-sign the agreement',   who:'customer',  act:'sign'},
+  signed:            {do:'Get DNSP connection approval',       who:'you',       act:'ps_connection_approved'},
+  connection_approved:{do:'Installer to complete the install', who:'installer', act:'ps_installed'},
+  installed:         {do:'Register the DER',                   who:'you',       act:'ps_der_registered'},
+  der_registered:    {do:'Close the job',                      who:'you',       act:'ps_closed'},
+  audited:           {do:'Close the job',                      who:'you',       act:'ps_closed'},
+  closed:            {do:'Done — nothing outstanding',         who:'done',      act:null},
+  nurture:           {do:'In nurture sequence',                who:'waiting',   act:null},
+  dead:              {do:'Dead — no action',                   who:'done',      act:null}
+};
+const WHO_LABEL={you:'You',tech:'Tech',customer:'Customer',installer:'Installer',waiting:'Waiting',done:'—'};
+const WHO_STYLE={
+  you:      'background:var(--amber);color:var(--ink)',
+  tech:     'background:#FFF3D6;color:#7A5A00',
+  customer: 'background:#E3EEF6;color:#1F5C8C',
+  installer:'background:#E2F2EA;color:#177A53',
+  waiting:  'background:var(--tint2);color:var(--ink3)',
+  done:     'background:var(--tint2);color:var(--ink3)'
+};
+function nextStep(l){ return NEXT_STEP[l.state]||{do:'—',who:'waiting',act:null}; }
+function whoChip(who){
+  return `<span style="${WHO_STYLE[who]};border-radius:99px;padding:2px 8px;font-size:.68rem;font-weight:700;white-space:nowrap">${WHO_LABEL[who]}</span>`;
+}
+// Runs the same handler the drawer button would, so there is one code path.
+function doNextStep(id,ev){
+  if(ev) ev.stopPropagation();
+  const l=leads.find(x=>x.id===id); if(!l)return;
+  const ns=nextStep(l);
+  if(!ns.act){ openDrawer(id); return; }
+  if(ns.act.startsWith('ps_')) return advancePostSale(l.uuid,ns.act.slice(3));
+  const FN={design:()=>openDesignForm(l.uuid), board:()=>openBoardConfirm(l.uuid),
+            notify:()=>emailComparison(l.uuid), sign:()=>copySignLink(l.chToken||''),
+            pingtechs:()=>pingTechs(l.uuid), book:()=>openDrawer(id),
+            ai:()=>openDrawer(id), human:()=>openDrawer(id)};
+  (FN[ns.act]||(()=>openDrawer(id)))();
+}
+
 /* ================= dashboard ================= */
 function renderDash(){
   $('dashDate').textContent=new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -716,12 +769,23 @@ function renderDash(){
     const n=leads.filter(l=>l.state===s).length;
     return `<div class="stg ${['quoted','customer_chose'].includes(s)?'hot':''}"><div class="n">${n}</div><div class="t">${STAGE_LABEL[s]}</div></div>`;
   }).join('');
-  const attn=[
-    ...leads.filter(l=>l.state==='captured'&&l.ageH<6).map(l=>[l,'New lead — AI contact due','ai']),
-    ...leads.filter(l=>l.state==='quoted').slice(0,2).map(l=>[l,'Board live — customer deciding','hot']),
-    ...leads.filter(l=>l.score>=85&&['contacted','qualified'].includes(l.state)).slice(0,2).map(l=>[l,'Hot lead — consider tier-3 visit','hot']),
-  ].slice(0,6);
-  $('attention').innerHTML=attn.map(([l,msg])=>`<tr onclick="openDrawer(${l.id})"><td><b>${l.name}</b><div class="src">${l.ss} · ${l.suburb}</div></td><td style="color:var(--ink2)">${msg}</td><td>${pill(l.state)}</td></tr>`).join('')||'<tr><td class="empty">All clear</td></tr>';
+  // Your queue: only jobs where HQ is the bottleneck, grouped by the action so
+  // the same kind of work can be done in one pass. Jobs waiting on a customer,
+  // tech or installer are deliberately excluded — they are not your move, and
+  // listing them is what makes a task list stop meaning anything.
+  const mine=leads.filter(l=>nextStep(l).who==='you');
+  const byAction={};
+  mine.forEach(l=>{ const d=nextStep(l).do; (byAction[d]=byAction[d]||[]).push(l); });
+  const groups=Object.entries(byAction).sort((a,b)=>b[1].length-a[1].length);
+  $('attention').innerHTML=groups.map(([action,ls])=>
+    ls.sort((a,b)=>b.ageH-a.ageH).map((l,i)=>`<tr onclick="openDrawer(${l.id})">
+      <td><b>${l.name}</b><div class="src">${l.ss} · ${l.suburb}</div></td>
+      <td style="color:var(--ink2)">${i===0?`<b>${action}</b>${ls.length>1?` <span class="src">(${ls.length} waiting)</span>`:''}`:action}
+          <div class="src">idle ${age(l.ageH)}</div></td>
+      <td>${pill(l.state)}
+          <button class="btn btn-ink btn-sm" style="margin-left:6px" onclick="doNextStep(${l.id},event)">Do it</button></td>
+    </tr>`).join('')).join('')
+    ||'<tr><td class="empty">Nothing waiting on you — every open job is with a customer, tech or installer.</td></tr>';
   $('cpsd').innerHTML=CAMPS.map(c=>`<tr><td><b>${c.name}</b><div class="src">${c.plat}</div></td><td class="mono">${fmt$(c.spend)}</td><td class="mono">${c.signed}</td><td class="mono" style="color:${c.signed&&c.spend/c.signed<300?'var(--green)':'var(--ink)'}">${c.signed?fmt$(c.spend/c.signed):'—'}</td></tr>`).join('');
 }
 
@@ -732,6 +796,7 @@ function leadMatch(l){
   if(leadFilter==='new')return l.state==='captured';
   if(leadFilter==='working')return ['contacted','qualified'].includes(l.state);
   if(leadFilter==='booked')return l.state==='appointment_set';
+  if(leadFilter==='mine')return nextStep(l).who==='you';
   if(leadFilter==='hot')return l.score>=80;
   return true;
 }
@@ -742,9 +807,10 @@ function renderLeads(){
     <td style="font-size:.78rem">${l.type.replace('_',' + ').replace('retrofit','retrofit')}</td>
     <td><span class="score ${scoreCls(l.score)}">${l.score}</span></td>
     <td>${pill(l.state)}</td>
+    <td>${(()=>{const n=nextStep(l);return `${whoChip(n.who)} <span style="font-size:.78rem">${n.do}</span>`;})()}</td>
     <td><span class="src">${l.plat} · ${l.creative}</span></td>
     <td class="mono">${fmt$(l.bill)}</td>
-    <td class="mono">${age(l.ageH)}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No leads match</td></tr>';
+    <td class="mono">${age(l.ageH)}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">No leads match</td></tr>';
 }
 document.querySelectorAll('.chip[data-f]').forEach(c=>c.addEventListener('click',()=>{
   document.querySelectorAll('.chip[data-f]').forEach(x=>x.classList.remove('sel'));
@@ -1261,7 +1327,10 @@ function openDrawer(id){
   $('dAttrLabel').textContent='Attribution'; $('dTimelineLabel').textContent='Timeline — from the event log';
   $('dRef').textContent=l.ss+' · RULES '+RULES.v;
   $('dName').textContent=l.name;
-  $('dMeta').textContent=`${l.suburb} ${l.pc} · ${l.type.replace('_',' + ')} · score ${l.score}`;
+  $('dMeta').innerHTML=`${l.suburb} ${l.pc} · ${l.type.replace('_',' + ')} · score ${l.score}`
+    +(()=>{const n=nextStep(l);return `<div style="margin-top:8px;padding:8px 11px;background:var(--tint2);border:1px solid var(--line);border-radius:9px;font-size:.82rem">
+       <span class="src" style="letter-spacing:.06em">NEXT STEP</span> ${whoChip(n.who)}
+       <div style="margin-top:3px;color:var(--ink)"><b>${n.do}</b></div></div>`;})();
   const acts={
     captured:['AI contact now|ai','Sell raw lead|raw','Mark dead|dead'],
     contacted:['View AI transcript|tx','Take over conversation|human'],
