@@ -220,6 +220,7 @@ tbody tr:hover{background:var(--tint2)}
         <button class="chip" data-f="working">AI working</button>
         <button class="chip" data-f="booked">Booked</button>
         <button class="chip" data-f="hot">Score 80+</button>
+        <button class="chip" id="demoToggle" onclick="toggleDemo()" title="Demo and test leads are excluded from all boards, KPIs and funnel metrics">Demo hidden</button>
       </div>
       <div class="card"><table>
         <thead><tr><th>Lead</th><th>Type</th><th>Score</th><th>Stage</th><th>Source</th><th>Bill/qtr</th><th>Age</th></tr></thead>
@@ -541,7 +542,9 @@ const STAGE_COLOR={captured:['#E3EEF6','#1F5C8C'],contacted:['#E3EEF6','#1F5C8C'
 const db = getSupabaseClient();
 const HR=3600e3;
 
-let leads=[], jobs=[], deals=[], CAMPS=[];
+let leads=[], allLeads=[], jobs=[], deals=[], CAMPS=[];
+// Demo leads are hidden from HQ by default; the toggle is remembered per browser.
+let showDemo=localStorage.getItem('ss_show_demo')==='1';
 let retailerApps=[], retailers=[], salesReps=[], installersList=[], vettingDocs=[];
 let assessmentsList=[], salesRepsAll=[], payoutsList=[], accessApps=[];
 let MY_STAFF_ID=null;
@@ -605,7 +608,7 @@ function evToTl(e,nowMs){
 async function loadData(){
   const nowMs=Date.now();
   const { data:L, error } = await db.from('leads')
-    .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,choice_token,created_at,existing,wants,existing_system,sites(ss_ref,postcode,address),customers(full_name)')
+    .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,choice_token,created_at,existing,wants,existing_system,is_demo,sites(ss_ref,postcode,address),customers(full_name)')
     .order('created_at',{ascending:false});
   if(error){ toast('Load error: '+error.message); return; }
   const ids=(L||[]).map(r=>r.id);
@@ -624,7 +627,10 @@ async function loadData(){
   const quoteBySite={}; (QU||[]).forEach(q=>{ if(q.status==='on_board'||q.status==='chosen') quoteBySite[q.site_id]=(quoteBySite[q.site_id]||0)+1; });
   const { data:DL } = await db.from('deals').select('id,site_id,commission_cents,invoice_status,invoice_ref,signed_at,installers(company_name)');
   const dealBySite={}; (DL||[]).forEach(d=>{ if(!dealBySite[d.site_id]) dealBySite[d.site_id]=d; });
-  leads=(L||[]).map((r,ix)=>{
+  // Demo/test leads are flagged is_demo and stay out of every board, KPI and funnel
+  // metric unless explicitly revealed. They cannot be deleted — the append-only
+  // events log holds FK references — so the flag is what "cleared" means here.
+  allLeads=(L||[]).map((r,ix)=>{
     const bill=r.bill_quarterly_cents?Math.round(r.bill_quarterly_cents/100):0;
     const type=r.lead_type, tl=r.timeline||'researching';
     const es=estSystem(bill,r);
@@ -642,8 +648,9 @@ async function loadData(){
       plat:r.source_platform||'organic',
       creative:(r.utm&&r.utm.utm_campaign)||'—',
       ageH:Math.max(1,Math.round((nowMs-new Date(r.created_at).getTime())/HR)),
-      timeline:tl, events:(byLead[r.id]||[]).map(e=>evToTl(e,nowMs)) };
+      timeline:tl, isDemo:!!r.is_demo, events:(byLead[r.id]||[]).map(e=>evToTl(e,nowMs)) };
   });
+  leads=showDemo?allLeads:allLeads.filter(l=>!l.isDemo);
   jobs=leads.filter(l=>['designed','quoted','customer_chose','signed'].includes(l.state));
   const DEAL_STATES=['signed','connection_approved','installed','der_registered','audited','closed'];
   deals=leads.filter(l=>DEAL_STATES.includes(l.state)).map(l=>{
@@ -731,7 +738,7 @@ function leadMatch(l){
 function renderLeads(){
   const rows=leads.filter(leadMatch).sort((a,b)=>a.ageH-b.ageH);
   $('leadRows').innerHTML=rows.map(l=>`<tr onclick="openDrawer(${l.id})">
-    <td><b>${l.name}</b><div class="src">${l.ss} · ${l.suburb} ${l.pc}</div></td>
+    <td><b>${l.name}</b>${l.isDemo?' <span class="src" style="background:var(--tint2);border:1px solid var(--line);border-radius:99px;padding:1px 7px;font-size:.68rem">demo</span>':''}<div class="src">${l.ss} · ${l.suburb} ${l.pc}</div></td>
     <td style="font-size:.78rem">${l.type.replace('_',' + ').replace('retrofit','retrofit')}</td>
     <td><span class="score ${scoreCls(l.score)}">${l.score}</span></td>
     <td>${pill(l.state)}</td>
@@ -744,6 +751,17 @@ document.querySelectorAll('.chip[data-f]').forEach(c=>c.addEventListener('click'
   c.classList.add('sel'); leadFilter=c.dataset.f; renderLeads();
 }));
 $('leadSearch').addEventListener('input',e=>{leadQuery=e.target.value.toLowerCase();renderLeads()});
+async function toggleDemo(){
+  showDemo=!showDemo;
+  localStorage.setItem('ss_show_demo',showDemo?'1':'0');
+  syncDemoChip();
+  await loadData(); renderAll();
+}
+function syncDemoChip(){
+  const c=$('demoToggle'); if(!c)return;
+  c.textContent=showDemo?'Demo shown':'Demo hidden';
+  c.classList.toggle('sel',showDemo);
+}
 
 function toggleNewLeadForm(){
   const f=$('newLeadForm');
@@ -1600,7 +1618,7 @@ async function loadQuoteFromLead(){
 }
 
 function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }
-async function boot(){ await loadData(); renderAll(); }
+async function boot(){ syncDemoChip(); await loadData(); renderAll(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
 
 // Inline onclick="..." handlers in the markup above reach into this module's
