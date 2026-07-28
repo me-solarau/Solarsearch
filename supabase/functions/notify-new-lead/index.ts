@@ -111,7 +111,19 @@ Deno.serve(async (req) => {
     const site = lead.sites || {};
     const name = cust.full_name || "New enquiry";
     const ref = site.ss_ref || "";
-    const suburbish = [site.address, site.postcode].filter(Boolean).join(" ");
+    // Suburb reads at a glance on a phone; a bare postcode does not. Addresses are
+    // stored "12 Ocean View Rd, Merewether NSW", so the last comma-separated part
+    // is the locality — strip the trailing state code off it. Falls back to the
+    // postcode when the address is missing or has no comma to split on.
+    const suburb = (() => {
+      const tail = String(site.address || "").split(",").pop()?.trim() || "";
+      const cleaned = tail
+        .replace(/\s+\d{4}\s*$/, "")                                   // trailing postcode
+        .replace(/\s+(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\b\.?\s*$/i, "")    // then the state
+        .trim();
+      return cleaned && cleaned !== String(site.address || "").trim() ? cleaned : "";
+    })();
+    const place = [suburb, site.postcode].filter(Boolean).join(" ");
     const intent = intentLabel(lead);
     const source = lead.utm?.utm_source || lead.source_platform || "organic";
     const bill = lead.bill_quarterly_cents ? `$${Math.round(lead.bill_quarterly_cents / 100)}/qtr` : "";
@@ -120,7 +132,7 @@ Deno.serve(async (req) => {
 
     // --- SMS via the single outbound point (sms-send owns provider + logging) ---
     if (HQ_SMS) {
-      const body = `New lead: ${name} — ${intent}. ${site.postcode || ""} ${ref}`.trim().slice(0, 300);
+      const body = `New lead: ${name} — ${intent}.${bill ? ` ${bill}.` : ""} ${place || site.postcode || ""} ${ref}`.replace(/\s+/g, " ").trim().slice(0, 300);
       try {
         const r = await fetch(`${SB_URL}/functions/v1/sms-send`, {
           method: "POST",
@@ -144,7 +156,7 @@ Deno.serve(async (req) => {
             from: "Solarsearch <alerts@solarsearch.com.au>",
             to: HQ_EMAIL.split(",").map((s) => s.trim()).filter(Boolean),
             reply_to: cust.email || undefined,
-            subject: `New lead — ${name}${site.postcode ? ` (${site.postcode})` : ""}${lead.is_demo ? " [demo]" : ""}`,
+            subject: `New lead — ${name}${place ? ` (${place})` : ""}${lead.is_demo ? " [demo]" : ""}`,
             html: alertHtml({
               name, intent, address: site.address || "", postcode: site.postcode || "",
               mobile: cust.mobile || "", email: cust.email || "", ref,
