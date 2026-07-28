@@ -22,18 +22,37 @@ retailer approval · 60%/30% milestone payments · Stripe live.
 
 ## Locked stream designs
 
-### Edge protection (mandatory height-safety) — provider-billed, not a customer quote line
-- **Mandatory on EVERY winning installation** — all installers must use the Solarsearch edge-
-  protection service (via the **Edge Protection Installer** contractor). Not optional.
-- Solarsearch provides it and bills **$180 incl per 20m linear, rounded up to whole 20m blocks**,
-  based on the **roof edge/perimeter length captured at the site assessment**, plus **$30/day**
-  after **3 included days**.
-- **Who pays depends on the pipeline:**
-  - **Main pipeline** (installer wins a board job) → the **winning installer** is billed. They may
-    pass a variation on to their customer.
-  - **Retailer / subcontract pipeline** (retailer places the job on the dashboard) → the
-    **RETAILER** is billed — **NOT the subcontractor** doing the install.
-- Solarsearch does **not** put edge protection on the customer-facing quote.
+### Edge protection (mandatory height-safety) — customer-visible line, passed through to the crew
+> **Spec change (Johan, superseding the earlier provider-billed model).** Edge protection was
+> previously hidden from the customer and billed by Solarsearch to the installer or retailer.
+> It is now a **visible line on every customer quote**. The old model is recorded below under
+> "Superseded" so the change is traceable.
+
+- **Mandatory on EVERY installation, retail and installer** — a Safe Work Australia height-safety
+  requirement, not an optional extra and not a negotiable line.
+- **$180 incl per 20 linear metres, minimum charge**, rounded up to whole 20m blocks, plus
+  **$30/day** after **3 included days**.
+- **The customer sees it.** It is added to all quotes as its own line, so the price the customer
+  compares and signs already includes the height-safety cost. No post-signature variation.
+- **Money path: customer → installer → crew.** The customer pays the installer as part of the
+  quoted job; the installer passes that amount to the booked edge-protection crew. Solarsearch
+  does not sit in the middle of this leg.
+- **Perimeter is measured at the design/assessment stage**, so the quoted distance is known at
+  quote time rather than estimated. Stored on `designs.edge_perimeter_m`.
+
+**Superseded (kept for traceability):** Solarsearch billed the winning installer on the main
+pipeline, and the **retailer** (not the subcontractor) on the retailer/subcontract pipeline, with
+nothing shown to the customer. The customer-visible pass-through above replaces the main-pipeline
+leg. **Open question for Johan:** whether the retailer/subcontract pipeline also moves to the
+pass-through model or keeps retailer-billed — not yet decided, so nothing has been changed there.
+
+**Build state (as at this writing):**
+- `edge_protection_price(perimeter_m)` — live, `$180` per started 20m block, rate in `pricing_config`.
+- `instant_quote()` — includes the edge-protection line. **Customer sees it here.**
+- `customer_board()` / `customer_proposal()` — **do not yet include it.** A customer sees the
+  charge on the instant estimate and then not on the comparison board or the signed proposal.
+  Closing that gap is the next piece of work on this stream.
+- Perimeter capture UI in `hq.html` — column exists, nothing collects it yet.
 - Runway build: capture roof perimeter at assessment; an edge-protection job that bills the right
   party per pipeline (installer vs retailer) and pays the contractor.
 
