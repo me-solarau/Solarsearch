@@ -22,6 +22,7 @@ export default defineConfig({
         appprivacy: resolve(__dirname, 'app-privacy.html'),
         collection: resolve(__dirname, 'collection-notice.html'),
         login: resolve(__dirname, 'login.html'),
+        resetpassword: resolve(__dirname, 'reset-password.html'),
         join: resolve(__dirname, 'join.html'),
         apply: resolve(__dirname, 'apply.html'),
         install: resolve(__dirname, 'install.html'),
