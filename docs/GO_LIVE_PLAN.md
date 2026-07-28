@@ -47,12 +47,22 @@ leg. **Open question for Johan:** whether the retailer/subcontract pipeline also
 pass-through model or keeps retailer-billed — not yet decided, so nothing has been changed there.
 
 **Build state (as at this writing):**
-- `edge_protection_price(perimeter_m)` — live, `$180` per started 20m block, rate in `pricing_config`.
-- `instant_quote()` — includes the edge-protection line. **Customer sees it here.**
-- `customer_board()` / `customer_proposal()` — **do not yet include it.** A customer sees the
-  charge on the instant estimate and then not on the comparison board or the signed proposal.
-  Closing that gap is the next piece of work on this stream.
-- Perimeter capture UI in `hq.html` — column exists, nothing collects it yet.
+- `edge_protection_price(perimeter_m)` / `edge_protection_cents(perimeter_m)` — live, `$180` per
+  started 20m block, rate in `pricing_config`.
+- `instant_quote()` — includes the edge-protection line.
+- `customer_board()` / `customer_proposal()` — include `edge_protection_cents`, `edge_perimeter_m`,
+  `edge_perimeter_measured` and `total_payable_cents` (migration `0075`). `choose.html` states the
+  charge once above the board and folds it into every headline price; `sign.html` shows it as its
+  own line above **Total payable** and explains the pass-through in the terms.
+- `price_after_cents` is deliberately **unchanged** — it remains the installer's own quoted price,
+  so commission, deals and milestone payments keep reading the number they always did. Edge
+  protection rides alongside it in `total_payable_cents`.
+- `customer_sign()` snapshots the full breakdown (installation, rebate, edge protection, perimeter,
+  total) into the append-only `proposal.signed` event, so a later re-measure or price-book change
+  cannot rewrite what the customer agreed to.
+- Perimeter capture UI in `hq.html` — **still outstanding.** `designs.edge_perimeter_m` exists but
+  nothing collects it, so every live quote currently falls back to the one-block $180 minimum and
+  the customer copy says the figure is confirmed before signing. This is the next piece of work.
 - Runway build: capture roof perimeter at assessment; an edge-protection job that bills the right
   party per pipeline (installer vs retailer) and pays the contractor.
 

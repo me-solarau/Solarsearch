@@ -38,6 +38,9 @@ header{background:var(--ink);color:#fff;padding:16px 0}
 .price .after{font-family:var(--mono);font-size:1.6rem;font-weight:700;letter-spacing:-.02em;text-align:right}
 .price .before{font-family:var(--mono);font-size:.74rem;color:var(--ink3);text-decoration:line-through;text-align:right}
 .price .save{display:block;font-family:var(--mono);font-size:.68rem;background:var(--greens);color:var(--green);padding:3px 9px;border-radius:99px;margin-top:6px;text-align:center}
+.price .edge{font-size:.68rem;color:var(--ink3);text-align:right;margin-top:5px;line-height:1.3}
+.edge-note{background:var(--tint2);border:1px solid var(--line);border-radius:12px;padding:12px 15px;font-size:.8rem;color:var(--ink2);margin:0 0 14px}
+.edge-note b{color:var(--ink)}
 .q-foot{border-top:1px solid var(--line);background:var(--tint2);padding:11px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .wty{font-size:.76rem;color:var(--ink2)}
 .wty b{font-family:var(--mono)}
@@ -78,6 +81,7 @@ footer{padding:26px 0 40px;font-family:var(--mono);font-size:.64rem;color:var(--
   <div class="design-strip">
     <span>System <b>10.6 kW + 13.5 kWh</b></span><span>From your inspection <b>21 photos ✓</b></span><span>Rebate applied <b>federal · rules v2026.05</b></span><span>Rebate locked at <b>your install date</b></span>
   </div>
+  <div id="edgeNote" class="edge-note" hidden></div>
   <div id="quoteList"></div>
 </div>
 <div class="dock"><div class="wrap in">
@@ -143,6 +147,19 @@ async function load(){
   const sys=`${d.system_kw?Number(d.system_kw)+' kW':''}${d.system_kw&&d.battery_kwh?' + ':''}${d.battery_kwh?Number(d.battery_kwh)+' kWh':''}`;
   const strip=document.querySelector('.design-strip'); if(strip&&sys) strip.querySelector('span b').textContent=sys;
 
+  // Edge protection is a mandatory height-safety cost and is identical for every
+  // installer on this board, so it is stated once here and folded into each total.
+  if(d.edge_protection_cents){
+    const n=$('edgeNote');
+    n.innerHTML=`<b>Every price below includes ${fmt$(cents(d.edge_protection_cents))} for roof edge protection.</b> `
+      +`This is mandatory height-safety equipment required on every installation under Safe Work Australia rules — `
+      +`it is not optional and it is not an extra added later. `
+      +(d.edge_perimeter_measured
+         ? `It is charged at $180 per 20 linear metres, based on the ${Number(d.edge_perimeter_m)}m roof edge measured at your site assessment.`
+         : `It is charged at $180 per 20 linear metres. Your roof edge is measured at the site assessment — until then this shows the minimum charge, and your final figure will be confirmed on your agreement before you sign.`);
+    n.hidden=false;
+  }
+
   QUOTES=(d.quotes||[]).map((q,i)=>({...q,col:PALETTE[i%PALETTE.length]}));
   if(TOKEN) $('signLink').href='/sign.html?token='+encodeURIComponent(TOKEN);
   if(d.already_chosen){
@@ -166,8 +183,9 @@ function render(){
       </div>
       <div class="price">
         <div class="before">${fmt$(cents(q.price_before_cents))} before rebates</div>
-        <div class="after">${fmt$(cents(q.price_after_cents))}</div>
+        <div class="after">${fmt$(cents(q.total_payable_cents!=null?q.total_payable_cents:q.price_after_cents))}</div>
         <span class="save">– ${fmt$(cents(q.rebate_cents))} rebates</span>
+        ${q.edge_protection_cents?`<div class="edge">Includes ${fmt$(cents(q.edge_protection_cents))} edge protection</div>`:''}
       </div>
     </div>
     <div class="q-foot">

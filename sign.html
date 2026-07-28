@@ -30,6 +30,7 @@ header{background:var(--ink);color:#fff;padding:16px 0}
 .row span{color:var(--ink2)}
 .row b{font-family:var(--mono);text-align:right}
 .price-row b{font-size:1.15rem}
+.row i.sub{display:block;font-style:normal;font-size:.72rem;color:var(--ink3);margin-top:2px}
 .terms{font-size:.82rem;color:var(--ink2);line-height:1.6}
 .terms p{margin-bottom:9px}
 .f-label{display:block;font-size:.82rem;font-weight:600;margin:14px 0 6px;color:var(--ink2)}
@@ -134,11 +135,14 @@ async function load(){
     <div class="row"><span>Workmanship warranty</span><b>${d.warranty_years||10} yrs</b></div>
     <div class="row"><span>Price before rebates</span><b>${fmt$(cents(d.price_before_cents))}</b></div>
     <div class="row"><span>Federal rebates</span><b>– ${fmt$(cents(d.rebate_cents))}</b></div>
-    <div class="row price-row"><span>Price payable</span><b>${fmt$(cents(d.price_after_cents))}</b></div>`;
+    <div class="row"><span>Installation</span><b>${fmt$(cents(d.price_after_cents))}</b></div>
+    ${d.edge_protection_cents?`<div class="row"><span>Roof edge protection${d.edge_perimeter_measured?` · ${Number(d.edge_perimeter_m)}m`:''}<br><i class="sub">Mandatory height safety — Safe Work Australia</i></span><b>${fmt$(cents(d.edge_protection_cents))}</b></div>`:''}
+    <div class="row price-row"><span>Total payable</span><b>${fmt$(cents(d.total_payable_cents!=null?d.total_payable_cents:d.price_after_cents))}</b></div>`;
   $('terms').innerHTML=`
     <p>This agreement is for the supply and installation of the solar and battery system described above at ${eq(d.address)}, issued by <b>${eq(d.company)}</b> ("the installer").</p>
     <p>Your contract for the installation, all product and workmanship warranties, and all Australian Consumer Law guarantees are with the installer. Solarsearch is not a party to the installation contract and acts as facilitator and authorised agent.</p>
-    <p>The price payable is fixed at the amount shown, inclusive of the federal rebate applied at your installation date. Final connection is subject to your DNSP's approval.</p>
+    <p>The total payable is fixed at the amount shown, inclusive of the federal rebate applied at your installation date. Final connection is subject to your DNSP's approval.</p>
+    ${d.edge_protection_cents?`<p>The total includes <b>${fmt$(cents(d.edge_protection_cents))}</b> for roof edge protection. This is mandatory height-safety equipment required on every installation under Safe Work Australia rules, charged at $180 per 20 linear metres of roof edge${d.edge_perimeter_measured?` (${Number(d.edge_perimeter_m)}m measured at your site assessment)`:''}. You pay this to the installer as part of the total above, and the installer engages and pays the accredited edge-protection crew. It is included here so there is no variation added to your job later.</p>`:''}
     <p>By typing your name and signing below you accept this agreement. Your signature is captured electronically with the date, time and device details for your records.</p>`;
 }
 async function doSign(){
