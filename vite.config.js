@@ -25,7 +25,10 @@ export default defineConfig({
         join: resolve(__dirname, 'join.html'),
         apply: resolve(__dirname, 'apply.html'),
         install: resolve(__dirname, 'install.html'),
-        stripereturn: resolve(__dirname, 'stripe-return.html')
+        stripereturn: resolve(__dirname, 'stripe-return.html'),
+        // Cornerstone SEO / trust pages — the organic lead channel
+        accreditedinstaller: resolve(__dirname, 'accredited-installer.html'),
+        solarcostnsw: resolve(__dirname, 'solar-cost-nsw.html')
       }
     }
   }
