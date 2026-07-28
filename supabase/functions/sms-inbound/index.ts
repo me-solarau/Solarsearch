@@ -19,8 +19,44 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const INBOUND_SECRET = Deno.env.get("SMS_INBOUND_SECRET");
+const HQ_SMS = Deno.env.get("HQ_ALERT_SMS") || "";
+const K_FROM = Deno.env.get("KUDOSITY_FROM_NUMBER") || "";
 
 const normPhone = (n: string) => String(n || "").replace(/\D/g, "").slice(-9);
+
+// ---------------------------------------------------------------------------
+// Loop guards.
+//
+// 2026-07-28: HQ_ALERT_SMS was the same number whose replies forward into this
+// webhook, so an outbound HQ alert echoed straight back in, matched no customer,
+// triggered the fallback reply — and that reply echoed back in again. 45 sends in
+// 83 minutes until Kudosity suspended the account. Each guard below independently
+// breaks that cycle; they are deliberately redundant because the cost of a miss is
+// a runaway bill and a dead SMS channel.
+// ---------------------------------------------------------------------------
+
+// Guard 1 — never auto-reply to one of our own numbers.
+const OUR_NUMBERS = [HQ_SMS, K_FROM].map(normPhone).filter(Boolean);
+const isOurNumber = (digits: string) => !!digits && OUR_NUMBERS.includes(digits);
+
+// Guard 2 — never auto-reply to text we ourselves sent. Compared loosely because
+// providers rewrite punctuation: our own em dash came back as a hyphen, which an
+// exact string match would have sailed straight past.
+const canon = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const OUR_PHRASES = [
+  "thanks we couldn t match this to a booking",
+  "to confirm reply with a number",
+  "your assessment is booked for",
+  "no problem your visit is cancelled",
+  "sorry that slot just closed",
+  "we ll text you fresh times shortly",
+  "new lead",
+  "reminder your solarsearch home assessment",
+].map(canon);
+const looksLikeOurOwnText = (body: string) => {
+  const c = canon(body);
+  return !!c && OUR_PHRASES.some((p) => c.startsWith(p) || c.includes(p));
+};
 
 async function sbFetch(path: string, init: RequestInit = {}) {
   return fetch(`${SB_URL}/rest/v1/${path}`, {
@@ -32,6 +68,23 @@ async function sbFetch(path: string, init: RequestInit = {}) {
     },
   });
 }
+// Guard 3 — at most one fallback reply per number per hour. Backstop for any
+// echo path the first two guards don't anticipate: a loop can still start, but
+// it cannot run away.
+async function fallbackRecentlySent(to: string): Promise<boolean> {
+  try {
+    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const r = await sbFetch(
+      `sms_messages?select=id&direction=eq.out&kind=eq.fallback` +
+      `&to_number=eq.${encodeURIComponent(to)}&created_at=gte.${encodeURIComponent(since)}&limit=1`,
+    );
+    const rows = await r.json().catch(() => []);
+    return Array.isArray(rows) && rows.length > 0;
+  } catch {
+    return true; // on any doubt, stay silent rather than risk a loop
+  }
+}
+
 async function rpc(fn: string, args: Record<string, unknown>) {
   return fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
@@ -48,6 +101,16 @@ async function callFn(name: string, payload: Record<string, unknown>) {
 }
 async function reply(to: string, body: string, assessment_id?: string | null, lead_id?: string | null, kind = "confirm") {
   if (!to || !body) return;
+  // Last line of defence: even a caller that skipped the guards cannot text one
+  // of our own numbers, because that is what closes the loop.
+  if (isOurNumber(normPhone(to))) {
+    console.warn("sms-inbound: refusing to reply to our own number", to);
+    return;
+  }
+  if (kind === "fallback" && await fallbackRecentlySent(to)) {
+    console.warn("sms-inbound: fallback already sent to this number within the hour, skipping", to);
+    return;
+  }
   await callFn("sms-send", { to, body, assessment_id: assessment_id ?? null, lead_id: lead_id ?? null, kind }).catch(() => {});
 }
 function fmtWhen(iso: string) {
@@ -90,6 +153,17 @@ Deno.serve(async (req) => {
       body: bodyRaw, twilio_sid: params.message_id ? String(params.message_id) : null,
       status: "received", kind: "inbound",
     }) }).catch(() => {});
+
+    // Loop guards — log the inbound above (we still want the audit trail), then
+    // stop dead before anything can generate an outbound reply.
+    if (isOurNumber(fromDigits)) {
+      console.warn("sms-inbound: echo from our own number, ignoring", from);
+      return ok();
+    }
+    if (looksLikeOurOwnText(bodyRaw)) {
+      console.warn("sms-inbound: inbound matches our own outbound copy, ignoring", bodyRaw.slice(0, 60));
+      return ok();
+    }
 
     // STOP / opt-out (Kudosity also handles this on its side)
     if (/^(STOP|STOPALL|UNSUBSCRIBE|CANCEL ALL|END|QUIT)$/.test(upper)) {
