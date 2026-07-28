@@ -816,6 +816,7 @@ async function saveLead(){
   };
   const r=await sbRpc('capture_lead',{payload});
   if(r&&r.ss_ref){ S.ss_ref=r.ss_ref; S.leadId=r.lead_id; S.siteId=r.site_id; S.leadSaved=true; }
+  notifyNewLead();    // fire-and-forget: alert the team the moment a lead lands
   return r;
 }
 async function bookAssessment(slot){
@@ -825,21 +826,29 @@ async function bookAssessment(slot){
   pingPool();         // fire-and-forget: buzz available technicians (B1 web push)
   return r;
 }
-function sendBookingEmail(){
-  if(!S.leadId) return;
-  fetch(SB_URL+'/functions/v1/send-booking-confirmation',{
+/* Fire-and-forget notification call. Never blocks or fails the user's action,
+   but — unlike a bare .catch(()=>{}) — a misconfigured function (e.g. the 503
+   from a missing RESEND_API_KEY) is surfaced in the console instead of
+   vanishing silently. */
+function fireNotify(fn,body){
+  return fetch(SB_URL+'/functions/v1/'+fn,{
     method:'POST',
     headers:{apikey:SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
-    body:JSON.stringify({lead_id:S.leadId})
-  }).catch(()=>{});
+    body:JSON.stringify(body)
+  }).then(r=>{ if(!r.ok) console.warn('[notify] '+fn+' failed: HTTP '+r.status); return r; })
+    .catch(e=>{ console.warn('[notify] '+fn+' failed:',e); });
+}
+function notifyNewLead(){
+  if(!S.leadId) return;
+  fireNotify('notify-new-lead',{lead_id:S.leadId});
+}
+function sendBookingEmail(){
+  if(!S.leadId) return;
+  fireNotify('send-booking-confirmation',{lead_id:S.leadId});
 }
 function pingPool(){
   if(!S.leadId) return;
-  fetch(SB_URL+'/functions/v1/notify-pool',{
-    method:'POST',
-    headers:{apikey:SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
-    body:JSON.stringify({lead_id:S.leadId})
-  }).catch(()=>{});
+  fireNotify('notify-pool',{lead_id:S.leadId});
 }
 
 /* =============== staircase svg =============== */
