@@ -3,8 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Solarsearch Installer</title>
+<title>Solarsafe Installer</title>
 <meta name="theme-color" content="#0F2E27">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Solarsafe">
 <style>
 :root{
   --paper:#F6F9F7;--panel:#FFFFFF;--tint:#E8F1EA;--tint2:#F0F5F1;
@@ -108,6 +113,9 @@ input.f,textarea.f,select.f{width:100%;border:1px solid var(--line2);border-radi
 import { getSupabaseClient } from "/src/lib/supabase.js";
 import { requireRole, mountRoleSwitcher } from "/src/lib/auth-guard.js";
 const db=getSupabaseClient();
+// Registering the worker is what makes Chrome offer "Add to home screen".
+// It caches nothing — see the comment in sw.js.
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 const $=id=>document.getElementById(id);
 let MY_INSTALLER_ID=null, curId=null, curInstall=null, activeStep=null;
 let store={};  // step_key -> {photos:[{rowId,localUrl,storage_path,queued}], na}
@@ -144,7 +152,52 @@ async function pushItem(it){
   const row={ install_id:it.install_id, step_key:it.step_key, storage_path:path, lat:it.lat, lng:it.lng, taken_at:it.taken_at, sha256:it.sha256, bytes:it.bytes, na_reason:null };
   const { data, error:ie }=await db.from('install_photos').insert(row).select('id').single();
   if(ie) throw new Error(ie.message);
-  return { rowId:data&&data.id, storage_path:path };
+  const rowId=data&&data.id;
+  // Compliance check runs after the evidence is safely stored, never before —
+  // a failed or slow AI call must never cost the installer the photo.
+  if(rowId) checkCompliance(rowId);
+  return { rowId, storage_path:path };
+}
+
+/* ---- AI compliance check (advisory) ----
+   Returns a verdict plus findings, each carrying the clause reference, the
+   requirement as a parameter, and what was observed. It never blocks capture
+   and never alters the photo — install_photos is append-only evidence. */
+const AI={};   // rowId -> {verdict, summary, findings, retake_advice}
+async function checkCompliance(rowId){
+  AI[rowId]={verdict:'checking'};
+  if(typeof renderJob==='function') renderJob();
+  try{
+    const { data, error } = await db.functions.invoke('validate-install-photo',{ body:{ photo_id:rowId } });
+    AI[rowId]=(!error&&data&&data.verdict)?data
+      :{verdict:'not_checked',summary:(error&&error.message)||'No response from the checker.'};
+  }catch(e){
+    AI[rowId]={verdict:'not_checked',summary:'Offline — this photo will not be checked until you have signal.'};
+  }
+  if(typeof renderJob==='function') renderJob();
+}
+const AI_STYLE={
+  compliant:     ['✓ Looks compliant','var(--safes)','var(--safe)'],
+  non_compliant: ['✕ Looks non-compliant','var(--reds)','var(--red)'],
+  indeterminate: ['? Photo can\'t settle it','var(--ambers)','var(--amberd)'],
+  checking:      ['⏳ Checking…','var(--tint2)','var(--ink3)'],
+  not_checked:   ['— Not checked','var(--tint2)','var(--ink3)']
+};
+function aiPanel(rowId){
+  const a=AI[rowId]; if(!a) return '';
+  const [label,bg,fg]=AI_STYLE[a.verdict]||AI_STYLE.not_checked;
+  const findings=(a.findings||[]).map(f=>`
+    <div style="border-top:1px solid var(--line);padding:7px 0">
+      <div style="font-family:var(--mono,monospace);font-size:.7rem;color:${fg};font-weight:700">${esc(f.clause||'')}</div>
+      <div style="font-size:.78rem;color:var(--ink2)">${esc(f.parameter||'')}</div>
+      <div style="font-size:.78rem;margin-top:2px"><b>Seen:</b> ${esc(f.observed||'')}</div>
+    </div>`).join('');
+  return `<div style="background:${bg};border-radius:10px;padding:9px 11px;margin-top:7px">
+    <div style="font-weight:700;font-size:.8rem;color:${fg}">${label}</div>
+    ${a.summary?`<div style="font-size:.8rem;color:var(--ink2);margin-top:2px">${esc(a.summary)}</div>`:''}
+    ${findings}
+    ${a.retake_advice?`<div style="font-size:.78rem;margin-top:6px;color:${fg}"><b>Retake:</b> ${esc(a.retake_advice)}</div>`:''}
+  </div>`;
 }
 let flushing=false;
 async function flush(){ if(flushing||!navigator.onLine) return; flushing=true; try{ let items=[]; try{items=await qAll();}catch(e){return;} for(const it of items){ try{ await pushItem(it); await qDel(it.id); }catch(e){ break; } } await queueBanner(); if(curId) openInstall(curId); } finally{ flushing=false; } }
@@ -200,7 +253,7 @@ function renderJob(){
     const chip=e.na?'<span class="chip na">N/A</span>':(e.photos.length?`<span class="chip pass">✓ ${e.photos.length}</span>`:'<span class="chip todo">TO DO</span>');
     const tiles=e.photos.map(p=>`<div class="thumb">${p.localUrl?`<img src="${p.localUrl}">`:''}<span class="b" style="background:var(--safe);color:#fff">📍</span><button class="x" onclick="rmPhoto('${st.key}','${p.rowId}')">✕</button></div>`).join('');
     return `<div class="card"><div class="row"><b>${esc(st.title)}${required?'':' <span class="sub">(optional)</span>'}</b>${chip}</div>
-      ${e.na?`<div class="sub" style="margin-top:6px">N/A — ${esc(e.na)}</div>`:`<div class="grid">${tiles}</div>`}
+      ${e.na?`<div class="sub" style="margin-top:6px">N/A — ${esc(e.na)}</div>`:`<div class="grid">${tiles}</div>${e.photos.map(p=>aiPanel(p.rowId)).join('')}`}
       <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-sm" onclick="pick('${st.key}')">📷 Add photo</button>${required?'':`<button class="btn btn-sm" onclick="markNA('${st.key}')">Mark N/A</button>`}</div></div>`;
   };
   const missing=REQUIRED.filter(st=>{ const e=store[st.key]||{photos:[],na:null}; return !(e.na||e.photos.length); });

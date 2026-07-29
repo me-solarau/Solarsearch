@@ -33,3 +33,12 @@ self.addEventListener("notificationclick", (event) => {
     }),
   );
 });
+
+/* Pass-through fetch handler.
+   Chrome will not offer "Add to home screen" for a page whose service worker
+   has no fetch listener, so this exists to satisfy the installability check for
+   the Solarsafe Installer app. It deliberately does NOT cache: install evidence
+   must always hit the network, and a stale cached shell on a roof would be
+   worse than no app at all. Offline capture is already handled inside
+   install.html by the IndexedDB upload queue. */
+self.addEventListener("fetch", () => { /* default network behaviour */ });
