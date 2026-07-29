@@ -33,7 +33,8 @@ export default defineConfig({
         accreditedinstaller: resolve(__dirname, 'accredited-installer.html'),
         solarcostnsw: resolve(__dirname, 'solar-cost-nsw.html'),
         addbattery: resolve(__dirname, 'add-battery-to-solar.html'),
-        compliantinstall: resolve(__dirname, 'compliant-solar-install.html')
+        compliantinstall: resolve(__dirname, 'compliant-solar-install.html'),
+        coldcalls: resolve(__dirname, 'solar-quotes-without-cold-calls.html')
       }
     }
   }
