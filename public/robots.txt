@@ -1,0 +1,28 @@
+# Solarsearch — https://solarsearch.com.au
+#
+# Public marketing and information pages are open. Everything behind a login,
+# and every page reached by a private tokenised link, is disallowed: those are
+# either useless to a searcher or contain a specific customer's job.
+
+User-agent: *
+Allow: /
+
+# Staff, installer and technician apps — login required, nothing to index
+Disallow: /hq.html
+Disallow: /installer.html
+Disallow: /tech.html
+Disallow: /install.html
+Disallow: /field.html
+Disallow: /app-field.html
+Disallow: /app-installer.html
+Disallow: /tech-badge.html
+Disallow: /login.html
+Disallow: /reset-password.html
+Disallow: /stripe-return.html
+
+# Private customer links — these carry a job-specific token
+Disallow: /choose.html
+Disallow: /sign.html
+Disallow: /pack.html
+
+Sitemap: https://solarsearch.com.au/sitemap.xml
