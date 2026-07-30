@@ -42,7 +42,7 @@ const MODEL = Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-4-5";
  * The model is told to cite only from this list, so it cannot invent a clause
  * number or paste standards wording it may have memorised.
  */
-const STEP_RULES: Record<string, { title: string; clauses: string[]; params: string }> = {
+const STEP_RULES: Record<string, { title: string; clauses: string[]; params: string; count?: string }> = {
   array: {
     title: "Panel array on roof",
     clauses: ["AS/NZS 5033 cl 4.3", "AS/NZS 5033 cl 4.4", "AS/NZS 1170.2"],
@@ -86,6 +86,7 @@ const STEP_RULES: Record<string, { title: string; clauses: string[]; params: str
   },
   mounting_feet: {
     title: "Mounting feet",
+    count: "mounting feet",
     clauses: ["AS/NZS 5033 cl 4.3", "AS/NZS 1170.2", "manufacturer installation manual"],
     params: `- Foot fixed into roof STRUCTURE — rafter, batten or purlin — not into sheeting alone and not into a tile with no support beneath.
 - Manufacturer's own foot and fastener for that roof type; no substituted screws, no improvised packers or washers stacked to make up height.
@@ -95,12 +96,15 @@ const STEP_RULES: Record<string, { title: string; clauses: string[]; params: str
   },
   tile_seating: {
     title: "Tile foot & tile seating",
+    count: "tile feet with the tile seated over them",
     clauses: ["AS/NZS 5033 cl 4.3", "AS/NZS 1170.2", "manufacturer installation manual"],
-    params: `- Tile foot fixed to the batten or rafter, taking load into structure rather than onto the tile.
-- The tile above lays back down flat over the foot: not bridged, not lifted, not held up on the bracket.
-- No cracked, chipped or broken tile around the foot; any cut is clean and supported.
-- Foot profile matched to the tile type so the tile can seat in its natural position.
-- Water path preserved — nothing dams or diverts flow across the tile course.`,
+    params: `THE PRIMARY THING TO CONFIRM: the tile has been GROUND / RELIEVED so the foot fits beneath it and the tile still seats flat. Skipping that grind is the classic lazy shortcut on a tile roof — the bracket then holds the tile up, it rocks, and it cracks or lets water past. Report specifically on whether you can see relief work.
+- Look for a ground or cut relief pocket in the underside or edge of the tile where the bracket passes, with a clean cut line and fresh grind marks or dust rather than a factory edge.
+- The tile above must lay back DOWN FLAT and follow the course line: not lifted at one corner, not bridged, not visibly propped or rocking on the bracket.
+- No cracked, chipped or split tile around the foot. Any cut edge should be clean and still supported.
+- Tile foot fixed to the batten or rafter so load goes into structure, never onto the tile itself.
+- Water path preserved — nothing dams or diverts flow across the course.
+If the tile is sitting proud, tilted, or riding on the bracket, that is NOT compliant even when nothing is broken yet.`,
   },
   rails_straps: {
     title: "Rails & straps overview",
@@ -113,6 +117,7 @@ const STEP_RULES: Record<string, { title: string; clauses: string[]; params: str
   },
   penetrations: {
     title: "Roof penetrations",
+    count: "roof penetrations",
     clauses: ["AS/NZS 5033 cl 4.4", "AS/NZS 3500.3", "manufacturer installation manual"],
     params: `- Every penetration flashed, with the flashing dressed OVER the roof profile in the direction of water flow, never under it.
 - Flashing sized and shaped for the roof type; sealant is a supplement to correct flashing, never a substitute for it.
@@ -161,14 +166,14 @@ Deno.serve(async (req) => {
 
     const { data: photo } = await admin
       .from("install_photos")
-      .select("id, install_id, step_key, storage_path, ai_verdict")
+      .select("id, install_id, step_key, storage_path, ai_verdict, ai_count")
       .eq("id", photo_id).maybeSingle();
     if (!photo) return json({ error: "photo not found" }, 404);
     if (!photo.storage_path) return json({ error: "photo has no file" }, 400);
 
     // Evidence is append-only: a verdict is written once and never rewritten.
     if (photo.ai_verdict) {
-      return json({ photo_id, verdict: photo.ai_verdict, already_checked: true });
+      return json({ photo_id, verdict: photo.ai_verdict, count: photo.ai_count, already_checked: true });
     }
 
     const rule = STEP_RULES[photo.step_key];
@@ -209,9 +214,10 @@ HOW TO ANSWER
 - Be a tradesperson talking to a tradesperson: specific, practical, no lecturing.
 - "compliant" = what is visible looks correct. "non_compliant" = you can see a specific defect. "indeterminate" = the photo cannot settle it.
 
+${rule.count ? `COUNT: also report "count" — how many ${rule.count} are CLEARLY visible and assessable in this photo. Count only ones you can actually judge; a blurred or half-cropped one does not count. One good wide shot may legitimately show several.\n` : ""}
 Return ONLY compact JSON:
 {"verdict":"compliant"|"non_compliant"|"indeterminate",
- "summary":"one short sentence",
+ "summary":"one short sentence",${rule.count ? `\n "count":<integer, how many ${rule.count} are clearly visible>,` : ""}
  "findings":[{"clause":"<one of the references above>","parameter":"<requirement in your own words>","observed":"<what you can see>","status":"met"|"not_met"|"cannot_tell"}],
  "retake_advice":"<only if the photo itself is the problem, else empty string>"}
 Give at most four findings, most important first.`;
@@ -244,12 +250,19 @@ Give at most four findings, most important first.`;
     let summary = "Could not interpret the photo.";
     let findings: unknown[] = [];
     let retake = "";
+    let count: number | null = null;
     try {
       const parsed = JSON.parse(text.replace(/^```(?:json)?|```$/g, "").trim());
       verdict = ["compliant", "non_compliant", "indeterminate"].includes(parsed.verdict) ? parsed.verdict : "indeterminate";
       summary = String(parsed.summary || "").slice(0, 300);
       findings = Array.isArray(parsed.findings) ? parsed.findings.slice(0, 4) : [];
       retake = String(parsed.retake_advice || "").slice(0, 200);
+      // Coverage is counted in items, not photographs: one wide shot of four
+      // feet evidences four. Clamped so a hallucinated number cannot inflate a
+      // coverage target — nobody frames 40 assessable feet in one photo.
+      if (rule.count && Number.isFinite(Number(parsed.count))) {
+        count = Math.max(0, Math.min(24, Math.round(Number(parsed.count))));
+      }
     } catch {
       // Leave the defaults — an unparseable answer is "indeterminate", not a fail.
     }
@@ -259,10 +272,13 @@ Give at most four findings, most important first.`;
       `[${f.clause}] ${f.parameter} — observed: ${f.observed} (${f.status})`);
 
     await admin.from("install_photos")
-      .update({ ai_verdict: verdict, ai_reasons: [summary, ...reasons].filter(Boolean) })
+      .update({ ai_verdict: verdict, ai_reasons: [summary, ...reasons].filter(Boolean),
+                ai_count: rule.count ? (count ?? 1) : null })
       .eq("id", photo_id);
 
-    return json({ photo_id, step: photo.step_key, verdict, summary, findings, retake_advice: retake, configured: true });
+    return json({ photo_id, step: photo.step_key, verdict, summary, findings,
+                  count: rule.count ? (count ?? 1) : null,
+                  retake_advice: retake, configured: true });
   } catch (e) {
     return json({ error: String((e as Error).message || e) }, 500);
   }

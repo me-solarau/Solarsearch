@@ -137,18 +137,18 @@ let STEP_SORT='todo';
 const REQUIRED=[
  {key:'array',title:'Panel array on roof',
   hint:'Wide shot showing the whole array in place.'},
- {key:'mounting_feet',title:'Mounting feet',
+ {key:'mounting_feet',title:'Mounting feet',counts:true,
   min:j=>Math.max(2,Math.ceil((j.panel_qty||0)*2*0.5)),
-  hint:j=>`${(j.panel_qty||0)*2} feet on this job (2 per panel). Photograph at least half — get the foot fixed down, close enough to see the fixing land.`},
- {key:'tile_seating',title:'Tile foot & tile seating',
+  hint:j=>`${(j.panel_qty||0)*2} feet on this job (2 per panel). Cover at least half — several feet in one shot is fine and counts for all of them, as long as each is clear enough to judge.`},
+ {key:'tile_seating',title:'Tile foot & tile seating',counts:true,
   when:j=>/tile|terracotta|concrete|slate/i.test(j.roof_material||''),
   min:()=>3,
-  hint:'Tile foot in position with the tile back down over it — show the tile seats flat and is not bridged or cracked.'},
+  hint:'Show the GROUND/RELIEVED tile with the foot under it and the tile laying back down flat. The grind is the thing being proven — a tile propped up on the bracket is a fail.'},
  {key:'rails_straps',title:'Rails & straps overview',
   hint:'Along-the-rail shot showing rail runs, joiners and strapping.'},
- {key:'penetrations',title:'Roof penetrations',
+ {key:'penetrations',title:'Roof penetrations',counts:true,
   min:()=>2,
-  hint:'Every penetration, flashed and sealed. Close enough to see the dressing.'},
+  hint:'Every penetration, flashed and sealed. Multiple in one shot is fine — each is counted.'},
  {key:'earthing',title:'Earthing, clamps & galvanic protection',
   min:()=>2,
   hint:'Earth clamp on the frame AND the galvanic/cold-galv spray applied over it.'},
@@ -192,7 +192,10 @@ async function pushItem(it){
    Returns a verdict plus findings, each carrying the clause reference, the
    requirement as a parameter, and what was observed. It never blocks capture
    and never alters the photo — install_photos is append-only evidence. */
-const AI={};   // rowId -> {verdict, summary, findings, retake_advice}
+const AI={};      // rowId -> {verdict, summary, findings, count, retake_advice}
+// rowId -> how many countable items that photo evidenced. Defaults to 1 per photo
+// until the checker reports otherwise, so coverage never stalls if it is offline.
+const COUNTS={};
 async function checkCompliance(rowId){
   AI[rowId]={verdict:'checking'};
   if(typeof renderJob==='function') renderJob();
@@ -200,6 +203,9 @@ async function checkCompliance(rowId){
     const { data, error } = await db.functions.invoke('validate-install-photo',{ body:{ photo_id:rowId } });
     AI[rowId]=(!error&&data&&data.verdict)?data
       :{verdict:'not_checked',summary:(error&&error.message)||'No response from the checker.'};
+    // The checker counts how many feet / penetrations are actually visible, so a
+    // wide shot of four feet credits four toward the coverage target.
+    if(AI[rowId] && Number.isFinite(Number(AI[rowId].count))) COUNTS[rowId]=Number(AI[rowId].count);
   }catch(e){
     AI[rowId]={verdict:'not_checked',summary:'Offline — this photo will not be checked until you have signal.'};
   }
@@ -292,10 +298,17 @@ function renderJob(){
   const applies=st=>!st.when||st.when(i);
   const need=st=>st.min?st.min(i):1;
   const hintOf=st=>typeof st.hint==='function'?st.hint(i):(st.hint||'');
+  // Coverage counts ITEMS, not photographs. A step with a countable subject sums
+  // what each photo actually shows; everything else is one per photo.
+  const have=st=>{
+    const ps=(store[st.key]||{photos:[]}).photos;
+    if(!st.counts) return ps.length;
+    return ps.reduce((a,p)=>a+(COUNTS[p.rowId]||1),0);
+  };
 
   const card=(st,required)=>{
     const e=store[st.key]||{photos:[],na:null};
-    const n=e.photos.length, want=need(st);
+    const n=have(st), want=need(st);
     const chip=e.na?'<span class="chip na">N/A</span>'
       :(n>=want?`<span class="chip pass">✓ ${n}${want>1?'/'+want:''}</span>`
         :(n?`<span class="chip todo">${n}/${want}</span>`:'<span class="chip todo">TO DO</span>'));
@@ -311,7 +324,7 @@ function renderJob(){
   const short=req.map(st=>{
     const e=store[st.key]||{photos:[],na:null};
     if(e.na) return null;
-    const n=e.photos.length, want=need(st);
+    const n=have(st), want=need(st);
     return n>=want?null:{st,n,want};
   }).filter(Boolean);
 
@@ -322,7 +335,7 @@ function renderJob(){
   // find from anywhere on the roof; "Job order" restores the canonical list for
   // anyone who prefers to work top to bottom.
   const doneCount=req.length-short.length;
-  const photosHave=req.reduce((a,st)=>a+Math.min((store[st.key]||{photos:[]}).photos.length,need(st)),0);
+  const photosHave=req.reduce((a,st)=>a+Math.min(have(st),need(st)),0);
   const photosWant=req.reduce((a,st)=>a+need(st),0);
   const pct=photosWant?Math.round(photosHave/photosWant*100):100;
   $('jobProgress').innerHTML=`
@@ -332,7 +345,7 @@ function renderJob(){
       <div style="height:7px;background:var(--tint2);border-radius:99px;margin:9px 0 7px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${short.length?'var(--amber)':'var(--safe)'};border-radius:99px;transition:width .3s"></div>
       </div>
-      <div class="sub">${photosHave} of ${photosWant} photos · <b>shoot in any order</b> — the report unlocks at 100%.</div>
+      <div class="sub">${photosHave} of ${photosWant} photos · <b>any order</b> — feet and penetrations count per item, so wide shots cover several.</div>
       <div style="display:flex;gap:8px;margin-top:9px">
         <button class="btn btn-sm" onclick="setStepSort('todo')"${STEP_SORT==='todo'?' disabled':''}>Outstanding first</button>
         <button class="btn btn-sm" onclick="setStepSort('job')"${STEP_SORT==='job'?' disabled':''}>Job order</button>
@@ -340,7 +353,7 @@ function renderJob(){
     </div>`;
 
   const outstanding=st=>{ const e=store[st.key]||{photos:[],na:null};
-    return !(e.na||e.photos.length>=need(st)); };
+    return !(e.na||have(st)>=need(st)); };
   const ordered=STEP_SORT==='todo'
     ? [...req].sort((a,b)=>(outstanding(a)?0:1)-(outstanding(b)?0:1))
     : req;
