@@ -527,7 +527,7 @@ tbody tr:hover{background:var(--tint2)}
 
 <script type="module">
 import { getSupabaseClient, SUPABASE_URL, SUPABASE_ANON_KEY } from "/src/lib/supabase.js";
-import { requireRole } from "/src/lib/auth-guard.js";
+import { requireRole, mountRoleSwitcher } from "/src/lib/auth-guard.js";
 import { attachAddressAutocomplete } from "/src/lib/address-autocomplete.js";
 
 /* ================================================================
@@ -1352,14 +1352,18 @@ function openDrawer(id){
     designed:['Open installer board|board'],
     quoted:['Email comparison to customer|notify','Copy customer board link|link'],
     customer_chose:['Copy e-sign link|sign'],
-    signed:['Connection approved|ps_connection_approved','Raise invoice|inv','Compliance pack|pack'],
-    connection_approved:['Mark installed|ps_installed','Compliance pack|pack'],
-    installed:['Register DERR|ps_der_registered','Compliance pack|pack'],
+    // Once a job is sold, the next physical act is someone standing on the roof
+    // with a camera. "Take photos" is first on these stages because that is the
+    // real work — everything else here is paperwork around it.
+    signed:['📷 Take photos on site|shoot','Connection approved|ps_connection_approved','Raise invoice|inv','Compliance pack|pack'],
+    connection_approved:['📷 Take photos on site|shoot','Mark installed|ps_installed','Compliance pack|pack'],
+    installed:['📷 Take photos on site|shoot','Register DERR|ps_der_registered','Compliance pack|pack'],
     der_registered:['Close job|ps_closed','Compliance pack|pack'],
     closed:['Compliance pack|pack'],
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
-  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`, pack:`openPack('${l.chToken||''}')`, smsoffer:`smsOfferForLead('${l.uuid}')`, pingtechs:`pingTechs('${l.uuid}')`};
+  const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`, pack:`openPack('${l.chToken||''}')`, smsoffer:`smsOfferForLead('${l.uuid}')`, pingtechs:`pingTechs('${l.uuid}')`,
+    shoot:`window.open('/install.html#${encodeURIComponent(l.ss||'')}','_blank')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
     const onclick=k&&k.startsWith('ps_')?`advancePostSale('${l.uuid}','${k.slice(3)}')`:(ACT_FN[k]||`toast('${t} — wire to API')`);
@@ -1837,7 +1841,13 @@ window.closeGallery = closeGallery;
 
 (async () => {
   const auth = await requireRole(['admin'], { loginPage: '/login.html' });
-  if (auth) boot();
+  if (auth) {
+    // HQ was the only app without the switcher, so anyone who started here had
+    // no way to reach the Installer or Sales Tech app except by typing a URL —
+    // which is exactly how a job on site turned into a dead end.
+    mountRoleSwitcher(auth.access);
+    boot();
+  }
 })();
 </script>
 </body>

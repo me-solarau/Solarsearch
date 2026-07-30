@@ -256,7 +256,7 @@ async function openInstall(id){
 function renderJob(){
   const i=curInstall;
   if(i.status==='scheduled'){
-    $('jobBody').innerHTML=`<div class="card"><b>Start the install</b><div class="sub">Logs your on-site GPS attendance. Required before capture.</div><button class="btn btn-safe btn-block" style="margin-top:12px" onclick="startInstall()">📍 Start install on site</button></div>`;
+    $('jobBody').innerHTML=`<div class="card"><b>Start the install</b><div class="sub">Logs your arrival, then opens the photo steps. If your phone asks for location, tap Allow — it will still start either way.</div><button id="startBtn" class="btn btn-safe btn-block" style="margin-top:12px" onclick="startInstall()">📍 Start install on site</button></div>`;
     return;
   }
   const card=(st,required)=>{
@@ -276,10 +276,21 @@ function renderJob(){
 }
 
 async function startInstall(){
-  const [lat,lng]=await getGPS();
+  // This used to look dead: it awaited the GPS fix with no feedback, so if the
+  // phone was still showing its permission prompt the button just sat there.
+  // Location is a nice-to-have for attendance — it must never be the reason an
+  // installer standing on a roof cannot start work.
+  const btn=$('startBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Starting… (getting location)'; }
+  let lat=null,lng=null;
+  try{ [lat,lng]=await getGPS(); }catch(e){ /* proceed without it */ }
   const { error } = await db.rpc('start_install',{p_install:curId,p_lat:lat,p_lng:lng});
-  if(error){ toast(error.message); return; }
-  toast('Install started — attendance logged'); openInstall(curId);
+  if(error){
+    if(btn){ btn.disabled=false; btn.textContent='📍 Start install on site'; }
+    toast(error.message); return;
+  }
+  toast(lat==null?'Install started — location unavailable, continuing':'Install started — attendance logged');
+  openInstall(curId);
 }
 function pick(stepKey){ activeStep=stepKey; $('fileInput').click(); }
 async function addPhotos(files){
