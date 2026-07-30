@@ -140,15 +140,26 @@ const REQUIRED=[
  {key:'mounting_feet',title:'Mounting feet',counts:true,
   min:j=>Math.max(2,Math.ceil((j.panel_qty||0)*2*0.5)),
   hint:j=>`${(j.panel_qty||0)*2} feet on this job (2 per panel). Cover at least half — several feet in one shot is fine and counts for all of them, as long as each is clear enough to judge.`},
+ // Tile is where roofs leak. A tin penetration is hard to get wrong; a tile that
+ // was never ground sits proud, rocks, cracks and lets water past months later.
+ // So the tile evidence scales with the job exactly like the feet do — every
+ // fixing on a tile roof is a potential leak, and a flat "3 photos" was never
+ // proportionate to that. These are the SAME locations as the mounting-feet step
+ // seen from the other side: the foot going into the batten, then the tile back
+ // down over it. Multi-item counting keeps that honest rather than doubling work.
  {key:'tile_seating',title:'Tile foot & tile seating',counts:true,
   when:j=>/tile|terracotta|concrete|slate/i.test(j.roof_material||''),
-  min:()=>3,
-  hint:'Show the GROUND/RELIEVED tile with the foot under it and the tile laying back down flat. The grind is the thing being proven — a tile propped up on the bracket is a fail.'},
+  min:j=>Math.max(3,Math.ceil((j.panel_qty||0)*2*0.5)),
+  hint:j=>`Same ${Math.max(3,Math.ceil((j.panel_qty||0)*2*0.5))} locations as the feet, from the other side. Show the GROUND/RELIEVED tile with the foot under it and the tile laying back down FLAT. The grind is the thing being proven — a tile propped on the bracket is a fail even if nothing is cracked yet. Several tiles per shot is fine.`},
  {key:'rails_straps',title:'Rails & straps overview',
   hint:'Along-the-rail shot showing rail runs, joiners and strapping.'},
  {key:'penetrations',title:'Roof penetrations',counts:true,
-  min:()=>2,
-  hint:'Every penetration, flashed and sealed. Multiple in one shot is fine — each is counted.'},
+  // A tile penetration is a far more common leak path than a tin one, so a tile
+  // roof is asked for more of them.
+  min:j=>/tile|terracotta|concrete|slate/i.test(j.roof_material||'')?4:2,
+  hint:j=>/tile|terracotta|concrete|slate/i.test(j.roof_material||'')
+    ? 'Every penetration through the tile — flashing dressed over the course, tile intact around it. This is the classic leak point. Multiple per shot is fine.'
+    : 'Every penetration, flashed and sealed. Multiple in one shot is fine — each is counted.'},
  {key:'earthing',title:'Earthing, clamps & galvanic protection',
   min:()=>2,
   hint:'Earth clamp on the frame AND the galvanic/cold-galv spray applied over it.'},
