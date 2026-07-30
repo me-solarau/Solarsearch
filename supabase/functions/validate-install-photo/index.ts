@@ -84,13 +84,50 @@ const STEP_RULES: Record<string, { title: string; clauses: string[]; params: str
 - PV array and inverter warning/identification signage present at the switchboard, inverter and isolators.
 - Text legible at normal viewing distance; labels fixed so they will not lift or fade.`,
   },
+  mounting_feet: {
+    title: "Mounting feet",
+    clauses: ["AS/NZS 5033 cl 4.3", "AS/NZS 1170.2", "manufacturer installation manual"],
+    params: `- Foot fixed into roof STRUCTURE — rafter, batten or purlin — not into sheeting alone and not into a tile with no support beneath.
+- Manufacturer's own foot and fastener for that roof type; no substituted screws, no improvised packers or washers stacked to make up height.
+- Fastener driven square and fully seated, not over-driven through the sheet and not standing proud.
+- Seal or EPDM washer under the foot, compressed evenly, covering the fixing hole.
+- Foot bearing flat on the roof surface with no rock or twist.`,
+  },
+  tile_seating: {
+    title: "Tile foot & tile seating",
+    clauses: ["AS/NZS 5033 cl 4.3", "AS/NZS 1170.2", "manufacturer installation manual"],
+    params: `- Tile foot fixed to the batten or rafter, taking load into structure rather than onto the tile.
+- The tile above lays back down flat over the foot: not bridged, not lifted, not held up on the bracket.
+- No cracked, chipped or broken tile around the foot; any cut is clean and supported.
+- Foot profile matched to the tile type so the tile can seat in its natural position.
+- Water path preserved — nothing dams or diverts flow across the tile course.`,
+  },
+  rails_straps: {
+    title: "Rails & straps overview",
+    clauses: ["AS/NZS 5033 cl 4.3", "AS/NZS 1170.2", "manufacturer installation manual"],
+    params: `- Rail runs straight and continuous, joiners fitted where lengths meet and fully engaged.
+- Rail supported at the manufacturer's maximum foot spacing; no long unsupported spans.
+- Rail end overhang within the manufacturer's limit past the outermost foot.
+- Straps or bracing where specified, fixed to structure and tensioned, not loose.
+- No cut rail left unfinished where it creates a sharp edge against cable.`,
+  },
+  penetrations: {
+    title: "Roof penetrations",
+    clauses: ["AS/NZS 5033 cl 4.4", "AS/NZS 3500.3", "manufacturer installation manual"],
+    params: `- Every penetration flashed, with the flashing dressed OVER the roof profile in the direction of water flow, never under it.
+- Flashing sized and shaped for the roof type; sealant is a supplement to correct flashing, never a substitute for it.
+- Penetration positioned in the pan of a corrugated sheet, not through a rib, and clear of laps where practical.
+- Cable entry sleeved or grommeted so the conductor is not bearing on a cut edge.
+- No unsealed old or abandoned holes left in the sheet.`,
+  },
   earthing: {
-    title: "Earthing",
+    title: "Earthing, clamps & galvanic protection",
     clauses: ["AS/NZS 5033 cl 4.5", "AS/NZS 3000 cl 5.3", "AS/NZS 3000 cl 5.4"],
     params: `- Array frame bonded with a correctly sized earthing conductor, continuous across rails and rows.
-- Purpose-made earthing lug with tooth washer biting through anodising to clean metal.
-- Corrosion protection where dissimilar metals meet (particularly coastal).
-- Conductor supported and protected along its run; terminations tight, no strands escaping the lug.`,
+- Purpose-made earthing lug with a tooth washer biting through the anodising to clean metal.
+- GALVANIC / COLD-GALVANISING PROTECTION VISIBLY APPLIED over the clamp and the bared metal at the connection — this is the specific thing to look for and report on. Say plainly whether you can see evidence of it (a dull grey/zinc coating over the joint) or whether the bare metal is still exposed.
+- Corrosion protection wherever dissimilar metals meet, which matters most near the coast.
+- Conductor supported and protected along its run; terminations tight with no strands escaping the lug.`,
   },
   final_tidy: {
     title: "Final tidy / make good",
