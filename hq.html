@@ -26,6 +26,29 @@ input,select{font-family:inherit}
 /* layout */
 .app{display:grid;grid-template-columns:224px 1fr;min-height:100vh}
 @media(max-width:900px){.app{grid-template-columns:64px 1fr}.side .lbl,.side .brand-txt,.side .foot{display:none}.side{padding:14px 8px}}
+
+/* ---- phone layout ----
+   HQ is a desktop dashboard, and on a phone the old behaviour was unusable: a
+   520px side drawer laid over a wide table, so the table behind it collapsed
+   into shredded columns ("Inst…", "Tech…", "You…") and the drawer had no route
+   back. On narrow screens the drawer takes the full screen with a real Back
+   control, and tables scroll sideways inside their own card rather than
+   crushing every column to fit. */
+@media(max-width:760px){
+  .drawer{width:100vw;max-width:100vw;box-shadow:none}
+  .drawer-head{padding:14px 16px}
+  .drawer .btn{margin-bottom:6px}
+  .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tscroll table{min-width:620px}
+  .kpis{grid-template-columns:1fr 1fr!important}
+  .page-head h1{font-size:1.5rem}
+  .filters .search{width:100%}
+  .drawer-back-btn{display:block}
+  .drawer-close{display:none}
+}
+.drawer-back-btn{display:none;background:rgba(255,255,255,.14);color:#fff;border:none;
+  border-radius:99px;padding:8px 16px;font-family:inherit;font-size:.85rem;font-weight:600;
+  margin-bottom:10px;cursor:pointer}
 .side{background:var(--ink);color:#CFE5DA;padding:20px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
 .brand{display:flex;align-items:center;gap:9px;padding:4px 8px 18px}
 .brand-txt{font-family:var(--display);font-weight:800;font-size:1.05rem;color:#fff}
@@ -223,7 +246,7 @@ tbody tr:hover{background:var(--tint2)}
         <button class="chip" data-f="hot">Score 80+</button>
         <button class="chip" id="demoToggle" onclick="toggleDemo()" title="Demo and test leads are excluded from all boards, KPIs and funnel metrics">Demo hidden</button>
       </div>
-      <div class="card"><table>
+      <div class="card tscroll"><table>
         <thead><tr><th>Lead</th><th>Type</th><th>Score</th><th>Stage</th><th>Next step</th><th>Source</th><th>Bill/qtr</th><th>Age</th></tr></thead>
         <tbody id="leadRows"></tbody>
       </table></div>
@@ -244,7 +267,7 @@ tbody tr:hover{background:var(--tint2)}
         <div><span class="eyebrow">Signed via native e-sign or Pylon email ingest</span><h1>Deals & commissions</h1></div>
       </div>
       <div class="kpis" id="dealKpis"></div>
-      <div class="card"><table>
+      <div class="card tscroll"><table>
         <thead><tr><th>SS ref</th><th>Customer</th><th>Installer</th><th>System</th><th>STCs</th><th>Commission</th><th>Signed</th><th>Invoice</th></tr></thead>
         <tbody id="dealRows"></tbody>
       </table></div>
@@ -256,7 +279,7 @@ tbody tr:hover{background:var(--tint2)}
         <div><span class="eyebrow">Meta · Google · TikTok</span><h1>Campaigns</h1></div>
         <button class="btn btn-amber" onclick="toast('AI creative generator — Phase 2 (PRD A-2)')">✦ Generate creative</button>
       </div>
-      <div class="card"><table>
+      <div class="card tscroll"><table>
         <thead><tr><th>Campaign</th><th>Platform</th><th>Status</th><th>Spend</th><th>Leads</th><th>CPL</th><th>Signed</th><th>CPSD</th></tr></thead>
         <tbody id="campRows"></tbody>
       </table></div>
@@ -287,17 +310,17 @@ tbody tr:hover{background:var(--tint2)}
       </div>
       <div class="kpis" id="foKpis"></div>
       <div class="eyebrow" style="margin:6px 0 8px">Active jobs — claimed, scheduled, in progress</div>
-      <div class="card"><table>
+      <div class="card tscroll"><table>
         <thead><tr><th>Ref</th><th>Area</th><th>Technician</th><th>Status</th><th>When</th><th>Fee</th><th></th></tr></thead>
         <tbody id="foActive"></tbody>
       </table></div>
       <div class="eyebrow" style="margin:20px 0 8px">Completed inspections — guided photo packs</div>
-      <div class="card"><table>
+      <div class="card tscroll"><table>
         <thead><tr><th>Ref</th><th>Area</th><th>Technician</th><th>Submitted</th><th>Outcome</th><th></th></tr></thead>
         <tbody id="foDone"></tbody>
       </table></div>
       <div class="eyebrow" style="margin:20px 0 8px">Technician reliability</div>
-      <div class="card"><table>
+      <div class="card tscroll"><table>
         <thead><tr><th>Technician</th><th>Claimed</th><th>Completed</th><th>No-access</th><th>Expired</th><th>Reliability</th></tr></thead>
         <tbody id="foReps"></tbody>
       </table></div>
@@ -305,7 +328,7 @@ tbody tr:hover{background:var(--tint2)}
         <div class="eyebrow">Payouts — $50 completed · $25 no-access · Stripe Connect (transfer stubbed)</div>
         <button class="btn btn-amber btn-sm" onclick="runPayoutBatch()">Batch last 7 days</button>
       </div>
-      <div class="card"><table>
+      <div class="card tscroll"><table>
         <thead><tr><th>Technician</th><th>Period</th><th>Total</th><th>Status</th><th>Ref</th><th></th></tr></thead>
         <tbody id="foPayouts"></tbody>
       </table></div>
@@ -367,7 +390,7 @@ tbody tr:hover{background:var(--tint2)}
         <tbody id="accessAppRows"></tbody>
       </table></div>
       <div class="eyebrow" style="margin-bottom:8px">Accounts under vetting</div>
-      <div class="card"><table>
+      <div class="card tscroll"><table>
         <thead><tr><th>Type</th><th>Name</th><th>Status</th><th>Docs</th><th>Created</th></tr></thead>
         <tbody id="vettingRows"></tbody>
       </table></div>
@@ -441,7 +464,7 @@ tbody tr:hover{background:var(--tint2)}
 
       <!-- Recent price movements -->
       <div class="eyebrow" style="margin-bottom:8px">Recent price movements — from invoices</div>
-      <div class="card"><table>
+      <div class="card tscroll"><table>
         <thead><tr><th>When</th><th>Supplier</th><th>Part no</th><th style="text-align:right">Was</th><th style="text-align:right">Now</th><th style="text-align:right">Change</th></tr></thead>
         <tbody id="driftRows"><tr><td colspan="6" style="color:var(--ink3)">No invoice-driven changes yet.</td></tr></tbody>
       </table></div>
@@ -512,6 +535,10 @@ tbody tr:hover{background:var(--tint2)}
 <aside class="drawer" id="drawer" aria-label="Lead detail">
   <div class="drawer-head">
     <button class="drawer-close" onclick="closeDrawer()">✕</button>
+    <!-- A bare ✕ in the corner does not read as "go back" on a full-screen
+         phone drawer. This says what it does. Hidden on desktop, where the
+         drawer is a side panel and the ✕ is unambiguous. -->
+    <button class="drawer-back-btn" onclick="closeDrawer()">‹ Back to leads</button>
     <div class="ref" id="dRef">SS-1000</div>
     <h2 id="dName">—</h2>
     <div class="meta" id="dMeta">—</div>
