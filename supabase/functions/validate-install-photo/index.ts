@@ -185,7 +185,22 @@ Deno.serve(async (req) => {
     }
 
     // Install evidence shares the assessment-photos bucket under an install/ prefix.
-    const { data: file, error: dlErr } = await admin.storage.from("assessment-photos").download(photo.storage_path);
+    // Downscale on download: phone photos run 4-6.5MB and the vision API caps an
+    // image at 5MB, so full-size uploads were guaranteed rejections. The model
+    // resizes to ~1500px internally anyway, so nothing is lost. Storage image
+    // transformation is a plan feature — fall back to the raw file if it is
+    // unavailable rather than failing the check.
+    let file: Blob | null = null;
+    let dlErr: { message?: string } | null = null;
+    {
+      const t = await admin.storage.from("assessment-photos")
+        .download(photo.storage_path, { transform: { width: 1568, quality: 80 } });
+      if (t.data) file = t.data;
+      else {
+        const raw = await admin.storage.from("assessment-photos").download(photo.storage_path);
+        file = raw.data; dlErr = raw.error;
+      }
+    }
     if (dlErr || !file) return json({ error: `could not read the photo: ${dlErr?.message || "missing"}` }, 400);
     const bytes = new Uint8Array(await file.arrayBuffer());
     // Chunked: String.fromCharCode(...bytes) blows the call stack on a
@@ -195,7 +210,12 @@ Deno.serve(async (req) => {
       bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
     }
     const b64 = btoa(bin);
-    const mediaType = photo.storage_path.endsWith(".png") ? "image/png" : "image/jpeg";
+    // Sniff the real format — a transformed download may not match the file
+    // extension, and a wrong media_type is an API rejection.
+    const mediaType =
+      bytes[0] === 0x89 && bytes[1] === 0x50 ? "image/png"
+      : bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 ? "image/webp"
+      : "image/jpeg";
 
     const prompt = `You are auditing a photograph of completed solar installation work in New South Wales, Australia.
 

@@ -232,12 +232,17 @@ const AI_STYLE={
 function aiPanel(rowId){
   const a=AI[rowId]; if(!a) return '';
   const [label,bg,fg]=AI_STYLE[a.verdict]||AI_STYLE.not_checked;
-  const findings=(a.findings||[]).map(f=>`
+  const findings=(a.findings&&a.findings.length)
+    ? a.findings.map(f=>`
     <div style="border-top:1px solid var(--line);padding:7px 0">
       <div style="font-family:var(--mono,monospace);font-size:.7rem;color:${fg};font-weight:700">${esc(f.clause||'')}</div>
       <div style="font-size:.78rem;color:var(--ink2)">${esc(f.parameter||'')}</div>
       <div style="font-size:.78rem;margin-top:2px"><b>Seen:</b> ${esc(f.observed||'')}</div>
-    </div>`).join('');
+    </div>`).join('')
+    // Backfilled from the photo row after a reload: findings were flattened to
+    // one auditable line each when stored, so render them as lines.
+    : (a.lines||[]).map(l=>`
+    <div style="border-top:1px solid var(--line);padding:7px 0;font-size:.78rem;color:var(--ink2)">${esc(l)}</div>`).join('');
   return `<div style="background:${bg};border-radius:10px;padding:9px 11px;margin-top:7px">
     <div style="font-weight:700;font-size:.8rem;color:${fg}">${label}</div>
     ${a.summary?`<div style="font-size:.8rem;color:var(--ink2);margin-top:2px">${esc(a.summary)}</div>`:''}
@@ -289,7 +294,21 @@ async function openInstall(id){
     ? `<br>👤 ${esc(i.customer_name)}${tel?` · <a href="tel:${tel}">${esc(i.customer_mobile)}</a>`:''}`
     : '';
   $('jobMeta').innerHTML=`${esc(i.ss_ref||'')} · ${esc(i.status.replace('_',' '))}${i.pipeline==='subcontractor'?' · subcontractor':''}${contact}`;
-  const { data:ph } = await db.from('install_photos').select('id,step_key,storage_path,na_reason').eq('install_id',id);
+  const { data:ph } = await db.from('install_photos').select('id,step_key,storage_path,na_reason,ai_verdict,ai_reasons,ai_count').eq('install_id',id);
+  // Verdicts must survive a reload: they live on the photo row, not in this
+  // page's memory. And any stored photo the checker never reached — offline at
+  // the time, or the checker was down — is retried here, one at a time, so a
+  // job self-heals the next time it is opened.
+  const unchecked=[];
+  (ph||[]).forEach(p=>{
+    if(p.ai_verdict){
+      AI[p.id]={verdict:p.ai_verdict, summary:(p.ai_reasons||[])[0]||'', lines:(p.ai_reasons||[]).slice(1)};
+      if(Number.isFinite(Number(p.ai_count))) COUNTS[p.id]=Number(p.ai_count);
+    } else if(p.storage_path){ unchecked.push(p.id); }
+  });
+  if(unchecked.length){
+    (async()=>{ for(const pid of unchecked){ await checkCompliance(pid); } })();
+  }
   const paths=(ph||[]).filter(p=>p.storage_path).map(p=>p.storage_path); const urlMap={};
   if(paths.length){ const { data:su } = await db.storage.from('assessment-photos').createSignedUrls(paths,3600); (su||[]).forEach(x=>{ if(x.path&&x.signedUrl) urlMap[x.path]=x.signedUrl; }); }
   (ph||[]).forEach(p=>{ const e=store[p.step_key]=store[p.step_key]||{photos:[],na:null}; if(p.na_reason) e.na=p.na_reason; else if(p.storage_path) e.photos.push({rowId:p.id,storage_path:p.storage_path,localUrl:urlMap[p.storage_path]}); });
