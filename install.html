@@ -106,7 +106,11 @@ input.f,textarea.f,select.f{width:100%;border:1px solid var(--line2);border-radi
   </section>
 </div>
 
-<input id="fileInput" type="file" accept="image/*" capture="environment" multiple style="display:none">
+<!-- No capture="environment": that attribute forces the live camera on iOS and
+     hides the photo library entirely, so work already photographed — panels
+     mounted before the app was open, or a shot taken while offline — could
+     never be filed. Both routes are allowed; the record states which was used. -->
+<input id="fileInput" type="file" accept="image/*" multiple style="display:none">
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -266,7 +270,7 @@ function renderJob(){
     const tiles=e.photos.map(p=>`<div class="thumb">${p.localUrl?`<img src="${p.localUrl}">`:''}<span class="b" style="background:var(--safe);color:#fff">📍</span><button class="x" onclick="rmPhoto('${st.key}','${p.rowId}')">✕</button></div>`).join('');
     return `<div class="card"><div class="row"><b>${esc(st.title)}${required?'':' <span class="sub">(optional)</span>'}</b>${chip}</div>
       ${e.na?`<div class="sub" style="margin-top:6px">N/A — ${esc(e.na)}</div>`:`<div class="grid">${tiles}</div>${e.photos.map(p=>aiPanel(p.rowId)).join('')}`}
-      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-sm" onclick="pick('${st.key}')">📷 Add photo</button>${required?'':`<button class="btn btn-sm" onclick="markNA('${st.key}')">Mark N/A</button>`}</div></div>`;
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-sm" onclick="pick('${st.key}')">📷 Camera or library</button>${required?'':`<button class="btn btn-sm" onclick="markNA('${st.key}')">Mark N/A</button>`}</div></div>`;
   };
   const missing=REQUIRED.filter(st=>{ const e=store[st.key]||{photos:[],na:null}; return !(e.na||e.photos.length); });
   $('jobBody').innerHTML =
@@ -299,7 +303,15 @@ async function addPhotos(files){
     if(!f) continue;
     const localUrl=URL.createObjectURL(f); toast('Uploading…');
     const [lat,lng]=await getGPS(); const sha256=await sha256Hex(f);
-    const it={ install_id:curId, step_key:stepKey, lat, lng, sha256, bytes:f.size, taken_at:new Date().toISOString(), blob:f };
+    // taken_at is when the PHOTO was taken, not when it was filed. The file's
+    // own timestamp gives us that, so a shot uploaded from the camera roll an
+    // hour later still carries its true time. Falls back to now when the
+    // browser gives no timestamp. A gap between taken_at and created_at is a
+    // legitimate signal that a photo was filed after the fact, not live.
+    const shotAt = (f.lastModified && f.lastModified > 0)
+      ? new Date(f.lastModified).toISOString()
+      : new Date().toISOString();
+    const it={ install_id:curId, step_key:stepKey, lat, lng, sha256, bytes:f.size, taken_at:shotAt, blob:f };
     let res=null;
     if(navigator.onLine){ try{ res=await pushItem(it); }catch(e){ res=null; } }
     const e=store[stepKey]=store[stepKey]||{photos:[],na:null}; e.na=null;
