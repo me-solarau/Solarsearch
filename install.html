@@ -213,8 +213,20 @@ async function loadInstalls(){
   const rows = JOBS.filter(j=>['scheduled','in_progress'].includes(j.status));
   $('list').innerHTML = rows.length ? rows.map(j=>{
     const addr=[j.address,j.postcode].filter(Boolean).join(' ')||j.suburb||j.ss_ref||'Install';
-    return `<div class="card"><div class="row"><div><b>${esc(addr)}</b><div class="sub">${esc(j.ss_ref||'')} · ${esc(j.status.replace('_',' '))}${j.pipeline==='subcontractor'?' · sub':''}</div></div><button class="btn btn-ink btn-sm" onclick="openInstall('${j.id}')">Open</button></div></div>`;
+    // Label the action for what the installer came here to do. "Open" told them
+    // nothing on a roof — they were looking for a camera and saw a filing verb.
+    const label=j.status==='scheduled'?'📍 Start job':'📷 Take photos';
+    return `<div class="card"><div class="row"><div><b>${esc(addr)}</b><div class="sub">${esc(j.ss_ref||'')} · ${esc(j.status.replace('_',' '))}${j.pipeline==='subcontractor'?' · sub':''}</div></div><button class="btn btn-ink btn-sm" onclick="openInstall('${j.id}')">${label}</button></div></div>`;
   }).join('') : '<div class="card sub">No installs assigned yet.</div>';
+
+  // Deep link: /install.html#SS-1037 or #<install_id> opens that job straight
+  // at its photo steps, so a job can be sent to someone already on site
+  // without them having to find it in a list.
+  const want=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();
+  if(want){
+    const j=JOBS.find(x=>x.id===want||(x.ss_ref||'').toLowerCase()===want.toLowerCase());
+    if(j) openInstall(j.id);
+  }
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
