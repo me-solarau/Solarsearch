@@ -71,6 +71,7 @@ input.f,textarea.f,select.f{width:100%;border:1px solid var(--line2);border-radi
     <h1 id="jobAddr">Install</h1>
     <div class="sub" id="jobMeta"></div>
     <div id="queueBanner" class="note" style="display:none"></div>
+    <div id="jobProgress"></div>
     <div id="jobBody"></div>
   </section>
 
@@ -123,6 +124,8 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
 const $=id=>document.getElementById(id);
 let MY_INSTALLER_ID=null, curId=null, curInstall=null, activeStep=null;
 let store={};  // step_key -> {photos:[{rowId,localUrl,storage_path,queued}], na}
+// Step display order only. Capture itself is never sequenced — see renderJob.
+let STEP_SORT='todo';
 
 /* Steps.
    `min(job)` sets how many photos the step needs — the array shot proves the
@@ -312,11 +315,42 @@ function renderJob(){
     return n>=want?null:{st,n,want};
   }).filter(Boolean);
 
+  // Steps are deliberately unordered — every installer has their own routine and
+  // the app should not impose one. What is enforced is the finish line: the
+  // report will not open until every required step is satisfied. The default
+  // sort floats what is still outstanding to the top so the next gap is easy to
+  // find from anywhere on the roof; "Job order" restores the canonical list for
+  // anyone who prefers to work top to bottom.
+  const doneCount=req.length-short.length;
+  const photosHave=req.reduce((a,st)=>a+Math.min((store[st.key]||{photos:[]}).photos.length,need(st)),0);
+  const photosWant=req.reduce((a,st)=>a+need(st),0);
+  const pct=photosWant?Math.round(photosHave/photosWant*100):100;
+  $('jobProgress').innerHTML=`
+    <div class="card" style="padding:13px 15px;margin-bottom:12px">
+      <div class="row"><b>${doneCount} of ${req.length} steps complete</b>
+        <span class="chip ${short.length?'todo':'pass'}">${pct}%</span></div>
+      <div style="height:7px;background:var(--tint2);border-radius:99px;margin:9px 0 7px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${short.length?'var(--amber)':'var(--safe)'};border-radius:99px;transition:width .3s"></div>
+      </div>
+      <div class="sub">${photosHave} of ${photosWant} photos · <b>shoot in any order</b> — the report unlocks at 100%.</div>
+      <div style="display:flex;gap:8px;margin-top:9px">
+        <button class="btn btn-sm" onclick="setStepSort('todo')"${STEP_SORT==='todo'?' disabled':''}>Outstanding first</button>
+        <button class="btn btn-sm" onclick="setStepSort('job')"${STEP_SORT==='job'?' disabled':''}>Job order</button>
+      </div>
+    </div>`;
+
+  const outstanding=st=>{ const e=store[st.key]||{photos:[],na:null};
+    return !(e.na||e.photos.length>=need(st)); };
+  const ordered=STEP_SORT==='todo'
+    ? [...req].sort((a,b)=>(outstanding(a)?0:1)-(outstanding(b)?0:1))
+    : req;
+
   $('jobBody').innerHTML =
-    req.map(st=>card(st,true)).join('') + OPTIONAL.filter(applies).map(st=>card(st,false)).join('') +
-    (short.length?`<div class="gate show">${short.map(s=>`${esc(s.st.title)} — ${s.n} of ${s.want}`).join('<br>')}</div>`:'') +
-    `<button class="btn btn-safe btn-block" ${short.length?'disabled':''} onclick="showView('v-report')" style="margin-top:8px">Continue to completion report →</button>`;
+    ordered.map(st=>card(st,true)).join('') + OPTIONAL.filter(applies).map(st=>card(st,false)).join('') +
+    (short.length?`<div class="gate show"><b>Still needed</b><br>${short.map(s=>`${esc(s.st.title)} — ${s.n} of ${s.want}`).join('<br>')}</div>`:'') +
+    `<button class="btn btn-safe btn-block" ${short.length?'disabled':''} onclick="showView('v-report')" style="margin-top:8px">${short.length?'Complete all steps to continue':'Continue to completion report →'}</button>`;
 }
+function setStepSort(s){ STEP_SORT=s; renderJob(); }
 
 async function startInstall(){
   // This used to look dead: it awaited the GPS fix with no feedback, so if the
