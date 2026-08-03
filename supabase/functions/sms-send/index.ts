@@ -75,9 +75,18 @@ export async function sendSms(opts: {
 }) {
   if (!K_KEY || !K_SECRET || !K_FROM) return { ok: false, status: 503, error: "kudosity not configured" };
 
-  // opt-out gate
+  // Opt-out gate, two layers.
+  // sms_suppressions is the standalone do-not-text list: every inbound STOP
+  // lands there via a DB trigger, whether or not the sender matches a customer
+  // row. The customer flag alone dropped real opt-outs on the floor because the
+  // senders were not customers yet. A STOP from anyone must stick.
   const digits = normPhone(opts.to);
   if (digits) {
+    const sup = await (await sbFetch(
+      `sms_suppressions?select=number&number=eq.${toIntl(opts.to)}`)).json().catch(() => []);
+    if (Array.isArray(sup) && sup.length) {
+      return { ok: false, status: 403, error: "recipient on the STOP suppression list" };
+    }
     const rows = await (await sbFetch(`customers?sms_opt_out=eq.true&select=mobile`)).json().catch(() => []);
     if (Array.isArray(rows) && rows.some((r: { mobile?: string }) => normPhone(r.mobile || "") === digits)) {
       return { ok: false, status: 403, error: "recipient opted out" };
