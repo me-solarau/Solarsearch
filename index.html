@@ -154,7 +154,21 @@ footer .logo .wm{color:var(--amber)}
 .dash-cards .dc h5{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-bottom:6px}
 .dash-cards .dc .row{display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:3px}
 .dash-cards .dc .row b{font-family:var(--mono)}
+.dash-cards .dc ul{list-style:none;display:grid;gap:4px}
+.dash-cards .dc ul li{display:flex;gap:5px;align-items:flex-start;font-size:.68rem;color:var(--ink-2)}
+.dash-cards .dc ul li svg{flex:none;color:var(--green);margin-top:1px}
+.dash-cards .dc .quote-row{display:flex;align-items:center;gap:6px;font-size:.7rem;margin-bottom:5px}
+.dash-cards .dc .quote-row i{width:7px;height:7px;border-radius:50%;flex:none}
+.dash-cards .dc .quote-row span{flex:1;color:var(--ink-2)}
+.dash-cards .dc .quote-row b{font-family:var(--mono)}
 .dash-note{font-family:var(--mono);font-size:.6rem;color:var(--ink-3);text-align:center;padding:6px 0 2px;letter-spacing:.04em}
+.dash-stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);margin-top:14px}
+.dash-stats .ds{padding:12px 8px 0;text-align:center}
+.dash-stats .ds .v{font-family:var(--mono);font-weight:700;font-size:.86rem}
+.dash-stats .ds .l{font-size:.6rem;color:var(--ink-3);margin-top:2px}
+.dtop-icons{display:flex;align-items:center;gap:10px}
+.dtop-icons svg{color:var(--ink-3)}
+.dtop-icons .av{width:24px;height:24px;border-radius:50%;background:var(--tint);display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:var(--ink)}
 
 /* ---------- three-audience cards (color-coded) ---------- */
 .aud-section{padding:56px 0 0}
@@ -531,10 +545,22 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
           <span>Installers</span>
           <span>Installation</span>
           <span>Payments</span>
+          <span>Compliance</span>
+          <span>Reports</span>
+          <span>Messages</span>
+          <span>Settings</span>
         </nav>
       </div>
       <div class="dash-main">
-        <div class="dtop"><b>Project Overview</b><span class="dash-pill">On track</span></div>
+        <div class="dtop">
+          <b>Project Overview</b>
+          <div class="dtop-icons">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10a6 6 0 0112 0v4l1.5 3h-15L6 14v-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 20a2 2 0 004 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16v10H8l-4 3.5V6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+            <span class="av">JK</span>
+            <span class="dash-pill">On track</span>
+          </div>
+        </div>
         <div class="dash-addr mono">Illustrative example · not a live screenshot</div>
         <div class="dash-steps">
           <div class="dash-step done"><span class="dot">✓</span><span class="lbl">Accepted</span></div>
@@ -544,9 +570,27 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
           <div class="dash-step"><span class="dot"></span><span class="lbl">Paid 50%</span></div>
         </div>
         <div class="dash-cards">
-          <div class="dc"><h5>Design</h5><div class="row"><span>System</span><b>6.6kW + 10kWh</b></div><div class="row"><span>Suburb</span><b>Newcastle</b></div></div>
-          <div class="dc"><h5>Milestones</h5><div class="row"><span>Deposit</span><b>10%</b></div><div class="row"><span>Funded</span><b>40%</b></div><div class="row"><span>Final</span><b>50%</b></div></div>
-          <div class="dc"><h5>Next step</h5><div class="row"><span>Install</span><b>24 biz hrs</b></div></div>
+          <div class="dc">
+            <h5>Accredited design · 6.6kW</h5>
+            <ul>
+              <li><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>AIKO 465W panels</li>
+              <li><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>GoodWe ESA inverter</li>
+              <li><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>10kWh battery</li>
+            </ul>
+          </div>
+          <div class="dc">
+            <h5>Quotes (3)</h5>
+            <div class="quote-row"><i style="background:var(--red)"></i><span>Retailer One</span><b>$8,250</b></div>
+            <div class="quote-row"><i style="background:var(--amber)"></i><span>Retailer Two</span><b>$8,495</b></div>
+            <div class="quote-row"><i style="background:var(--green)"></i><span>Retailer Three</span><b>$8,890</b></div>
+          </div>
+          <div class="dc"><h5>Next step</h5><div class="row"><span>Install</span><b>24 biz hrs</b></div><div class="row"><span>Final 50%</span><b>on verify</b></div></div>
+        </div>
+        <div class="dash-stats">
+          <div class="ds"><div class="v">$8,250</div><div class="l">Project value</div></div>
+          <div class="ds"><div class="v">6.6 kW</div><div class="l">System size</div></div>
+          <div class="ds"><div class="v">9,100 kWh</div><div class="l">Est. generation/yr</div></div>
+          <div class="ds"><div class="v">$1,642</div><div class="l">Est. savings/yr</div></div>
         </div>
       </div>
     </div>
@@ -728,7 +772,7 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
     <span class="eyebrow" style="justify-content:center;display:flex"><span class="dot"></span>Equipment on the platform</span>
     <div class="b-sub">Brands installers on Solarsearch commonly spec — not exclusive partnerships.</div>
     <div class="brand-chips">
-      <span>Jinko Solar</span><span>Trina</span><span>REC</span><span>Sungrow</span><span>Fronius</span><span>GoodWe</span><span>Tesla Powerwall</span><span>BYD</span>
+      <span>Jinko Solar</span><span>Trina</span><span>REC</span><span>Sungrow</span><span>Fronius</span><span>GoodWe</span><span>Enphase</span><span>Sigenergy</span><span>Tesla Powerwall</span><span>BYD</span>
     </div>
   </div>
 </div>
