@@ -138,6 +138,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
         <option value="1" selected>8 kWh</option>
         <option value="2">16 kWh</option>
         <option value="3">24 kWh</option>
+        <option value="4">32 kWh</option>
+        <option value="5">40 kWh</option>
+        <option value="6">48 kWh</option>
       </select>
     </div>
     <div class="field-err" id="qErr" role="alert"></div>
@@ -154,6 +157,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
       <div class="after" id="qAfter">$—<small> installed</small></div>
       <span class="save" id="qRebate">— federal rebates already applied</span>
       <div class="floor-note" id="qFloorNote" style="display:none">Priced at the 6.6kW minimum job size — your system generates more STCs than a smaller job would earn.</div>
+      <div class="floor-note" id="qPhaseNote" style="display:none;color:var(--red)">This system needs 3-phase power at your property. Most homes only have single-phase — we'll confirm what you've got at the free assessment.</div>
     </div>
     <div class="q-stats">
       <div class="q-stat"><div class="v" id="sSize">— kW</div><div class="l">system size</div></div>
@@ -235,6 +239,7 @@ $('qForm').addEventListener('submit', async (e) => {
     $('qAfter').innerHTML = fmt(data.total_incl_gst) + '<small> installed</small>';
     $('qRebate').textContent = '– ' + fmt(data.stc_rebate) + ' federal rebates already applied';
     $('qFloorNote').style.display = data.min_job_charge_applied ? 'block' : 'none';
+    $('qPhaseNote').style.display = /3-phase/i.test(data.inverter || '') ? 'block' : 'none';
     $('sSize').textContent = data.system_kw + ' kW';
     $('sPanel').textContent = data.panel;
     $('sInv').textContent = data.inverter;

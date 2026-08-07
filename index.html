@@ -188,6 +188,7 @@ footer .logo .wm{color:var(--amber)}
 .audience-card .a-visual svg{width:100%;height:100%}
 .audience-card .a-visual img{width:100%;height:100%;object-fit:cover;display:block}
 .audience-card.a-installer .a-visual img{object-fit:cover;object-position:top center}
+.audience-card.a-retailer .a-visual img{object-fit:cover;object-position:top center}
 .audience-card.a-home{border-color:#CDE7D8}
 .audience-card.a-home .a-icon,.audience-card.a-home .a-visual{background:var(--green-soft)}
 .audience-card.a-home .a-eyebrow,.audience-card.a-home ul li svg,.audience-card.a-home .a-icon{color:var(--green)}
@@ -736,10 +737,10 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
         <g id="stairSteps"></g>
         <!-- you are here -->
         <g id="youAreHere">
-          <line x1="46" y1="34" x2="46" y2="62" stroke="#FFB100" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <line x1="46" y1="26" x2="46" y2="62" stroke="#FFB100" stroke-width="1.5" stroke-dasharray="3 3"/>
           <circle cx="46" cy="66" r="5" fill="#FFB100"/>
-          <rect x="12" y="12" rx="6" width="112" height="22" fill="#FFB100"/>
-          <text x="68" y="27" text-anchor="middle" font-family="'Spline Sans Mono',monospace" font-size="11" font-weight="700" fill="#0F2E27">YOU ARE HERE</text>
+          <rect x="12" y="4" rx="6" width="112" height="22" fill="#FFB100"/>
+          <text x="68" y="19" text-anchor="middle" font-family="'Spline Sans Mono',monospace" font-size="11" font-weight="700" fill="#0F2E27">YOU ARE HERE</text>
         </g>
       </svg>
       <div class="stair-note">STC factor 6.8/kWh · Jul–Dec 2026 window · declines to ~2.1 by 2030 · source: DCCEEW</div>
@@ -1255,7 +1256,7 @@ function pingPool(){
     const x=x0+i*w, y=bottom-h;
     html+=`<rect x="${x}" y="${y}" width="${w-6}" height="${h}" rx="4" fill="${i===0?'#FFB100':'rgba(255,177,0,'+(0.55-i*0.055)+')'}"/>`;
     if(i===0||i===2||i===4||i===6||i===8){
-      html+=`<text x="${x+(w-6)/2}" y="${y-7}" text-anchor="middle" font-family="'Spline Sans Mono',monospace" font-size="10.5" fill="${i===0?'#FFB100':'#9FC0B4'}" font-weight="${i===0?700:400}">$${v}</text>`;
+      html+=`<text x="${x+(w-6)/2}" y="${y-(i===0?17:7)}" text-anchor="middle" font-family="'Spline Sans Mono',monospace" font-size="10.5" fill="${i===0?'#FFB100':'#9FC0B4'}" font-weight="${i===0?700:400}">$${v}</text>`;
     }
   });
   g.innerHTML=html;
