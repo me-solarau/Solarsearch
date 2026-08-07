@@ -98,7 +98,7 @@ footer .logo .wm{color:var(--amber)}
 .field-err{color:var(--red);font-size:.85rem;margin-top:8px;min-height:1.2em}
 
 /* ---------- dark ecosystem hero ---------- */
-.hero-dark{background:linear-gradient(115deg,#0A211C 0%,var(--ink) 55%,#173F35 100%);color:#fff;padding:64px 0 0;overflow:hidden}
+.hero-dark{background:linear-gradient(100deg,#0A211C 0%,rgba(10,33,28,.94) 40%,rgba(10,33,28,.55) 75%,rgba(10,33,28,.25) 100%),url('/images/house-dusk.png');background-size:cover;background-position:center right;color:#fff;padding:64px 0 0;overflow:hidden}
 .hero-dark-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:20px;align-items:center;padding-bottom:56px}
 @media(max-width:980px){.hero-dark-grid{grid-template-columns:1fr;padding-bottom:0}}
 .hero-dark .eyebrow{color:#9FC0B4}
@@ -158,28 +158,28 @@ footer .logo .wm{color:var(--amber)}
 .audience-card .a-body{padding:26px 26px 28px}
 .audience-card .a-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;margin-bottom:14px}
 .audience-card .a-eyebrow{font-family:var(--mono);font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
-.audience-card h3{font-family:var(--display);font-size:1.18rem;font-weight:700;margin-bottom:8px;line-height:1.2}
+.audience-card h3{font-family:var(--display);font-size:1.18rem;font-weight:700;margin-bottom:8px;line-height:1.2;min-height:2.4em}
 .audience-card .a-sub{font-size:.88rem;color:var(--ink-2);margin-bottom:16px}
 .audience-card ul{list-style:none;display:grid;gap:8px;margin-bottom:22px}
 .audience-card ul li{font-size:.85rem;color:var(--ink-2);display:flex;gap:8px;align-items:flex-start}
 .audience-card ul li svg{flex:none;margin-top:3px}
-.audience-card .a-visual{height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.audience-card .a-visual{height:220px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .audience-card .a-visual svg{width:100%;height:100%}
 .audience-card .a-visual img{width:100%;height:100%;object-fit:cover;display:block}
 .audience-card.a-installer .a-visual img{object-fit:cover;object-position:top center}
 .audience-card.a-home{border-color:#CDE7D8}
 .audience-card.a-home .a-icon,.audience-card.a-home .a-visual{background:var(--green-soft)}
-.audience-card.a-home .a-eyebrow,.audience-card.a-home ul li svg{color:var(--green)}
+.audience-card.a-home .a-eyebrow,.audience-card.a-home ul li svg,.audience-card.a-home .a-icon{color:var(--green)}
 .audience-card.a-home .btn{background:var(--green);color:#fff}
 .audience-card.a-home .btn:hover{background:#136344}
 .audience-card.a-installer{border-color:#C7D9FB}
 .audience-card.a-installer .a-icon,.audience-card.a-installer .a-visual{background:var(--blue-soft)}
-.audience-card.a-installer .a-eyebrow,.audience-card.a-installer ul li svg{color:var(--blue)}
+.audience-card.a-installer .a-eyebrow,.audience-card.a-installer ul li svg,.audience-card.a-installer .a-icon{color:var(--blue)}
 .audience-card.a-installer .btn{background:var(--blue);color:#fff}
 .audience-card.a-installer .btn:hover{background:#1D4ED8}
 .audience-card.a-retailer{border-color:#DCC8FA}
 .audience-card.a-retailer .a-icon,.audience-card.a-retailer .a-visual{background:var(--purple-soft)}
-.audience-card.a-retailer .a-eyebrow,.audience-card.a-retailer ul li svg{color:var(--purple)}
+.audience-card.a-retailer .a-eyebrow,.audience-card.a-retailer ul li svg,.audience-card.a-retailer .a-icon{color:var(--purple)}
 .audience-card.a-retailer .btn{background:var(--purple);color:#fff}
 .audience-card.a-retailer .btn:hover{background:#6D28D9}
 .audience-card .btn{width:100%}
@@ -191,7 +191,7 @@ footer .logo .wm{color:var(--amber)}
 @media(max-width:900px){.journey-steps{flex-wrap:wrap;justify-content:center}.journey-steps::before{display:none}}
 .j-step{display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;flex:1;min-width:130px;padding:0 6px}
 .j-step .j-badge{width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--mono);font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;position:absolute;top:-8px;right:calc(50% - 34px)}
-.j-step .j-icon{width:56px;height:56px;border-radius:50%;background:var(--tint-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:1.3rem}
+.j-step .j-icon{width:56px;height:56px;border-radius:50%;background:var(--tint-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
 .j-step .j-lbl{font-weight:700;font-size:.86rem}
 .j-step .j-sub{font-size:.76rem;color:var(--ink-2);max-width:150px}
 
@@ -554,7 +554,7 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
           <img src="/images/house-dusk.png" alt="Modern home with rooftop solar panels installed" loading="lazy">
         </div>
         <div class="a-body">
-          <div class="a-icon">🏠</div>
+          <div class="a-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 11.5L12 4l8 7.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10v9.5a.5.5 0 00.5.5H10v-5a2 2 0 014 0v5h3.5a.5.5 0 00.5-.5V10" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
           <span class="a-eyebrow">For homeowners</span>
           <h3>Get solar done properly.</h3>
           <p class="a-sub">Your property is assessed once. An accredited design is created. Up to three trusted retailers compete on the exact same system.</p>
@@ -572,7 +572,7 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
           <img src="/images/installer.png" alt="Solarsearch installer" loading="lazy">
         </div>
         <div class="a-body">
-          <div class="a-icon">🔨</div>
+          <div class="a-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 6.5l3 3-7.5 7.5a2.12 2.12 0 01-3-3l7.5-7.5z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 8l4.5-3.5a3 3 0 014 4L18 13" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 19l1.5-1.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg></div>
           <span class="a-eyebrow">For installers</span>
           <h3>Stop chasing work. Start installing.</h3>
           <p class="a-sub">Join Australia's growing network of approved installers and get quality work with better payment protection.</p>
@@ -600,7 +600,7 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
           </svg>
         </div>
         <div class="a-body">
-          <div class="a-icon">🏢</div>
+          <div class="a-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="3.5" width="10" height="17" rx="1" stroke="currentColor" stroke-width="1.9"/><path d="M15 20v-5.5a1 1 0 011-1h3a1 1 0 011 1V20" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M8 7.5h1M11.5 7.5h1M8 11h1M11.5 11h1M8 14.5h1M11.5 14.5h1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
           <span class="a-eyebrow">For retailers</span>
           <h3>Scale your installations without the headaches.</h3>
           <p class="a-sub">Access vetted installers, manage projects, automate payments and deliver a better customer experience.</p>
@@ -624,12 +624,12 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
     <h2 style="margin-top:12px">From enquiry to installation</h2>
     <p style="color:var(--ink-2)">Connected, transparent and protected — every step.</p>
     <div class="journey-steps">
-      <div class="j-step"><span class="j-badge">1</span><span class="j-icon">📝</span><span class="j-lbl">Customer Assessment</span><span class="j-sub">Homeowner provides details and site information</span></div>
-      <div class="j-step"><span class="j-badge">2</span><span class="j-icon">📐</span><span class="j-lbl">Accredited Design</span><span class="j-sub">An independent, accredited system design is created</span></div>
-      <div class="j-step"><span class="j-badge">3</span><span class="j-icon">⚡</span><span class="j-lbl">Three Retailer Quotes</span><span class="j-sub">Vetted retailers compete on the exact same design</span></div>
-      <div class="j-step"><span class="j-badge">4</span><span class="j-icon">🔨</span><span class="j-lbl">Installer Allocation</span><span class="j-sub">Retailer and installer confirmed, project scheduled</span></div>
-      <div class="j-step"><span class="j-badge">5</span><span class="j-icon">📱</span><span class="j-lbl">Smart Installation</span><span class="j-sub">Digital reports and AI verification ensure quality</span></div>
-      <div class="j-step"><span class="j-badge">6</span><span class="j-icon">💰</span><span class="j-lbl">Protected Payment</span><span class="j-sub">Milestone payments released automatically</span></div>
+      <div class="j-step"><span class="j-badge">1</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5" stroke="currentColor" stroke-width="1.7"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="j-lbl">Customer Assessment</span><span class="j-sub">Homeowner provides details and site information</span></div>
+      <div class="j-step"><span class="j-badge">2</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20L15 4l5 3.5L9 21H4v-1z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 8l4 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="j-lbl">Accredited Design</span><span class="j-sub">An independent, accredited system design is created</span></div>
+      <div class="j-step"><span class="j-badge">3</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 3L5 14h6l-1 7 8-11h-6l1-7z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><span class="j-lbl">Three Retailer Quotes</span><span class="j-sub">Vetted retailers compete on the exact same design</span></div>
+      <div class="j-step"><span class="j-badge">4</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M4 20c0-3 2.2-5 5-5s5 2 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M15 4.5a3 3 0 010 6M17 14.2c1.8.4 3 1.9 3 3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="j-lbl">Installer Allocation</span><span class="j-sub">Retailer and installer confirmed, project scheduled</span></div>
+      <div class="j-step"><span class="j-badge">5</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M11 18.5h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M9.5 6.5l2 2 3-3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="j-lbl">Smart Installation</span><span class="j-sub">Digital reports and AI verification ensure quality</span></div>
+      <div class="j-step"><span class="j-badge">6</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5v9M14.5 9.8c0-1-1-1.8-2.5-1.8s-2.5.8-2.5 1.8c0 2.6 5 1.2 5 3.9 0 1-1 1.8-2.5 1.8s-2.5-.8-2.5-1.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="j-lbl">Protected Payment</span><span class="j-sub">Milestone payments released automatically</span></div>
     </div>
   </div>
 </section>
