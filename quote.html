@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Instant solar &amp; battery estimate from your address | Solarsearch NSW</title>
-<meta name="description" content="Get an instant solar and battery estimate from your address, then a free on-roof assessment. Accredited NSW installers quote the same design so you compare properly.">
+<title>Instant solar &amp; battery price | Solarsearch NSW</title>
+<meta name="description" content="Type how many panels, pick a brand, tell us how much battery — get an instant solar and battery price, then a free on-roof assessment.">
 <link rel="canonical" href="https://solarsearch.com.au/quote.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Solarsearch">
 <meta property="og:url" content="https://solarsearch.com.au/quote.html">
-<meta property="og:title" content="Instant solar &amp; battery estimate from your address">
-<meta property="og:description" content="Start with your address. Free on-roof assessment, then accredited NSW installers quote the same design.">
+<meta property="og:title" content="Instant solar &amp; battery price">
+<meta property="og:description" content="Panels, brand, battery — get an instant price, then a free on-roof assessment.">
 <meta property="og:image" content="https://solarsearch.com.au/icon-512.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20width%3D%2248%22%20height%3D%2248%22%20viewBox%3D%220%200%2048%2048%22%20fill%3D%22none%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2221%22%20r%3D%229%22%20fill%3D%22%23FFB100%22/%3E%3Cg%20stroke%3D%22%23FFB100%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%3E%3Cline%20x1%3D%2221%22%20y1%3D%226.5%22%20x2%3D%2221%22%20y2%3D%229.5%22/%3E%3Cline%20x1%3D%2221%22%20y1%3D%2232.5%22%20x2%3D%2221%22%20y2%3D%2235.5%22/%3E%3Cline%20x1%3D%226.5%22%20y1%3D%2221%22%20x2%3D%229.5%22%20y2%3D%2221%22/%3E%3Cline%20x1%3D%2232.5%22%20y1%3D%2221%22%20x2%3D%2235.5%22%20y2%3D%2221%22/%3E%3Cline%20x1%3D%2210.7%22%20y1%3D%2210.7%22%20x2%3D%2212.9%22%20y2%3D%2212.9%22/%3E%3Cline%20x1%3D%2231.3%22%20y1%3D%2210.7%22%20x2%3D%2229.1%22%20y2%3D%2212.9%22/%3E%3Cline%20x1%3D%2210.7%22%20y1%3D%2231.3%22%20x2%3D%2212.9%22%20y2%3D%2229.1%22/%3E%3C/g%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2221%22%20r%3D%2216%22%20stroke%3D%22%230F2E27%22%20stroke-width%3D%224.5%22/%3E%3Cline%20x1%3D%2232.3%22%20y1%3D%2232.3%22%20x2%3D%2242%22%20y2%3D%2242%22%20stroke%3D%22%230F2E27%22%20stroke-width%3D%226%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E">
@@ -37,110 +37,70 @@ input,select{font-family:inherit}
 :focus-visible{outline:3px solid var(--amber);outline-offset:2px;border-radius:4px}
 .mono{font-family:var(--mono)}
 h1,h2,h3{font-family:var(--display);line-height:1.1;letter-spacing:-.015em}
-.wrap{max-width:1080px;margin:0 auto;padding:0 24px;width:100%}
+.wrap{max-width:640px;margin:0 auto;padding:0 24px;width:100%}
 .eyebrow{font-family:var(--mono);font-size:.72rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
 .eyebrow .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:8px;vertical-align:1px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:999px;font-weight:600;font-size:.95rem;padding:13px 26px;transition:transform .15s,background .15s;text-decoration:none}
 .btn-amber{background:var(--amber);color:var(--ink);box-shadow:0 1px 0 rgba(15,46,39,.15),0 8px 20px -8px rgba(222,143,0,.55)}
 .btn-amber:hover{background:#FFBD26;transform:translateY(-1px)}
+.btn-amber:disabled{opacity:.5;transform:none;cursor:wait}
 .btn-ink{background:var(--ink);color:#fff}
 .btn-ink:hover{background:#1A4038}
 .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line-2)}
 .btn-ghost:hover{border-color:var(--ink-2)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
 header{background:rgba(247,249,246,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
-.nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.nav{display:flex;align-items:center;justify-content:space-between;height:66px;max-width:640px;margin:0 auto;padding:0 24px}
 .logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:1.2rem;text-decoration:none;letter-spacing:-.02em;color:var(--ink)}
 .logo .wm{color:var(--amber-deep)}
 .mode-tag{font-family:var(--mono);font-size:.68rem;letter-spacing:.12em;background:var(--ink);color:var(--amber);padding:6px 13px;border-radius:999px}
 main{flex:1}
 
-/* stage 1: address */
-.ask{max-width:640px;margin:0 auto;padding:72px 24px 40px;text-align:center}
-.ask h1{font-size:clamp(2rem,4.6vw,3rem);font-weight:800;letter-spacing:-.025em}
-.ask .lede{color:var(--ink-2);font-size:1.08rem;margin:16px auto 30px;max-width:460px}
-.ask-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);text-align:left}
-.f-label{display:block;font-size:.84rem;font-weight:600;margin:0 0 8px;color:var(--ink-2)}
-.f-input{width:100%;border:1.5px solid var(--line-2);border-radius:var(--radius-sm);background:var(--panel);padding:14px 16px;font-size:1rem;margin-bottom:18px}
-.f-input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
-/* Google Places autocomplete dropdown (injected into <body>, styled to match) */
-.pac-container{border:1.5px solid var(--line-2);border-radius:var(--radius-sm);margin-top:4px;box-shadow:var(--shadow-lg);font-family:var(--body);overflow:hidden}
-.pac-item{padding:11px 14px;font-size:.92rem;border-top-color:var(--line)}
-.pac-item:first-child{border-top:none}
-.pac-item-query{font-size:.92rem;color:var(--ink)}
-.pac-matched{font-weight:600}
-.pac-icon{display:none}
-.bill-line{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
-.bill-line output{font-family:var(--mono);font-weight:700;font-size:1.15rem}
-input[type=range]{width:100%;appearance:none;-webkit-appearance:none;height:6px;border-radius:99px;background:linear-gradient(to right,var(--amber) 0%,var(--amber) var(--fill,50%),var(--line) var(--fill,50%));margin-bottom:20px}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--ink);border:3px solid #fff;box-shadow:0 2px 8px rgba(15,46,39,.35);cursor:grab}
-input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--ink);border:3px solid #fff;cursor:grab}
-.field-err{color:var(--red);font-size:.85rem;min-height:1.3em;margin:-8px 0 8px}
-.micro{font-size:.78rem;color:var(--ink-3);text-align:center;margin-top:14px}
+.ask{max-width:520px;margin:0 auto;padding:56px 24px 60px;text-align:center}
+.ask h1{font-size:clamp(1.9rem,4.4vw,2.6rem);font-weight:800;letter-spacing:-.025em}
+.ask .lede{color:var(--ink-2);font-size:1.05rem;margin:14px auto 30px;max-width:440px}
+.q-form{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow);text-align:left}
+.f-row{margin-bottom:20px}
+.f-row:last-of-type{margin-bottom:0}
+.f-label{display:flex;justify-content:space-between;align-items:baseline;font-size:.86rem;font-weight:600;margin:0 0 8px;color:var(--ink-2)}
+.f-label output{font-family:var(--mono);color:var(--ink);font-weight:700}
+.f-input,.f-select{width:100%;border:1.5px solid var(--line-2);border-radius:var(--radius-sm);background:var(--panel);padding:13px 15px;font-size:1rem;color:var(--ink)}
+.f-input:focus,.f-select:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.stepper{display:flex;align-items:stretch;gap:8px}
+.stepper button{width:46px;flex:none;border:1.5px solid var(--line-2);border-radius:var(--radius-sm);background:var(--panel);font-size:1.2rem;font-weight:700;color:var(--ink)}
+.stepper button:hover{border-color:var(--ink-2)}
+.stepper button:active{background:var(--tint)}
+.stepper .f-input{text-align:center;font-family:var(--mono);font-weight:700;font-size:1.15rem}
+.field-err{color:var(--red);font-size:.85rem;min-height:1.3em;margin-top:8px}
+.micro{font-size:.78rem;color:var(--ink-3);text-align:center;margin-top:16px}
 
-/* stage 2/3 shared */
-.stage{display:none}
-.stage.active{display:block;animation:rise .35s ease}
+/* result card */
+.q-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;text-align:left;margin-top:26px;display:none}
+.q-card.show{display:block;animation:rise .35s ease}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-
-/* scan + quote layout */
-.quote-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:26px;padding:44px 0 60px;align-items:start}
-@media(max-width:900px){.quote-grid{grid-template-columns:1fr}}
-.roof-panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
-.roof-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.roof-head .a{font-weight:700;font-family:var(--display);font-size:1rem}
-.roof-head .m{font-family:var(--mono);font-size:.7rem;color:var(--ink-3);letter-spacing:.06em}
-.roof-stage{position:relative;background:#20423A}
-.roof-stage svg{display:block;width:100%;height:auto}
-.scanline{position:absolute;left:0;right:0;top:0;height:3px;background:var(--amber);box-shadow:0 0 18px 4px rgba(255,177,0,.75);opacity:0}
-.scanning .scanline{opacity:1;animation:scan 2.4s ease-in-out}
-@keyframes scan{0%{top:0}50%{top:calc(100% - 3px)}100%{top:0}}
-.scan-status{position:absolute;left:16px;bottom:14px;font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;color:#CFE5DA;background:rgba(15,46,39,.75);padding:7px 13px;border-radius:999px}
-.roof-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--ink-2)}
-.roof-foot b{font-family:var(--mono)}
-.legend-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
-
-/* quote card */
-.q-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
 .q-head{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.q-head h2{font-size:1.15rem}
+.q-head h2{font-size:1.05rem}
 .q-head .rules{font-family:var(--mono);font-size:.66rem;color:var(--ink-3);letter-spacing:.06em}
-.q-price{padding:22px 24px 6px;text-align:left}
-.q-price .before{font-family:var(--mono);font-size:.84rem;color:var(--ink-3);text-decoration:line-through}
+.q-price{padding:24px 24px 6px}
 .q-price .after{font-family:var(--mono);font-size:2.6rem;font-weight:700;letter-spacing:-.03em;line-height:1.1}
 .q-price .after small{font-size:.9rem;color:var(--ink-3);font-weight:400;font-family:var(--body)}
-.q-price .save{display:inline-block;font-family:var(--mono);font-size:.74rem;background:var(--green-soft);color:var(--green);padding:4px 10px;border-radius:999px;margin-top:8px}
-.q-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);margin-top:18px;border-top:1px solid var(--line)}
+.q-price .save{display:inline-block;font-family:var(--mono);font-size:.74rem;background:var(--green-soft);color:var(--green);padding:4px 10px;border-radius:999px;margin-top:10px}
+.q-price .floor-note{font-size:.78rem;color:var(--ink-3);margin-top:8px}
+.q-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);margin-top:20px;border-top:1px solid var(--line)}
 .q-stat{background:var(--panel);padding:14px 24px}
-.q-stat .v{font-family:var(--mono);font-weight:700;font-size:1.15rem}
-.q-stat .l{font-size:.74rem;color:var(--ink-3)}
-.q-controls{padding:18px 24px;border-top:1px solid var(--line);background:var(--tint-2)}
-.q-controls .cl{display:flex;justify-content:space-between;font-size:.84rem;font-weight:600;margin-bottom:8px}
-.q-controls .cl output{font-family:var(--mono)}
-.bat-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--panel);border:1.5px solid var(--line-2);border-radius:var(--radius-sm);padding:13px 15px;margin-top:14px;font-size:.9rem;font-weight:600}
-.bat-toggle small{display:block;font-weight:400;color:var(--ink-3);font-size:.76rem}
-.switch{position:relative;width:46px;height:26px;flex:none}
-.switch input{opacity:0;width:100%;height:100%;position:absolute;cursor:pointer;z-index:2;margin:0}
-.switch .tr{position:absolute;inset:0;background:var(--line-2);border-radius:99px;transition:background .15s}
-.switch .tr::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
-.switch input:checked + .tr{background:var(--green)}
-.switch input:checked + .tr::after{transform:translateX(20px)}
-.fin{padding:16px 24px;border-top:1px dashed var(--line-2);font-size:.86rem;color:var(--ink-2);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
-.fin b{font-family:var(--mono);color:var(--ink);font-size:1.05rem}
+.q-stat .v{font-family:var(--mono);font-weight:700;font-size:1rem}
+.q-stat .l{font-size:.72rem;color:var(--ink-3)}
 .q-actions{padding:18px 24px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap}
-.q-actions .btn{flex:1;min-width:160px}
-.assump{font-family:var(--mono);font-size:.64rem;color:var(--ink-3);letter-spacing:.05em;padding:0 24px 18px;line-height:1.7}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:13px 22px;border-radius:999px;font-size:.88rem;z-index:300;opacity:0;transition:all .3s;pointer-events:none;box-shadow:var(--shadow-lg)}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.q-actions .btn{flex:1;min-width:150px}
+.assump{font-family:var(--mono);font-size:.62rem;color:var(--ink-3);letter-spacing:.04em;padding:0 24px 18px;line-height:1.7}
 footer{border-top:1px solid var(--line);padding:18px 0;font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;color:var(--ink-3)}
-footer .wrap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+footer .wrap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;max-width:640px}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="wrap nav">
-    <a class="logo" href="#" onclick="return false;">
+  <div class="nav">
+    <a class="logo" href="/" aria-label="Solarsearch home">
       <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="21" cy="21" r="9" fill="#FFB100"/><g stroke="#FFB100" stroke-width="3" stroke-linecap="round"><line x1="21" y1="6.5" x2="21" y2="9.5"/><line x1="21" y1="32.5" x2="21" y2="35.5"/><line x1="6.5" y1="21" x2="9.5" y2="21"/><line x1="32.5" y1="21" x2="35.5" y2="21"/><line x1="10.7" y1="10.7" x2="12.9" y2="12.9"/><line x1="31.3" y1="10.7" x2="29.1" y2="12.9"/><line x1="10.7" y1="31.3" x2="12.9" y2="29.1"/></g><circle cx="21" cy="21" r="16" stroke="#0F2E27" stroke-width="4.5"/><line x1="32.3" y1="32.3" x2="42" y2="42" stroke="#0F2E27" stroke-width="6" stroke-linecap="round"/></svg>
       solar<span class="wm">search</span>
     </a>
@@ -149,102 +109,63 @@ footer .wrap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 </header>
 
 <main>
+<section class="ask">
+  <span class="eyebrow"><span class="dot"></span>Real pricing · under a minute</span>
+  <h1 style="margin-top:14px">How many panels, what brand, how much battery?</h1>
+  <p class="lede">Answer three questions and get a real price — the same pricing engine our installers quote from.</p>
 
-<!-- ========== STAGE 1: ADDRESS ========== -->
-<section class="stage active" id="stageAsk">
-  <div class="ask">
-    <span class="eyebrow"><span class="dot"></span>Design + price in about 20 seconds</span>
-    <h1 style="margin-top:14px">Point us at your roof.</h1>
-    <p class="lede">We map your roof from imagery, lay out the panels, and price the system with today's rebates — before you talk to anyone.</p>
-    <div class="ask-card">
-      <label class="f-label" for="addr">Property address</label>
-      <input class="f-input" id="addr" placeholder="e.g. 14 Banksia St, Cronulla NSW" autocomplete="street-address">
-      <div class="field-err" id="addrErr" role="alert"></div>
-      <div class="bill-line"><label class="f-label" for="bill" style="margin:0">Quarterly power bill</label><output id="billOut" for="bill">$800</output></div>
-      <input type="range" id="bill" min="200" max="2000" step="50" value="800" aria-label="Quarterly electricity bill">
-      <button class="btn btn-amber" style="width:100%;padding:16px" onclick="startScan()">Scan my roof</button>
-      <p class="micro">Free · no signup · nothing is sent to installers</p>
-    </div>
-  </div>
-</section>
-
-<!-- ========== STAGE 2/3: SCAN + QUOTE ========== -->
-<section class="stage" id="stageQuote">
-  <div class="wrap quote-grid">
-
-    <div class="roof-panel">
-      <div class="roof-head">
-        <span class="a" id="qAddr">14 Banksia St</span>
-        <span class="m" id="scanMeta">MAPPING ROOF…</span>
-      </div>
-      <div class="roof-stage" id="roofStage">
-        <svg viewBox="0 0 560 400" role="img" aria-label="Top-down view of your roof with solar panel layout">
-          <rect x="0" y="0" width="560" height="400" fill="#20423A"/>
-          <g opacity=".5" stroke="#2C5449" stroke-width="1">
-            <path d="M0 60H560M0 340H560" fill="none"/>
-            <circle cx="70" cy="352" r="16" fill="#2C5449" stroke="none"/>
-            <circle cx="500" cy="48" r="22" fill="#2C5449" stroke="none"/>
-            <circle cx="522" cy="66" r="14" fill="#2C5449" stroke="none"/>
-          </g>
-          <rect x="28" y="352" width="180" height="26" rx="6" fill="#3A5A50"/>
-          <g id="house">
-            <rect x="110" y="90" width="340" height="230" rx="8" fill="#57746B" stroke="#7B958C" stroke-width="2"/>
-            <line x1="110" y1="205" x2="450" y2="205" stroke="#7B958C" stroke-width="2"/>
-            <g id="panelLayer"></g>
-            <line x1="110" y1="205" x2="450" y2="205" stroke="#46615A" stroke-width="1" opacity=".4"/>
-          </g>
-          <g font-family="'Spline Sans Mono',monospace" font-size="11" fill="#9FC0B4">
-            <text x="112" y="82">NORTH-FACING PLANE</text>
-            <text x="112" y="338">SOUTH PLANE — NOT USED</text>
-          </g>
-        </svg>
-        <div class="scanline"></div>
-        <div class="scan-status" id="scanStatus">LOCATING PROPERTY…</div>
-      </div>
-      <div class="roof-foot">
-        <span><span class="legend-dot" style="background:#123B63"></span>440 W panel</span>
-        <span>Usable area <b id="roofArea">— m²</b></span>
-        <span>Aspect <b>N / NW</b></span>
-        <span>Shading <b id="roofShade">low</b></span>
+  <form class="q-form" id="qForm" novalidate>
+    <div class="f-row">
+      <label class="f-label" for="panelCount">Panels<output id="panelKw" for="panelCount"></output></label>
+      <div class="stepper">
+        <button type="button" id="panelMinus" aria-label="Fewer panels">−</button>
+        <input class="f-input" type="number" id="panelCount" min="6" max="30" step="1" value="14" inputmode="numeric">
+        <button type="button" id="panelPlus" aria-label="More panels">+</button>
       </div>
     </div>
-
-    <div class="q-card" id="qCard" style="opacity:.35;pointer-events:none;transition:opacity .4s">
-      <div class="q-head">
-        <h2>Your instant quote</h2>
-        <span class="rules">RULES v2026.05 · JUL–DEC WINDOW</span>
-      </div>
-      <div class="q-price">
-        <div class="before" id="qBefore">$— before rebates</div>
-        <div class="after" id="qAfter">$—<small> installed</small></div>
-        <span class="save" id="qRebate">– $— federal rebates</span>
-      </div>
-      <div class="q-stats">
-        <div class="q-stat"><div class="v" id="sSize">— kW</div><div class="l">system size · <span id="sPanels">—</span> panels</div></div>
-        <div class="q-stat"><div class="v" id="sProd">— kWh</div><div class="l">est. generation / year</div></div>
-        <div class="q-stat"><div class="v" id="sSave" style="color:var(--green)">$—</div><div class="l">est. bill savings / year</div></div>
-        <div class="q-stat"><div class="v" id="sPayback">— yrs</div><div class="l">simple payback</div></div>
-      </div>
-      <div class="q-controls">
-        <div class="cl"><label for="panelCount">Panels on roof</label><output id="panelOut" for="panelCount">14 × 440 W</output></div>
-        <input type="range" id="panelCount" min="8" max="24" value="14" aria-label="Number of panels">
-        <div class="bat-toggle">
-          <span>Add a 13.5 kWh battery<small id="batHint">+ $— after the federal battery discount</small></span>
-          <span class="switch"><input type="checkbox" id="batOn" aria-label="Add battery"><span class="tr"></span></span>
-        </div>
-      </div>
-      <div class="fin">
-        <span>Or on a 5-year green loan (7.0% p.a. comparison)</span>
-        <b id="qMonthly">$—/mo</b>
-      </div>
-      <div class="q-actions">
-        <button class="btn btn-ink" onclick="toast('Estimate emailed (demo)')">Email me this quote</button>
-        <button class="btn btn-amber" onclick="handoff()">Book my free home assessment</button>
-      </div>
-      <div class="assump" id="assump">ASSUMES 3.9 kWh/kW/DAY (SYDNEY) · 32c/kWh USAGE · 5c FEED-IN · SELF-USE 40% (75% WITH BATTERY) · ESTIMATE ONLY — FINAL DESIGN CONFIRMED ON SITE</div>
-      <div style="padding:0 24px 20px"><button class="btn btn-ghost" style="width:100%" onclick="resetApp()">↺ Quote a different address</button></div>
+    <div class="f-row">
+      <label class="f-label" for="panelBrand">Panel brand</label>
+      <select class="f-select" id="panelBrand">
+        <option value="AIKO-A465">AIKO Neostar 2S · 465W</option>
+        <option value="TRINA-440">Trina Vertex S+ · 440W</option>
+        <option value="JINKO-440">Jinko Tiger Neo · 440W</option>
+      </select>
     </div>
+    <div class="f-row">
+      <label class="f-label" for="battery">Battery</label>
+      <select class="f-select" id="battery">
+        <option value="0">No battery</option>
+        <option value="1" selected>8 kWh</option>
+        <option value="2">16 kWh</option>
+        <option value="3">24 kWh</option>
+      </select>
+    </div>
+    <div class="field-err" id="qErr" role="alert"></div>
+    <button class="btn btn-amber" type="submit" style="width:100%;padding:15px" id="qSubmit">Get my price</button>
+    <p class="micro">Free · no signup · nothing is sent to installers yet</p>
+  </form>
 
+  <div class="q-card" id="qCard">
+    <div class="q-head">
+      <h2>Your instant price</h2>
+      <span class="rules mono" id="qRules"></span>
+    </div>
+    <div class="q-price">
+      <div class="after" id="qAfter">$—<small> installed</small></div>
+      <span class="save" id="qRebate">— federal rebates already applied</span>
+      <div class="floor-note" id="qFloorNote" style="display:none">Priced at the 6.6kW minimum job size — your system generates more STCs than a smaller job would earn.</div>
+    </div>
+    <div class="q-stats">
+      <div class="q-stat"><div class="v" id="sSize">— kW</div><div class="l">system size</div></div>
+      <div class="q-stat"><div class="v" id="sPanel">—</div><div class="l">panel</div></div>
+      <div class="q-stat"><div class="v" id="sInv">—</div><div class="l">inverter (auto-matched)</div></div>
+      <div class="q-stat"><div class="v" id="sBat">—</div><div class="l">battery</div></div>
+    </div>
+    <div class="q-actions">
+      <button class="btn btn-ghost" type="button" id="qAgain">↺ Different setup</button>
+      <button class="btn btn-amber" type="button" id="qBook">Book my free assessment</button>
+    </div>
+    <div class="assump">ESTIMATE ONLY — INCLUDES GST &amp; FEDERAL REBATES · FINAL DESIGN CONFIRMED ON A FREE ON-ROOF ASSESSMENT · MANDATORY EDGE PROTECTION INCLUDED</div>
   </div>
 </section>
 </main>
@@ -256,146 +177,93 @@ footer .wrap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
   </div>
 </footer>
 
-<div class="toast" id="toastEl" role="status"></div>
-
 <script type="module">
-import { attachAddressAutocomplete } from "/src/lib/address-autocomplete.js";
+import { getSupabaseClient } from "/src/lib/supabase.js";
 
-/* ---------- rebate rules (same engine as main site) ---------- */
-const RULES={v:'v2026.05',stcFactor:6.8,stcPrice:37,tiers:[[14,1],[28,.6],[50,.15]]};
-function batteryRebate(kwh){let stc=0,prev=0;for(const[cap,rate]of RULES.tiers){const span=Math.max(0,Math.min(kwh,cap)-prev);stc+=span*RULES.stcFactor*rate;prev=cap;if(kwh<=cap)break}return Math.floor(stc)*RULES.stcPrice}
-function solarRebate(kw){return Math.floor(kw*34)*RULES.stcPrice}
+const $ = id => document.getElementById(id);
+const fmt = n => '$' + Math.round(n).toLocaleString();
+const sb = getSupabaseClient();
 
-/* ---------- pricing + yield model ---------- */
-const M={panelW:.44,costPerKw:1350,fixed:1600,batKwh:13.5,batCost:2800+820*13.5,
-  yieldPerKwDay:3.9,tariff:.32,fit:.05,selfUse:.40,selfUseBat:.75,loanRate:.07,loanYears:5};
+const PANEL_WATTS = { 'AIKO-A465': 465, 'TRINA-440': 440, 'JINKO-440': 440 };
+const BATTERY_CODE = 'GW8.3-BAT-D';
 
-const S={addr:'',lat:null,lng:null,bill:800,panels:14,maxPanels:20,bat:false,shade:'low'};
+function updatePanelKw(){
+  const qty = +$('panelCount').value || 0;
+  const w = PANEL_WATTS[$('panelBrand').value] || 440;
+  $('panelKw').textContent = (qty * w / 1000).toFixed(1) + ' kW';
+}
+$('panelCount').addEventListener('input', updatePanelKw);
+$('panelBrand').addEventListener('change', updatePanelKw);
+updatePanelKw();
 
-/* ---------- helpers ---------- */
-const $=id=>document.getElementById(id);
-function fmt(n){return '$'+Math.round(n).toLocaleString()}
-function paintRange(el){const p=(el.value-el.min)/(el.max-el.min)*100;el.style.setProperty('--fill',p+'%')}
-let toastT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2800)}
-
-/* ---------- stage 1 ---------- */
-const bill=$('bill');
-bill.addEventListener('input',()=>{S.bill=+bill.value;$('billOut').textContent='$'+S.bill;paintRange(bill)});
-paintRange(bill);
-$('addr').addEventListener('keydown',e=>{
-  // Skip if Enter is being used to accept a Places suggestion (dropdown open).
-  if(e.key==='Enter' && e.target.getAttribute('aria-expanded')!=='true') startScan();
+$('panelMinus').addEventListener('click', () => {
+  const el = $('panelCount');
+  el.value = Math.max(+el.min, +el.value - 1);
+  updatePanelKw();
 });
-attachAddressAutocomplete($('addr'), { onPlaceSelected:(p)=>{ S.lat=p.lat; S.lng=p.lng; } });
+$('panelPlus').addEventListener('click', () => {
+  const el = $('panelCount');
+  el.value = Math.min(+el.max, +el.value + 1);
+  updatePanelKw();
+});
 
-function hashStr(s){let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return h}
+$('qForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const qty = +$('panelCount').value;
+  if (!qty || qty < 6) { $('qErr').textContent = 'Enter at least 6 panels.'; return; }
+  if (qty > 30) { $('qErr').textContent = 'For 30+ panels, book a free assessment — commercial-scale systems need a site visit.'; return; }
+  $('qErr').textContent = '';
 
-function startScan(){
-  const a=$('addr').value.trim();
-  if(a.length<6){$('addrErr').textContent='Enter a street address so we can find the roof.';return}
-  $('addrErr').textContent='';
-  S.addr=a;
-  const h=hashStr(a.toLowerCase());
-  S.maxPanels=14+(h%11);                 // 14–24 panels of roof capacity
-  S.shade=['low','low','low','moderate'][h%4];
-  const targetKw=S.bill<=500?6.6:S.bill<=900?8.8:S.bill<=1400?10.6:13.2;
-  S.panels=Math.min(S.maxPanels,Math.max(8,Math.round(targetKw/M.panelW)));
-  S.bat=false;$('batOn').checked=false;
+  const batteryUnits = +$('battery').value;
+  const submitBtn = $('qSubmit');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Pricing…';
 
-  $('stageAsk').classList.remove('active');
-  $('stageQuote').classList.add('active');
-  $('qAddr').textContent=S.addr;
-  $('roofShade').textContent=S.shade;
-  $('qCard').style.opacity=.35;$('qCard').style.pointerEvents='none';
-  $('panelLayer').innerHTML='';
-  $('roofArea').textContent='— m²';
+  try {
+    const { data, error } = await sb.rpc('instant_quote', {
+      p: {
+        panel_qty: qty,
+        panel_code: $('panelBrand').value,
+        battery_qty: batteryUnits,
+        battery_code: batteryUnits > 0 ? BATTERY_CODE : null,
+        margin_pct: 34
+      }
+    });
+    if (error) throw error;
+    if (data && data.error) { $('qErr').textContent = "Couldn't price that setup — try again."; return; }
 
-  const stage=$('roofStage');
-  stage.classList.add('scanning');
-  const msgs=['LOCATING PROPERTY…','MEASURING ROOF PLANES…','CHECKING SHADING…','PLACING PANELS…'];
-  msgs.forEach((m,i)=>setTimeout(()=>{$('scanStatus').textContent=m},i*650));
-  setTimeout(()=>{
-    stage.classList.remove('scanning');
-    $('scanStatus').textContent='DESIGN COMPLETE';
-    $('scanMeta').textContent='IMAGERY PRE-ASSESSMENT · CONFIRMED ON SITE';
-    $('roofArea').textContent=Math.round(S.maxPanels*2.1*1.9)+' m²';
-    const pc=$('panelCount');pc.max=S.maxPanels;pc.value=S.panels;paintRange(pc);
-    drawPanels(true);
-    recalc();
-    $('qCard').style.opacity=1;$('qCard').style.pointerEvents='auto';
-  },2600);
-}
+    $('qAfter').innerHTML = fmt(data.total_incl_gst) + '<small> installed</small>';
+    $('qRebate').textContent = '– ' + fmt(data.stc_rebate) + ' federal rebates already applied';
+    $('qFloorNote').style.display = data.min_job_charge_applied ? 'block' : 'none';
+    $('sSize').textContent = data.system_kw + ' kW';
+    $('sPanel').textContent = data.panel;
+    $('sInv').textContent = data.inverter;
+    $('sBat').textContent = data.battery_kwh > 0 ? data.battery_kwh + ' kWh' : 'None';
+    $('qRules').textContent = 'RULES ' + (data.rules_version || '').toUpperCase();
 
-/* ---------- roof drawing ---------- */
-function drawPanels(animate){
-  const layer=$('panelLayer');
-  const cols=8, pw=38, ph=32, gx=3, gy=4, x0=118, y0=96;
-  let html='';
-  for(let i=0;i<Math.min(S.panels,24);i++){
-    const r=Math.floor(i/cols), c=i%cols;
-    const x=x0+c*(pw+gx), y=y0+r*(ph+gy);
-    const d=animate?`style="opacity:0;animation:pin .25s ease forwards;animation-delay:${i*55}ms"`:''; 
-    html+=`<g ${d}><rect x="${x}" y="${y}" width="${pw}" height="${ph}" rx="2.5" fill="#123B63" stroke="#3E70A5" stroke-width="1.2"/><line x1="${x+pw/2}" y1="${y+2}" x2="${x+pw/2}" y2="${y+ph-2}" stroke="#2A5A8C" stroke-width="1"/><line x1="${x+2}" y1="${y+ph/2}" x2="${x+pw-2}" y2="${y+ph/2}" stroke="#2A5A8C" stroke-width="1"/></g>`;
+    $('qCard').classList.add('show');
+    $('qCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    window.__lastQuote = { kw: data.system_kw, bat: data.battery_kwh > 0 };
+  } catch (err) {
+    console.error(err);
+    $('qErr').textContent = "Something went wrong getting your price — please try again.";
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Get my price';
   }
-  layer.innerHTML=html;
-  if(!document.getElementById('pinKf')){
-    const st=document.createElement('style');st.id='pinKf';
-    st.textContent='@keyframes pin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}';
-    document.head.appendChild(st);
-  }
-}
+});
 
-/* ---------- quote maths ---------- */
-function recalc(){
-  const kw=+(S.panels*M.panelW).toFixed(2);
-  const shadeF=S.shade==='moderate'?0.92:1;
-  const gen=Math.round(kw*M.yieldPerKwDay*365*shadeF);
-  let before=M.fixed+M.costPerKw*kw;
-  let rebate=solarRebate(kw);
-  if(S.bat){before+=M.batCost;rebate+=batteryRebate(M.batKwh)}
-  const after=before-rebate;
-  const selfUse=S.bat?M.selfUseBat:M.selfUse;
-  const save=Math.min(S.bill*4*0.95, Math.round(gen*(selfUse*M.tariff+(1-selfUse)*M.fit)));
-  const payback=(after/save).toFixed(1);
-  const r=M.loanRate/12,n=M.loanYears*12;
-  const monthly=after*r/(1-Math.pow(1+r,-n));
+$('qAgain').addEventListener('click', () => {
+  $('qCard').classList.remove('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 
-  $('qBefore').textContent=fmt(before)+' before rebates';
-  $('qAfter').innerHTML=fmt(after)+'<small> installed</small>';
-  $('qRebate').textContent='– '+fmt(rebate)+' federal rebates';
-  $('sSize').textContent=kw+' kW';
-  $('sPanels').textContent=S.panels;
-  $('sProd').textContent=gen.toLocaleString()+' kWh';
-  $('sSave').textContent=fmt(save);
-  $('sPayback').textContent=payback+' yrs';
-  $('qMonthly').textContent=fmt(monthly)+'/mo';
-  $('panelOut').textContent=S.panels+' × 440 W';
-  $('batHint').textContent='+ '+fmt(M.batCost-batteryRebate(M.batKwh))+' after the federal battery discount';
-}
-
-const pc=$('panelCount');
-pc.addEventListener('input',()=>{S.panels=+pc.value;paintRange(pc);drawPanels(false);recalc()});
-$('batOn').addEventListener('change',e=>{S.bat=e.target.checked;recalc();toast(S.bat?'Battery added — self-use jumps to 75%':'Battery removed')});
-
-function handoff(){
-  const kw=(S.panels*M.panelW).toFixed(2);
-  const p=new URLSearchParams({src:'iq',addr:S.addr,bill:S.bill,kw:kw,bat:S.bat?1:0});
-  window.location.href='index.html?'+p.toString();
-}
-
-function resetApp(){
-  $('stageQuote').classList.remove('active');
-  $('stageAsk').classList.add('active');
-  $('scanMeta').textContent='MAPPING ROOF…';
-  window.scrollTo({top:0});
-}
-
-// Module scripts don't leak to global scope by default — expose the
-// functions referenced from onclick="" attributes in the markup above.
-window.startScan = startScan;
-window.resetApp = resetApp;
-window.toast = toast;
-window.handoff = handoff;
+$('qBook').addEventListener('click', () => {
+  const q = window.__lastQuote || {};
+  const p = new URLSearchParams({ src: 'iq', kw: q.kw || '', bat: q.bat ? 1 : 0 });
+  window.location.href = 'index.html?' + p.toString();
+});
 </script>
 </body>
 </html>
