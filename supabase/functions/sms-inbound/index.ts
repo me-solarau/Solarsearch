@@ -6,7 +6,11 @@
 //   RESCHEDULE       -> sms_mark_reschedule + re-run sms-offer-windows
 //   CANCEL           -> sms_release_assessment (lead back to pool)
 //   STOP/UNSUBSCRIBE -> set customers.sms_opt_out
-//   anything else    -> fallback reply
+//   anything else, matching no open booking -> cold inbound enquiry. Was
+//   previously a dead end (fallback reply only, nothing recorded) -- now
+//   creates a real lead via capture_lead (or reuses the existing contact's
+//   most recent lead on a repeat text) and alerts HQ via notify-new-lead,
+//   the same pipeline the public web funnel uses. See handleUnmatchedInbound.
 // Kudosity can't reply inline (no TwiML), so every reply is sent as a normal
 // outbound message via sms-send. The confirm path calls SECURITY DEFINER RPCs
 // granted to service_role only, so no browser can forge a confirmation.
@@ -45,6 +49,7 @@ const isOurNumber = (digits: string) => !!digits && OUR_NUMBERS.includes(digits)
 const canon = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const OUR_PHRASES = [
   "thanks we couldn t match this to a booking",
+  "thanks we ve got your enquiry",
   "to confirm reply with a number",
   "your assessment is booked for",
   "no problem your visit is cancelled",
@@ -113,6 +118,46 @@ async function reply(to: string, body: string, assessment_id?: string | null, le
   }
   await callFn("sms-send", { to, body, assessment_id: assessment_id ?? null, lead_id: lead_id ?? null, kind }).catch(() => {});
 }
+// A cold inbound text matches no open assessment. Previously: fallback reply,
+// nothing recorded, nobody told. Now: create a real lead (or, for a repeat
+// text from someone already in the system, reuse their most recent lead
+// instead of spawning a duplicate), then hand off to notify-new-lead -- the
+// same SMS+email alert pipeline the public funnel already uses, so this
+// doesn't need its own separate alert formatting.
+async function handleUnmatchedInbound(from: string, body: string) {
+  const digits = normPhone(from);
+  let leadId: string | null = null;
+
+  const custRows = await (await sbFetch(`customers?select=id,mobile`)).json().catch(() => []);
+  const existingCustomer = (Array.isArray(custRows) ? custRows : [])
+    .find((c: { id: string; mobile?: string }) => normPhone(c.mobile || "") === digits);
+
+  if (existingCustomer) {
+    const leadRows = await (await sbFetch(
+      `leads?customer_id=eq.${existingCustomer.id}&select=id&order=created_at.desc&limit=1`,
+    )).json().catch(() => []);
+    leadId = Array.isArray(leadRows) && leadRows[0] ? leadRows[0].id : null;
+  } else {
+    const localMobile = "0" + digits.slice(-9);
+    // Best-effort only -- most texts won't have a parseable signature, and
+    // capture_lead already defaults to "(no name)" when this comes back empty.
+    const nameMatch = body.match(/(?:regards|thanks|cheers)[,.\s]*\s*([A-Za-z]{2,20})\s*$/i);
+    const capRes = await rpc("capture_lead", {
+      payload: {
+        name: nameMatch ? nameMatch[1] : "",
+        mobile: localMobile,
+        source_platform: "sms_inbound_unmatched",
+        utm: { channel: "sms_inbound", raw_message: body.slice(0, 500) },
+      },
+    });
+    const capJson = await capRes.json().catch(() => null);
+    leadId = capJson?.lead_id || null;
+  }
+
+  await reply(from, "Thanks — we've got your enquiry and will call you shortly.", null, null, "fallback");
+  if (leadId) await callFn("notify-new-lead", { lead_id: leadId }).catch(() => {});
+}
+
 function fmtWhen(iso: string) {
   return new Date(iso).toLocaleString("en-AU", {
     weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
@@ -181,7 +226,7 @@ Deno.serve(async (req) => {
     const match = (Array.isArray(rows) ? rows : []).find(
       (r: any) => normPhone(r.leads?.customers?.mobile || "") === fromDigits,
     );
-    if (!match) { await reply(from, "Thanks — we couldn't match this to a booking. We'll call you shortly.", null, null, "fallback"); return ok(); }
+    if (!match) { await handleUnmatchedInbound(from, bodyRaw); return ok(); }
 
     const wins: { iso: string; label: string }[] = match.offered_windows || [];
     const first = (match.leads?.customers?.full_name || "").split(" ")[0];
