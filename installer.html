@@ -426,6 +426,7 @@ function renderMyJobs(){
   const items=[
     ...MY_JOBS.map(inst=>({date:inst.scheduled_install_at, html:renderSubCard(inst)})),
     ...WON_JOBS.map(w=>({date:w.scheduled_install_at, html:renderWonCard(w)})),
+    ...RECTS.filter(r=>r.status!=='resolved').map(r=>({date:r.scheduled_at, html:renderRectCard(r)})),
   ].sort((a,b)=>{
     if(!a.date && !b.date) return 0;
     if(!a.date) return -1;
@@ -467,13 +468,64 @@ async function stepClick(instId,idx){
   await loadMyJobs(); renderMyJobs(); renderNextBar();
 }
 
-/* rectifications — Solarsafe findings on the installer's past installs.
-   The Solarsafe→installer rectification pipeline (findings linked to an
-   installer + a response workflow) isn't modelled yet, so this shows an
-   honest empty state rather than demo data. */
+/* rectifications — Solarsafe findings on the installer's past installs,
+   visible only once the customer has authorised sharing (RLS-enforced,
+   see installer_read_authorised_rectifications). v1 is manual-entry only —
+   there's no live Solarsafe→Solarsearch bridge yet, so rows only appear
+   once admin logs a finding on the installer's behalf. */
+let RECTS=[];
+async function loadRectifications(){
+  const { data, error } = await db.from('rectifications').select('*').order('created_at',{ascending:false});
+  if(error){ toast('Rectifications load failed: '+error.message); RECTS=[]; return; }
+  RECTS=data||[];
+}
+async function scheduleRectification(id){
+  const raw=prompt('Schedule date & time (e.g. 2026-08-18 08:00):'); if(!raw) return;
+  const d=new Date(raw.replace(' ','T')); if(isNaN(d)){ toast('Could not read that date/time'); return; }
+  const { error } = await db.rpc('schedule_rectification',{p_rectification:id,p_scheduled_at:d.toISOString()});
+  if(error){ toast('Schedule failed: '+error.message); return; }
+  toast('Rectification scheduled');
+  await loadRectifications(); renderRect(); renderMyJobs(); renderNextBar();
+}
+async function resolveRectification(id){
+  const notes=prompt('Resolution notes (what was fixed):');
+  if(notes===null) return;
+  const { error } = await db.rpc('resolve_rectification',{p_rectification:id,p_notes:notes||null});
+  if(error){ toast('Failed: '+error.message); return; }
+  toast('Marked resolved');
+  await loadRectifications(); renderRect(); renderMyJobs(); renderNextBar();
+}
+window.scheduleRectification = scheduleRectification;
+window.resolveRectification = resolveRectification;
+function renderRectCard(r){
+  const sched=fmtSched(r.scheduled_at);
+  const sevPill={critical:'p-due',major:'p-open',minor:'p-lost'}[r.severity]||'p-open';
+  return `<div class="myjob" id="rectjob-${r.id}">
+    <h3>${r.finding_summary} <span style="font-weight:400;color:var(--ink3);font-size:.78rem">· RECTIFICATION</span> <span class="pill ${sevPill}" style="margin-left:6px">${r.severity.toUpperCase()}</span></h3>
+    <div class="sub2">${r.clause_ref?('Ref: '+r.clause_ref):'Solarsafe finding'}</div>
+    <div class="row" style="margin-bottom:8px"><span>Scheduled visit</span>
+      <b style="${sched?'':'color:var(--red)'}">${sched||'Not yet scheduled'}</b></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="scheduleRectification('${r.id}')">${sched?'Reschedule':'Set schedule'}</button>
+      <button class="btn btn-amber btn-sm" onclick="resolveRectification('${r.id}')">Mark resolved</button>
+    </div>
+  </div>`;
+}
 function renderRect(){
-  $('rectList').innerHTML=`<div class="rect"><b>No rectification requests</b>
-    <p>When a Solarsafe inspection flags an issue on one of your past installs — and the customer authorises sharing it — the request will appear here with the finding, clause reference, and photo evidence. This activates with the Solarsafe rectification flow.</p></div>`;
+  const active=RECTS.filter(r=>r.status!=='resolved');
+  $('rectList').innerHTML = active.length ? active.map(r=>{
+    const sevPill={critical:'p-due',major:'p-open',minor:'p-lost'}[r.severity]||'p-open';
+    const sched=fmtSched(r.scheduled_at);
+    return `<div class="rect">
+      <div class="rh"><b>${r.finding_summary}</b><span class="pill ${sevPill}">${r.severity.toUpperCase()}</span></div>
+      <p>${r.clause_ref?('Ref: '+r.clause_ref+' · '):''}${sched?'Scheduled: '+sched:'Not yet scheduled'}</p>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="scheduleRectification('${r.id}')">${sched?'Reschedule':'Schedule'}</button>
+        <button class="btn btn-amber btn-sm" onclick="resolveRectification('${r.id}')">Mark resolved</button>
+      </div>
+    </div>`;
+  }).join('') : `<div class="rect"><b>No rectification requests</b>
+    <p>When a Solarsafe inspection flags an issue on one of your past installs — and the customer authorises sharing it — the request will appear here with the finding, clause reference, and photo evidence.</p></div>`;
 }
 
 /* billing — real: seats bought + winner commissions owed (installer_billing RPC) */
@@ -512,12 +564,18 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 function renderNextBar(){
   const nb=$('nextBar'); if(!nb) return;
   const active=MY_JOBS.find(inst=>jobStepState(inst).cur<STEPS.length-1);
+  const unscheduledRect=RECTS.find(r=>r.status!=='resolved'&&!r.scheduled_at);
   const unscheduledWon=WON_JOBS.find(w=>!w.scheduled_install_at);
   if(active){
     const {cur}=jobStepState(active); const j=active.jobs||{};
     $('nbJob').textContent=j.title||j.street_address||j.suburb||'Active job';
     $('nbStep').textContent='Step '+(cur+1)+' of 7 — '+STEPS[cur].l;
     nb.dataset.installId=active.id; nb.dataset.kind='sub';
+    nb.style.display='block';
+  } else if(unscheduledRect){
+    $('nbJob').textContent=unscheduledRect.finding_summary;
+    $('nbStep').textContent='Rectification needs a schedule date';
+    nb.dataset.installId=unscheduledRect.id; nb.dataset.kind='rect';
     nb.style.display='block';
   } else if(unscheduledWon){
     $('nbJob').textContent=unscheduledWon.ss_ref||unscheduledWon.address||'Won job';
@@ -537,7 +595,8 @@ function goToNextStep(){
   document.querySelector('.tab[data-p="jobs"]').click();
   const id=$('nextBar').dataset.installId, kind=$('nextBar').dataset.kind;
   setTimeout(()=>{
-    const el=id?document.getElementById((kind==='won'?'won-':'myjob-')+id):$('availJobsEl');
+    const prefix=kind==='won'?'won-':kind==='rect'?'rectjob-':'myjob-';
+    const el=id?document.getElementById(prefix+id):$('availJobsEl');
     if(!el) return;
     el.scrollIntoView({behavior:'smooth',block:'center'});
     el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1400);
@@ -553,8 +612,6 @@ window.grabJob = grabJob;
 window.amendJob = amendJob;
 window.stepClick = stepClick;
 
-renderRect(); // static honest state, no auth needed
-
 (async () => {
   const auth = await requireRole(['installer'], { loginPage: '/login.html' });
   if (!auth) return;
@@ -565,9 +622,10 @@ renderRect(); // static honest state, no auth needed
   renderBoard();
   loadPriceBook();
   renderBill();
-  await Promise.all([loadAvailableJobs(), loadMyJobs(), loadWonJobs()]);
+  await Promise.all([loadAvailableJobs(), loadMyJobs(), loadWonJobs(), loadRectifications()]);
   renderAvailableJobs();
   renderMyJobs();
+  renderRect();
   renderNextBar();
 })();
 </script>
