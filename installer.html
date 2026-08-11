@@ -345,7 +345,7 @@ const STEPS=[
   {n:'7',l:'Final paid'},
 ];
 async function loadMyJobs(){
-  const { data, error } = await db.from('installs').select('*, jobs(*), payment_milestones(*)')
+  const { data, error } = await db.from('installs').select('*, jobs!installs_job_id_fkey(*), payment_milestones(*)')
     .eq('pipeline','subcontractor').order('created_at',{ascending:false});
   if(error){ toast('My jobs load failed: '+error.message); MY_JOBS=[]; return; }
   MY_JOBS=data||[];
