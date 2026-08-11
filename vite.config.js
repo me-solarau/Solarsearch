@@ -10,6 +10,7 @@ export default defineConfig({
         hq: resolve(__dirname, 'hq.html'),
         field: resolve(__dirname, 'field.html'),
         installer: resolve(__dirname, 'installer.html'),
+        retailer: resolve(__dirname, 'retailer.html'),
         choose: resolve(__dirname, 'choose.html'),
         sign: resolve(__dirname, 'sign.html'),
         tech: resolve(__dirname, 'tech.html'),
