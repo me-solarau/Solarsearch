@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solarsearch — Retailer portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F7F9F6;--panel:#fff;--tint:#E8F1EA;--tint2:#F0F5F1;--ink:#0F2E27;--ink2:#41615A;--ink3:#6D8781;--line:#DBE5DE;--line2:#C4D5CA;--amber:#FFB100;--amberd:#DE8F00;--ambers:#FFF3D6;--green:#177A53;--greens:#E2F2EA;--red:#C2452D;--reds:#FBEAE6;--display:'Bricolage Grotesque',sans-serif;--body:'Instrument Sans',sans-serif;--mono:'Spline Sans Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);font-size:14.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer}input,select,textarea{font-family:inherit}
+:focus-visible{outline:2.5px solid var(--amber);outline-offset:2px;border-radius:4px}
+.mono{font-family:var(--mono)}
+header{position:sticky;top:0;z-index:50;background:var(--ink);color:#fff}
+.nav{max-width:1100px;margin:0 auto;padding:0 22px;height:62px;display:flex;align-items:center;gap:22px}
+.logo{font-family:var(--display);font-weight:800;font-size:1.05rem}
+.logo em{font-style:normal;color:var(--amber)}
+.nav .tabs{display:flex;gap:4px;margin-left:8px}
+.tab{background:none;border:none;color:#9FC0B4;padding:9px 14px;border-radius:99px;font-size:.85rem;font-weight:600}
+.tab.sel{background:var(--amber);color:var(--ink)}
+.nav .co{margin-left:auto;font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;color:#9FC0B4}
+main{max-width:1100px;margin:0 auto;padding:26px 22px 80px}
+.page{display:none}.page.active{display:block;animation:r .22s ease}
+@keyframes r{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+h1{font-family:var(--display);font-size:1.4rem;font-weight:700}
+.sub{color:var(--ink3);font-size:.85rem;margin:2px 0 18px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+.kpi .v{font-family:var(--mono);font-weight:700;font-size:1.3rem}
+.kpi .l{font-size:.72rem;color:var(--ink3)}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.job{background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.job-h{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.job-h .ref{font-family:var(--mono);font-size:.66rem;color:var(--amberd);font-weight:700;letter-spacing:.05em}
+.job-h .addr{font-weight:700;font-size:.92rem;margin-top:1px}
+.pill{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.04em;padding:4px 10px;border-radius:99px}
+.p-open{background:var(--ambers);color:#7A5A00}.p-quoted{background:var(--greens);color:var(--green)}
+.p-won{background:var(--green);color:#fff}.p-lost{background:var(--tint2);color:var(--ink3)}.p-due{background:var(--reds);color:var(--red)}
+.job-b{padding:12px 16px;font-size:.8rem;color:var(--ink2);display:grid;gap:6px}
+.row{display:flex;justify-content:space-between;gap:10px}
+.row b{font-family:var(--mono);color:var(--ink);font-weight:600}
+.job-f{padding:11px 16px;border-top:1px solid var(--line);background:var(--tint2);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:999px;font-weight:700;font-size:.82rem;padding:9px 17px}
+.btn-amber{background:var(--amber);color:var(--ink)}.btn-ink{background:var(--ink);color:#fff}
+.btn-ghost{background:none;border:1.5px solid var(--line2);color:var(--ink)}
+.btn-sm{padding:6px 12px;font-size:.75rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;padding:18px}
+@media(max-width:700px){.fgrid{grid-template-columns:1fr}}
+.f label{display:block;font-size:.76rem;font-weight:600;color:var(--ink2);margin-bottom:5px}
+.f input,.f select,.f textarea{width:100%;border:1.5px solid var(--line2);border-radius:9px;padding:10px 12px;font-size:.9rem;background:var(--panel)}
+.f textarea{resize:vertical;min-height:70px;font-family:inherit}
+.f input:focus,.f select:focus,.f textarea:focus{outline:none;border-color:var(--ink)}
+.f.chk{display:flex;align-items:center;gap:8px;flex-direction:row}
+.f.chk input{width:auto}
+.sec-t{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.field-err{color:var(--red);font-size:.8rem}
+.tender{background:var(--tint2);border-top:1px solid var(--line);padding:10px 16px;font-size:.8rem}
+.tender .row{margin-bottom:4px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:999px;font-size:.85rem;z-index:300;opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.note{font-family:var(--mono);font-size:.64rem;color:var(--ink3);letter-spacing:.05em;margin-top:10px}
+</style>
+</head>
+<body>
+<header><div class="nav">
+  <span class="logo">solar<em>search</em> <span style="font-weight:600;color:#9FC0B4;font-size:.68rem">RETAILER</span></span>
+  <div class="tabs">
+    <button class="tab sel" data-p="post">Post a job</button>
+    <button class="tab" data-p="jobs">My jobs</button>
+  </div>
+  <span class="co">RETAILER</span>
+</div></header>
+<main>
+
+<section class="page active" id="p-post">
+  <h1>Post a subcontract job</h1>
+  <div class="sub">Pre-approved installers see this on their board the moment you post it — first grab wins, no bidding. Customer details stay hidden from installers until the job is grabbed.</div>
+  <div class="card">
+    <div class="sec-t"><span>Job details</span></div>
+    <div class="fgrid f">
+      <div style="grid-column:1/-1"><label>Job title</label><input id="jTitle" placeholder="e.g. 30x AE Solar 440W + SOLAX Ultra 20kW — shed solar, house battery"></div>
+      <div><label>Job type</label><select id="jType"><option value="solar_install">Solar install</option><option value="solar_battery">Solar + battery</option><option value="battery_install">Battery install</option></select></div>
+      <div><label>Job value $ (ex GST)</label><input class="mono" id="jValue" placeholder="8220"></div>
+      <div><label>Scheduling window / notes</label><input id="jWindow" placeholder="e.g. 2-day install · stock pickup in 2 parts"></div>
+      <div><label>Design file link (optional)</label><input id="jDesign" placeholder="Pylon export / PDF link"></div>
+    </div>
+    <div class="sec-t"><span>Site</span></div>
+    <div class="fgrid f">
+      <div><label>Suburb</label><input id="jSuburb"></div>
+      <div><label>Postcode</label><input class="mono" id="jPostcode"></div>
+      <div><label>Storeys</label><input class="mono" id="jStoreys" value="1"></div>
+      <div><label>Roof type</label><input id="jRoof" placeholder="e.g. tin, tile, colorbond"></div>
+      <div><label>Edge perimeter (m)</label><input class="mono" id="jEdgeM" placeholder="0"></div>
+      <div class="f chk" style="align-items:flex-end;padding-bottom:10px"><input type="checkbox" id="jEdgeProvided"><label style="margin:0">Edge protection ($180 Safe Work Australia requirement) provided separately</label></div>
+    </div>
+    <div class="sec-t"><span>System</span></div>
+    <div class="fgrid f">
+      <div><label>System size (kW)</label><input class="mono" id="jKw"></div>
+      <div><label>Battery (kWh)</label><input class="mono" id="jKwh"></div>
+      <div><label>Panel model</label><input id="jPanelModel"></div>
+      <div><label>Panel qty</label><input class="mono" id="jPanelQty"></div>
+      <div><label>Inverter model</label><input id="jInvModel"></div>
+      <div><label>Battery model</label><input id="jBatModel"></div>
+      <div><label>Battery qty (modules)</label><input class="mono" id="jBatQty"></div>
+      <div><label>DC run (m)</label><input class="mono" id="jDcRun"></div>
+      <div><label>AC run (m)</label><input class="mono" id="jAcRun"></div>
+    </div>
+    <div class="sec-t"><span>Instructions</span></div>
+    <div class="fgrid f">
+      <div style="grid-column:1/-1"><label>General instructions for the installer</label><textarea id="jNotes" placeholder="Access, roof pitch, phase, anything job-specific"></textarea></div>
+    </div>
+    <div class="sec-t"><span>Customer (hidden from installers until the job is grabbed)</span></div>
+    <div class="fgrid f">
+      <div><label>Customer name</label><input id="jCustName"></div>
+      <div><label>Customer phone</label><input id="jCustPhone"></div>
+      <div><label>Customer email</label><input id="jCustEmail"></div>
+      <div style="grid-column:1/-1"><label>Street address</label><input id="jAddr" placeholder="e.g. 440 Markwell Road, Bulahdelah NSW 2423"></div>
+    </div>
+    <div class="field-err" id="jErr" style="padding:0 18px"></div>
+    <div style="padding:16px 18px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-amber" onclick="postJob()">Post job to board</button>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="p-jobs">
+  <h1>My jobs</h1>
+  <div class="sub">Every job you've posted, its status, and any counter-offers waiting on your approval.</div>
+  <div class="kpis" id="jKpis"></div>
+  <div class="board" id="myPostedJobsEl"></div>
+</section>
+
+</main>
+<div class="toast" id="toastEl" role="status"></div>
+
+<script type="module">
+import { getSupabaseClient } from "/src/lib/supabase.js";
+import { requireRole, mountRoleSwitcher } from "/src/lib/auth-guard.js";
+
+const $=id=>document.getElementById(id);
+let tT;function toast(m){const t=$('toastEl');t.textContent=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2600)}
+const fmt$=n=>'$'+Math.round(n).toLocaleString();
+const parseCents=v=>Math.round((parseFloat(String(v).replace(/[,$\s]/g,''))||0)*100);
+const num=v=>{const n=parseFloat(v);return isNaN(n)?null:n};
+const int=v=>{const n=parseInt(v);return isNaN(n)?null:n};
+const db=getSupabaseClient();
+
+let ME=null; // { id, company_name }
+
+async function loadMe(){
+  const { data: { session } } = await db.auth.getSession();
+  const { data, error } = await db.from('retailers').select('id, company_name').eq('user_id', session.user.id).maybeSingle();
+  if(error || !data){ toast('Could not load your retailer account'); return; }
+  ME=data;
+  const co=document.querySelector('.co'); if(co) co.textContent=ME.company_name.toUpperCase();
+}
+
+async function postJob(){
+  if(!ME){ $('jErr').textContent='Retailer account not loaded yet.'; return; }
+  if(!$('jTitle').value.trim()){ $('jErr').textContent='Job title is required.'; return; }
+  const payload={
+    retailer_id: ME.id,
+    title: $('jTitle').value.trim(),
+    job_type: $('jType').value,
+    job_value_cents: parseCents($('jValue').value) || null,
+    scheduled_window: $('jWindow').value.trim() || null,
+    design_file_url: $('jDesign').value.trim() || null,
+    suburb: $('jSuburb').value.trim() || null,
+    postcode: $('jPostcode').value.trim() || null,
+    storeys: int($('jStoreys').value),
+    roof_type: $('jRoof').value.trim() || null,
+    edge_perimeter_m: num($('jEdgeM').value),
+    edge_protection_provided_separately: $('jEdgeProvided').checked,
+    system_kw: num($('jKw').value),
+    battery_kwh: num($('jKwh').value),
+    panel_model: $('jPanelModel').value.trim() || null,
+    panel_qty: int($('jPanelQty').value),
+    inverter_model: $('jInvModel').value.trim() || null,
+    battery_model: $('jBatModel').value.trim() || null,
+    battery_qty: int($('jBatQty').value),
+    dc_run_m: num($('jDcRun').value),
+    ac_run_m: num($('jAcRun').value),
+    general_instructions: $('jNotes').value.trim() || null,
+    customer_name: $('jCustName').value.trim() || null,
+    customer_phone: $('jCustPhone').value.trim() || null,
+    customer_email: $('jCustEmail').value.trim() || null,
+    street_address: $('jAddr').value.trim() || null,
+  };
+  const { error } = await db.from('jobs').insert(payload);
+  if(error){ $('jErr').textContent='Post failed: '+error.message; return; }
+  $('jErr').textContent='';
+  toast('Job posted — pre-approved installers can grab it now');
+  document.querySelectorAll('#p-post input, #p-post textarea').forEach(el=>{ if(el.type==='checkbox') el.checked=false; else el.value=''; });
+  $('jStoreys').value='1';
+  document.querySelector('.tab[data-p="jobs"]').click();
+}
+
+let MY_JOBS=[];
+async function loadMyPostedJobs(){
+  const { data, error } = await db.from('jobs').select('*, job_tenders(*)').order('created_at',{ascending:false});
+  if(error){ toast('Load failed: '+error.message); MY_JOBS=[]; return; }
+  MY_JOBS=data||[];
+}
+function renderMyPostedJobs(){
+  const open=MY_JOBS.filter(j=>j.status==='open').length;
+  const pendingTenders=MY_JOBS.reduce((a,j)=>a+(j.job_tenders||[]).filter(t=>t.status==='pending').length,0);
+  $('jKpis').innerHTML=[['Posted',MY_JOBS.length],['Open on board',open],['Counter-offers waiting',pendingTenders],
+    ['Total value',fmt$(MY_JOBS.reduce((a,j)=>a+(j.job_value_cents||0),0)/100)]]
+    .map(k=>`<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join('');
+  $('myPostedJobsEl').innerHTML=MY_JOBS.map(j=>{
+    const st={open:'p-open',claimed:'p-quoted',scheduled:'p-quoted',cancelled:'p-lost'}[j.status]||'p-open';
+    const sys=`${j.system_kw?j.system_kw+' kW':''}${j.system_kw&&j.battery_kwh?' + ':''}${j.battery_kwh?j.battery_kwh+' kWh':''}`||'—';
+    const pending=(j.job_tenders||[]).filter(t=>t.status==='pending');
+    return `<div class="job">
+    <div class="job-h"><div><div class="ref">${(j.job_type||'').toUpperCase()}</div><div class="addr">${j.title||j.suburb||'Untitled job'}</div></div>
+      <span class="pill ${st}">${(j.status||'').toUpperCase()}</span></div>
+    <div class="job-b">
+      <div class="row"><span>Site</span><b>${j.suburb||'—'} ${j.postcode||''}</b></div>
+      <div class="row"><span>System</span><b>${sys}</b></div>
+      <div class="row"><span>Job value</span><b>${j.job_value_cents!=null?fmt$(j.job_value_cents/100):'—'}</b></div>
+    </div>
+    ${pending.map(t=>`<div class="tender">
+      <div class="row"><span>Counter-offer</span><b>${fmt$(t.offer_cents/100)}</b></div>
+      ${t.message?`<div class="row"><span>Note</span><b>${t.message}</b></div>`:''}
+      <div style="display:flex;justify-content:flex-end;margin-top:6px">
+        <button class="btn btn-amber btn-sm" onclick="acceptTender('${t.id}')">Accept &amp; assign job</button>
+      </div>
+    </div>`).join('')}
+    </div>`;
+  }).join('')||'<div class="card" style="padding:20px;color:var(--ink3)">No jobs posted yet — use "Post a job" above.</div>';
+}
+async function acceptTender(tenderId){
+  if(!confirm('Accept this rate and assign the job to this installer?')) return;
+  const { error } = await db.rpc('accept_job_tender',{p_tender:tenderId});
+  if(error){ toast('Accept failed: '+error.message); return; }
+  toast('Tender accepted — job assigned');
+  await loadMyPostedJobs(); renderMyPostedJobs();
+}
+
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('sel'));t.classList.add('sel');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  $('p-'+t.dataset.p).classList.add('active');
+}));
+
+window.toast = toast;
+window.postJob = postJob;
+window.acceptTender = acceptTender;
+
+(async () => {
+  const auth = await requireRole(['retailer'], { loginPage: '/login.html' });
+  if (!auth) return;
+  mountRoleSwitcher(auth.access);
+  await loadMe();
+  await loadMyPostedJobs();
+  renderMyPostedJobs();
+})();
+</script>
+</body>
+</html>

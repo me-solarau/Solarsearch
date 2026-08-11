@@ -19,9 +19,20 @@ header{position:sticky;top:0;z-index:50;background:var(--ink);color:#fff}
 .logo{font-family:var(--display);font-weight:800;font-size:1.05rem}
 .logo em{font-style:normal;color:var(--amber)}
 .nav .tabs{display:flex;gap:4px;margin-left:8px}
-.tab{background:none;border:none;color:#9FC0B4;padding:9px 14px;border-radius:99px;font-size:.85rem;font-weight:600}
-.tab.sel{background:var(--amber);color:var(--ink)}
+.tab{background:none;border:none;color:#9FC0B4;padding:9px 14px;border-radius:99px;font-size:.85rem;font-weight:600;position:relative}
+.tab.sel{background:var(--amber);color:var(--ink);box-shadow:0 0 0 2px rgba(255,177,0,.35)}
+.tab.sel::after{content:'';position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--amber)}
+.crumb{font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;color:#C9DED6;margin-left:2px;padding-left:14px;border-left:1px solid #2A4941}
+.crumb b{color:var(--amber);font-weight:700}
 .nav .co{margin-left:auto;font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;color:#9FC0B4}
+.nextbar{position:sticky;top:62px;z-index:40;background:var(--ambers);border-bottom:1px solid #F0D28A;display:none}
+.nextbar-in{max-width:1100px;margin:0 auto;padding:10px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.nb-label{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.08em;color:#7A5A00;background:var(--amber);padding:3px 8px;border-radius:99px;white-space:nowrap}
+.nb-job{font-weight:700;font-size:.85rem}
+.nb-step{font-size:.8rem;color:#7A5A00}
+.nextbar-in .btn{margin-left:auto}
+@keyframes flashHi{0%{box-shadow:0 0 0 4px var(--amber)}100%{box-shadow:0 0 0 0 rgba(255,177,0,0)}}
+.flash{animation:flashHi 1.4s ease}
 main{max-width:1100px;margin:0 auto;padding:26px 22px 80px}
 .page{display:none}.page.active{display:block;animation:r .22s ease}
 @keyframes r{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -69,6 +80,18 @@ tr:last-child td{border-bottom:none}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:999px;font-size:.85rem;z-index:300;opacity:0;transition:all .3s;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .note{font-family:var(--mono);font-size:.64rem;color:var(--ink3);letter-spacing:.05em;margin-top:10px}
+.stepper{display:flex;margin:10px 0 14px}
+.step{flex:1;min-width:0;position:relative;padding:10px 8px 10px 20px;background:var(--tint2);color:var(--ink3);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%,12px 50%);text-align:center;cursor:pointer;border:none;font-family:inherit}
+.step:first-child{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%);padding-left:10px}
+.step:not(:first-child){margin-left:-12px}
+.step.done{background:var(--greens);color:var(--green)}
+.step.active{background:var(--amber);color:var(--ink)}
+.step .n{font-family:var(--mono);font-size:.6rem;opacity:.75;display:block}
+.step .l{font-size:.68rem;font-weight:700;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:760px){.step .l{font-size:.6rem}}
+.myjob{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px 18px;margin-bottom:14px}
+.myjob h3{font-size:.98rem;margin-bottom:2px}
+.myjob .sub2{font-size:.78rem;color:var(--ink3);margin-bottom:4px}
 </style>
 </head>
 <body>
@@ -76,12 +99,20 @@ tr:last-child td{border-bottom:none}
   <span class="logo">solar<em>search</em> <span style="font-weight:600;color:#9FC0B4;font-size:.68rem">INSTALLER</span></span>
   <div class="tabs">
     <button class="tab sel" data-p="board">Site Quoted board</button>
+    <button class="tab" data-p="jobs">Jobs</button>
     <button class="tab" data-p="book">Price book</button>
     <button class="tab" data-p="rect">Rectifications</button>
     <button class="tab" data-p="bill">Billing</button>
   </div>
+  <span class="crumb" id="crumbEl">Viewing: <b>Site Quoted board</b></span>
   <span class="co">PILOT INSTALLER PTY LTD · HUNTER</span>
 </div></header>
+<div class="nextbar" id="nextBar"><div class="nextbar-in">
+  <span class="nb-label">NEXT STEP</span>
+  <span class="nb-job" id="nbJob"></span>
+  <span class="nb-step" id="nbStep"></span>
+  <button class="btn btn-amber btn-sm" onclick="goToNextStep()">Go →</button>
+</div></div>
 <main>
 
 <section class="page active" id="p-board">
@@ -90,6 +121,18 @@ tr:last-child td{border-bottom:none}
   <div class="kpis" id="bKpis"></div>
   <div class="board" id="boardEl"></div>
   <div class="note">SEAT UNLOCKS THE FULL INSPECTION PACK + DESIGN IN YOUR PYLON ACCOUNT. PATH-1: YOUR PRICE BOOK QUOTES INSTANTLY. WIN = $1.10/STC COMMISSION.</div>
+</section>
+
+<section class="page" id="p-jobs">
+  <h1>Jobs</h1>
+  <div class="sub">Subcontract jobs from retailers with pre-approved rates. First grab wins — no bidding.</div>
+
+  <div style="font-weight:700;margin:6px 0 10px">Available now</div>
+  <div class="board" id="availJobsEl"></div>
+  <div class="note" style="margin-bottom:26px">FIRST GRAB WINS · MUST SCHEDULE WITHIN 72 BUSINESS HOURS OF GRABBING OR THE JOB RETURNS TO THE BOARD WITH A 24H LOCKOUT FOR YOU</div>
+
+  <div style="font-weight:700;margin:6px 0 10px">My active jobs</div>
+  <div id="myJobsEl"></div>
 </section>
 
 <section class="page" id="p-book">
@@ -240,6 +283,135 @@ async function savePriceBook(){
   $('pbErr').textContent=''; toast('Price book saved & reverified'); await loadPriceBook();
 }
 
+/* ---- subcontract jobs: available board (list_available_jobs RPC, PII-redacted)
+   + my active jobs w/ 7-stage chevron stepper ---- */
+let AVAIL_JOBS=[], MY_JOBS=[];
+async function loadAvailableJobs(){
+  const { data, error } = await db.rpc('list_available_jobs');
+  if(error){ toast('Jobs load failed: '+error.message); AVAIL_JOBS=[]; return; }
+  AVAIL_JOBS=data||[];
+}
+function renderAvailableJobs(){
+  $('availJobsEl').innerHTML=AVAIL_JOBS.map(j=>{
+    const sys=`${j.system_kw?j.system_kw+' kW':''}${j.system_kw&&j.battery_kwh?' + ':''}${j.battery_kwh?j.battery_kwh+' kWh':''}`||'Design pending';
+    const quote=j.pre_quote_cents!=null?fmt$(j.pre_quote_cents/100):null;
+    return `<div class="job">
+    <div class="job-h"><div><div class="ref">${(j.job_type||'JOB').toUpperCase()}</div><div class="addr">${j.suburb||'—'} ${j.postcode||''}</div></div>
+      <span class="pill ${j.is_preapproved?'p-quoted':'p-open'}">${j.is_preapproved?'PRE-APPROVED RATE':'NEW RETAILER'}</span></div>
+    <div class="job-b">
+      <div class="row"><span>System</span><b>${sys}</b></div>
+      <div class="row"><span>Storeys / roof</span><b>${j.storeys||'—'} / ${j.roof_type||'—'}</b></div>
+      ${quote!=null?`<div class="row"><span>Your rate card</span><b>${quote}</b></div>`:''}
+      ${j.scheduled_window?`<div class="row"><span>Window</span><b>${j.scheduled_window}</b></div>`:''}
+      ${j.general_instructions?`<div class="row"><span>Notes</span><b>${j.general_instructions}</b></div>`:''}
+      ${j.edge_perimeter_m&&!j.edge_protection_provided_separately?`<div class="row"><span>Edge protection</span><b>${j.edge_perimeter_m}m — quote it</b></div>`:''}
+    </div>
+    <div class="job-f">
+      <span style="font-family:var(--mono);font-size:.64rem;color:var(--ink3)">FIRST GRAB WINS</span>
+      ${j.forfeited_by_me?`<button class="btn btn-ghost btn-sm" disabled>Locked 24h — you forfeited this</button>`:
+        `<div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="amendJob('${j.id}')">Amend</button>
+          <button class="btn btn-amber btn-sm" onclick="grabJob('${j.id}')">Grab job</button>
+        </div>`}
+    </div></div>`;
+  }).join('')||'<div class="card" style="padding:20px;color:var(--ink3)">No open subcontract jobs right now.</div>';
+}
+async function grabJob(jobId){
+  if(!confirm("Grab this job? First grab wins. You'll need to report a schedule date within 72 business hours or it returns to the board and locks you out for 24 hours.")) return;
+  const { error } = await db.rpc('accept_job',{p_job:jobId});
+  if(error){ toast('Grab failed: '+error.message); return; }
+  toast('Job grabbed — schedule it within 72 business hours');
+  await Promise.all([loadAvailableJobs(),loadMyJobs()]); renderAvailableJobs(); renderMyJobs(); renderNextBar();
+}
+async function amendJob(jobId){
+  const raw=prompt('Your proposed rate for this job (AUD, ex GST):');
+  if(raw===null) return;
+  const cents=parseCents(raw);
+  if(!cents){ toast('Enter a valid amount'); return; }
+  const msg=prompt('Note to the retailer (optional):')||null;
+  const { error } = await db.rpc('submit_job_tender',{p_job:jobId,p_offer_cents:cents,p_message:msg});
+  if(error){ toast('Amend failed: '+error.message); return; }
+  toast('Counter-offer sent to the retailer for approval');
+  await loadAvailableJobs(); renderAvailableJobs();
+}
+
+const STEPS=[
+  {n:'1',l:'Accepted'},
+  {n:'2',l:'Scheduled'},
+  {n:'3',l:'Work complete'},
+  {n:'4',l:'AI compliant'},
+  {n:'5',l:'STC submitted'},
+  {n:'6',l:'Retailer approved'},
+  {n:'7',l:'Final paid'},
+];
+async function loadMyJobs(){
+  const { data, error } = await db.from('installs').select('*, jobs(*), payment_milestones(*)')
+    .eq('pipeline','subcontractor').order('created_at',{ascending:false});
+  if(error){ toast('My jobs load failed: '+error.message); MY_JOBS=[]; return; }
+  MY_JOBS=data||[];
+}
+function jobStepState(inst){
+  const pm={}; (inst.payment_milestones||[]).forEach(p=>pm[p.milestone]=p.status);
+  const now=new Date();
+  const done=[
+    true,
+    !!inst.scheduled_install_at,
+    !!inst.completion_report,
+    inst.ai_verification_status==='compliant',
+    !!inst.stc_confirmed_at,
+    (!!pm.completion&&pm.completion!=='pending')||(!!inst.final_payment_deadline_at&&now>new Date(inst.final_payment_deadline_at)),
+    pm.completion==='paid',
+  ];
+  let cur=done.findIndex(d=>!d); if(cur===-1) cur=done.length-1;
+  return {done,cur,pm};
+}
+function renderMyJobs(){
+  $('myJobsEl').innerHTML=MY_JOBS.map(inst=>{
+    const j=inst.jobs||{};
+    const {done,cur}=jobStepState(inst);
+    const steps=STEPS.map((s,i)=>{
+      const cls=done[i]?'done':(i===cur?'active':'');
+      return `<button class="step ${cls}" onclick="stepClick('${inst.id}',${i})"><span class="n">${s.n}</span><span class="l">${s.l}</span></button>`;
+    }).join('');
+    return `<div class="myjob" id="myjob-${inst.id}">
+      <h3>${j.title||'Subcontract job'}</h3>
+      <div class="sub2">${j.street_address||(j.suburb+' '+(j.postcode||''))} · ${fmt$((inst.job_value_cents||0)/100)}</div>
+      <div class="stepper">${steps}</div>
+    </div>`;
+  }).join('')||'<div class="card" style="padding:20px;color:var(--ink3)">No active subcontract jobs — grab one above.</div>';
+}
+async function stepClick(instId,idx){
+  const inst=MY_JOBS.find(i=>i.id===instId); if(!inst) return;
+  const {done,cur}=jobStepState(inst);
+  if(idx!==cur){
+    toast(STEPS[idx].l+(done[idx]?' — already done':' — not reached yet'));
+    return;
+  }
+  if(idx===1){
+    const raw=prompt('Schedule date & time (e.g. 2026-08-18 08:00):'); if(!raw) return;
+    const d=new Date(raw.replace(' ','T')); if(isNaN(d)){ toast('Could not read that date/time'); return; }
+    const { error } = await db.rpc('schedule_install',{p_install:instId,p_scheduled_at:d.toISOString()});
+    if(error){ toast('Schedule failed: '+error.message); return; }
+    toast('Install scheduled');
+  } else if(idx===2){
+    toast('Work completion is captured in the field app — photos + checklist + customer signature');
+    return;
+  } else if(idx===3){
+    const { data, error } = await db.rpc('verify_install_evidence',{p_install:instId});
+    if(error){ toast('Check failed: '+error.message); return; }
+    toast(data.status==='compliant'?'AI compliant — 40% requested from retailer':'Not yet compliant — missing: '+(data.missing||[]).join(', '));
+  } else if(idx===4){
+    if(!confirm('Confirm STC paperwork (e.g. Greenbank/Formbay) has been lodged and signed?')) return;
+    const { error } = await db.rpc('confirm_stc_submitted',{p_install:instId});
+    if(error){ toast('Failed: '+error.message); return; }
+    toast('STC submission confirmed — retailer has 72 business hours to approve final payment');
+  } else {
+    toast(STEPS[idx].l+' — awaiting retailer/Solarsearch action');
+    return;
+  }
+  await loadMyJobs(); renderMyJobs(); renderNextBar();
+}
+
 /* rectifications — Solarsafe findings on the installer's past installs.
    The Solarsafe→installer rectification pipeline (findings linked to an
    installer + a response workflow) isn't modelled yet, so this shows an
@@ -277,12 +449,48 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('sel'));t.classList.add('sel');
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   $('p-'+t.dataset.p).classList.add('active');
+  $('crumbEl').innerHTML='Viewing: <b>'+t.textContent+'</b>';
 }));
+
+/* ---- sticky "next step" banner: always tells the installer their single
+   most urgent action, regardless of which tab they're on ---- */
+function renderNextBar(){
+  const nb=$('nextBar'); if(!nb) return;
+  const active=MY_JOBS.find(inst=>jobStepState(inst).cur<STEPS.length-1);
+  if(active){
+    const {cur}=jobStepState(active); const j=active.jobs||{};
+    $('nbJob').textContent=j.title||j.street_address||j.suburb||'Active job';
+    $('nbStep').textContent='Step '+(cur+1)+' of 7 — '+STEPS[cur].l;
+    nb.dataset.installId=active.id;
+    nb.style.display='block';
+  } else if(AVAIL_JOBS.length){
+    $('nbJob').textContent=AVAIL_JOBS.length+' job'+(AVAIL_JOBS.length>1?'s':'')+' open on the board';
+    $('nbStep').textContent='No active jobs — grab one to get started';
+    nb.dataset.installId='';
+    nb.style.display='block';
+  } else {
+    nb.style.display='none';
+  }
+}
+function goToNextStep(){
+  document.querySelector('.tab[data-p="jobs"]').click();
+  const id=$('nextBar').dataset.installId;
+  setTimeout(()=>{
+    const el=id?document.getElementById('myjob-'+id):$('availJobsEl');
+    if(!el) return;
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+    el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1400);
+  },80);
+}
+window.goToNextStep = goToNextStep;
 
 // Module scope — expose the onclick="" handlers used in markup + rendered rows.
 window.toast = toast;
 window.buySeat = buySeat;
 window.savePriceBook = savePriceBook;
+window.grabJob = grabJob;
+window.amendJob = amendJob;
+window.stepClick = stepClick;
 
 renderRect(); // static honest state, no auth needed
 
@@ -296,6 +504,10 @@ renderRect(); // static honest state, no auth needed
   renderBoard();
   loadPriceBook();
   renderBill();
+  await Promise.all([loadAvailableJobs(), loadMyJobs()]);
+  renderAvailableJobs();
+  renderMyJobs();
+  renderNextBar();
 })();
 </script>
 </body>

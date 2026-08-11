@@ -39,18 +39,19 @@ export function homeForRole(role) {
       return "/installer.html";
     case "sales_rep":
       return "/tech.html";
-    // retailer.html doesn't exist yet (Phase 7) — fall back to the login
-    // page's own post-login placeholder until it's built.
+    case "retailer":
+      return "/retailer.html";
     default:
       return "/login.html";
   }
 }
 
-// Apps a role can open (retailer has no portal page yet, so it's omitted here).
+// Apps a role can open.
 const ROLE_APPS = {
   admin: { label: "HQ", href: "/hq.html" },
   sales_rep: { label: "Sales Tech", href: "/tech.html" },
   installer: { label: "Installer", href: "/installer.html" },
+  retailer: { label: "Retailer", href: "/retailer.html" },
 };
 
 // Floating app-switcher for multi-role logins. Reads my_access() (or a passed access
