@@ -201,9 +201,20 @@ async function postJob(){
 
 let MY_JOBS=[];
 async function loadMyPostedJobs(){
-  const { data, error } = await db.from('jobs').select('*, job_tenders(*)').order('created_at',{ascending:false});
+  const { data, error } = await db.from('jobs')
+    .select('*, job_tenders(*), installs!jobs_accepted_install_id_fkey(scheduled_install_at, status, ai_verification_status, stc_confirmed_at)')
+    .order('created_at',{ascending:false});
   if(error){ toast('Load failed: '+error.message); MY_JOBS=[]; return; }
   MY_JOBS=data||[];
+}
+const fmtSched=s=>s?new Date(s).toLocaleString('en-AU',{day:'2-digit',month:'short',hour:'numeric',minute:'2-digit'}):null;
+function jobProgressLabel(j){
+  const inst=j.installs;
+  if(!inst) return j.status==='open'?'Open on board':(j.status||'').toUpperCase();
+  if(inst.stc_confirmed_at) return 'STC lodged — your final approval starts the 50% payment';
+  if(inst.ai_verification_status==='compliant') return 'Work verified — 40% releasing to installer';
+  if(inst.scheduled_install_at) return 'Scheduled: '+fmtSched(inst.scheduled_install_at);
+  return 'Claimed — awaiting schedule (installer has 72 business hours)';
 }
 function renderMyPostedJobs(){
   const open=MY_JOBS.filter(j=>j.status==='open').length;
@@ -222,6 +233,7 @@ function renderMyPostedJobs(){
       <div class="row"><span>Site</span><b>${j.suburb||'—'} ${j.postcode||''}</b></div>
       <div class="row"><span>System</span><b>${sys}</b></div>
       <div class="row"><span>Job value</span><b>${j.job_value_cents!=null?fmt$(j.job_value_cents/100):'—'}</b></div>
+      ${j.status!=='open'?`<div class="row"><span>Progress</span><b>${jobProgressLabel(j)}</b></div>`:''}
     </div>
     ${pending.map(t=>`<div class="tender">
       <div class="row"><span>Counter-offer</span><b>${fmt$(t.offer_cents/100)}</b></div>

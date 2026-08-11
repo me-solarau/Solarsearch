@@ -348,7 +348,14 @@ async function loadMyJobs(){
   const { data, error } = await db.from('installs').select('*, jobs!installs_job_id_fkey(*), payment_milestones(*)')
     .eq('pipeline','subcontractor').order('created_at',{ascending:false});
   if(error){ toast('My jobs load failed: '+error.message); MY_JOBS=[]; return; }
-  MY_JOBS=data||[];
+  // Not-yet-scheduled jobs need action first (72-business-hour deadline); scheduled
+  // jobs then sort soonest-first so an installer juggling many jobs sees what's next.
+  MY_JOBS=(data||[]).sort((a,b)=>{
+    if(!a.scheduled_install_at && !b.scheduled_install_at) return 0;
+    if(!a.scheduled_install_at) return -1;
+    if(!b.scheduled_install_at) return 1;
+    return new Date(a.scheduled_install_at)-new Date(b.scheduled_install_at);
+  });
 }
 function jobStepState(inst){
   const pm={}; (inst.payment_milestones||[]).forEach(p=>pm[p.milestone]=p.status);
@@ -365,20 +372,68 @@ function jobStepState(inst){
   let cur=done.findIndex(d=>!d); if(cur===-1) cur=done.length-1;
   return {done,cur,pm};
 }
+const fmtSched=s=>s?new Date(s).toLocaleString('en-AU',{day:'2-digit',month:'short',hour:'numeric',minute:'2-digit'}):null;
+
+/* Won installations (Path-1, Site Quoted board wins) — same installs table,
+   pipeline='installer'. No milestone stepper (that's subcontract-specific
+   escrow), but they share the same schedule so they belong in one queue. */
+let WON_JOBS=[];
+async function loadWonJobs(){
+  const { data, error } = await db.rpc('installer_jobs');
+  if(error){ toast('Won jobs load failed: '+error.message); WON_JOBS=[]; return; }
+  WON_JOBS=(data||[]).filter(w=>w.pipeline==='installer'&&!['closed','cancelled'].includes(w.status));
+}
+async function scheduleWonJob(installId){
+  const raw=prompt('Schedule date & time (e.g. 2026-08-18 08:00):'); if(!raw) return;
+  const d=new Date(raw.replace(' ','T')); if(isNaN(d)){ toast('Could not read that date/time'); return; }
+  const { error } = await db.rpc('schedule_install',{p_install:installId,p_scheduled_at:d.toISOString()});
+  if(error){ toast('Schedule failed: '+error.message); return; }
+  toast('Install scheduled');
+  await loadWonJobs(); renderMyJobs(); renderNextBar();
+}
+window.scheduleWonJob = scheduleWonJob;
+
+function renderSubCard(inst){
+  const j=inst.jobs||{};
+  const {done,cur}=jobStepState(inst);
+  const steps=STEPS.map((s,i)=>{
+    const cls=done[i]?'done':(i===cur?'active':'');
+    return `<button class="step ${cls}" onclick="stepClick('${inst.id}',${i})"><span class="n">${s.n}</span><span class="l">${s.l}</span></button>`;
+  }).join('');
+  const sched=fmtSched(inst.scheduled_install_at);
+  return `<div class="myjob" id="myjob-${inst.id}">
+    <h3>${j.title||'Subcontract job'} <span style="font-weight:400;color:var(--ink3);font-size:.78rem">· SUBCONTRACT</span></h3>
+    <div class="sub2">${j.street_address||(j.suburb+' '+(j.postcode||''))} · ${fmt$((inst.job_value_cents||0)/100)}</div>
+    <div class="row" style="margin-bottom:8px"><span>Scheduled install</span>
+      <b style="${sched?'':'color:var(--red)'}">${sched||'Not yet scheduled'}</b></div>
+    <div class="stepper">${steps}</div>
+  </div>`;
+}
+function renderWonCard(w){
+  const sched=fmtSched(w.scheduled_install_at);
+  const sys=`${w.system_kw?w.system_kw+' kW':''}${w.system_kw&&w.battery_kwh?' + ':''}${w.battery_kwh?w.battery_kwh+' kWh':''}`||'Design pending';
+  return `<div class="myjob" id="won-${w.install_id}">
+    <h3>${w.ss_ref||'Won job'} <span style="font-weight:400;color:var(--ink3);font-size:.78rem">· WON — SITE QUOTED BOARD</span></h3>
+    <div class="sub2">${w.address||(w.suburb+' '+(w.postcode||''))} · ${sys}</div>
+    <div class="row" style="margin-bottom:8px"><span>Scheduled install</span>
+      <b style="${sched?'':'color:var(--red)'}">${sched||'Not yet scheduled'}</b></div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-amber btn-sm" onclick="scheduleWonJob('${w.install_id}')">${sched?'Reschedule':'Set schedule'}</button>
+    </div>
+  </div>`;
+}
 function renderMyJobs(){
-  $('myJobsEl').innerHTML=MY_JOBS.map(inst=>{
-    const j=inst.jobs||{};
-    const {done,cur}=jobStepState(inst);
-    const steps=STEPS.map((s,i)=>{
-      const cls=done[i]?'done':(i===cur?'active':'');
-      return `<button class="step ${cls}" onclick="stepClick('${inst.id}',${i})"><span class="n">${s.n}</span><span class="l">${s.l}</span></button>`;
-    }).join('');
-    return `<div class="myjob" id="myjob-${inst.id}">
-      <h3>${j.title||'Subcontract job'}</h3>
-      <div class="sub2">${j.street_address||(j.suburb+' '+(j.postcode||''))} · ${fmt$((inst.job_value_cents||0)/100)}</div>
-      <div class="stepper">${steps}</div>
-    </div>`;
-  }).join('')||'<div class="card" style="padding:20px;color:var(--ink3)">No active subcontract jobs — grab one above.</div>';
+  const items=[
+    ...MY_JOBS.map(inst=>({date:inst.scheduled_install_at, html:renderSubCard(inst)})),
+    ...WON_JOBS.map(w=>({date:w.scheduled_install_at, html:renderWonCard(w)})),
+  ].sort((a,b)=>{
+    if(!a.date && !b.date) return 0;
+    if(!a.date) return -1;
+    if(!b.date) return 1;
+    return new Date(a.date)-new Date(b.date);
+  });
+  $('myJobsEl').innerHTML=items.map(i=>i.html).join('')
+    ||'<div class="card" style="padding:20px;color:var(--ink3)">No active jobs — grab a subcontract job above, or win one on the Site Quoted board.</div>';
 }
 async function stepClick(instId,idx){
   const inst=MY_JOBS.find(i=>i.id===instId); if(!inst) return;
@@ -457,16 +512,22 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 function renderNextBar(){
   const nb=$('nextBar'); if(!nb) return;
   const active=MY_JOBS.find(inst=>jobStepState(inst).cur<STEPS.length-1);
+  const unscheduledWon=WON_JOBS.find(w=>!w.scheduled_install_at);
   if(active){
     const {cur}=jobStepState(active); const j=active.jobs||{};
     $('nbJob').textContent=j.title||j.street_address||j.suburb||'Active job';
     $('nbStep').textContent='Step '+(cur+1)+' of 7 — '+STEPS[cur].l;
-    nb.dataset.installId=active.id;
+    nb.dataset.installId=active.id; nb.dataset.kind='sub';
+    nb.style.display='block';
+  } else if(unscheduledWon){
+    $('nbJob').textContent=unscheduledWon.ss_ref||unscheduledWon.address||'Won job';
+    $('nbStep').textContent='Needs a schedule date';
+    nb.dataset.installId=unscheduledWon.install_id; nb.dataset.kind='won';
     nb.style.display='block';
   } else if(AVAIL_JOBS.length){
     $('nbJob').textContent=AVAIL_JOBS.length+' job'+(AVAIL_JOBS.length>1?'s':'')+' open on the board';
     $('nbStep').textContent='No active jobs — grab one to get started';
-    nb.dataset.installId='';
+    nb.dataset.installId=''; nb.dataset.kind='';
     nb.style.display='block';
   } else {
     nb.style.display='none';
@@ -474,9 +535,9 @@ function renderNextBar(){
 }
 function goToNextStep(){
   document.querySelector('.tab[data-p="jobs"]').click();
-  const id=$('nextBar').dataset.installId;
+  const id=$('nextBar').dataset.installId, kind=$('nextBar').dataset.kind;
   setTimeout(()=>{
-    const el=id?document.getElementById('myjob-'+id):$('availJobsEl');
+    const el=id?document.getElementById((kind==='won'?'won-':'myjob-')+id):$('availJobsEl');
     if(!el) return;
     el.scrollIntoView({behavior:'smooth',block:'center'});
     el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1400);
@@ -504,7 +565,7 @@ renderRect(); // static honest state, no auth needed
   renderBoard();
   loadPriceBook();
   renderBill();
-  await Promise.all([loadAvailableJobs(), loadMyJobs()]);
+  await Promise.all([loadAvailableJobs(), loadMyJobs(), loadWonJobs()]);
   renderAvailableJobs();
   renderMyJobs();
   renderNextBar();
