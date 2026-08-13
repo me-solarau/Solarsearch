@@ -380,20 +380,31 @@ function renderAvailableJobs(){
   $('availJobsEl').innerHTML=AVAIL_JOBS.map(j=>{
     const sys=`${j.system_kw?j.system_kw+' kW':''}${j.system_kw&&j.battery_kwh?' + ':''}${j.battery_kwh?j.battery_kwh+' kWh':''}`||'Design pending';
     const quote=j.pre_quote_cents!=null?fmt$(j.pre_quote_cents/100):null;
+    const commercial=!!j.is_commercial;
+    // Commercial jobs are sourced by the mode the retailer chose: grab keeps the
+    // race, tender/invite take priced offers and the retailer picks one.
+    const offersOnly=commercial&&j.sourcing_mode!=='grab';
+    const ref=commercial?`COMMERCIAL${j.sourcing_mode==='invite'?' · INVITED':''}`:(j.job_type||'JOB').toUpperCase();
+    const footLabel=offersOnly?'OFFERS — RETAILER CHOOSES':'FIRST GRAB WINS';
+    const dnsp={not_submitted:'Not submitted',submitted:'Submitted',approved:'Approved'}[j.dnsp_status];
     return `<div class="job">
-    <div class="job-h"><div><div class="ref">${(j.job_type||'JOB').toUpperCase()}</div><div class="addr">${j.suburb||'—'} ${j.postcode||''}</div></div>
-      <span class="pill ${j.is_preapproved?'p-quoted':'p-open'}">${j.is_preapproved?'PRE-APPROVED RATE':'NEW RETAILER'}</span></div>
+    <div class="job-h"><div><div class="ref">${ref}</div><div class="addr">${j.suburb||'—'} ${j.postcode||''}</div></div>
+      <span class="pill ${commercial?'p-won':(j.is_preapproved?'p-quoted':'p-open')}">${commercial?(j.system_kw||'?')+' kW':(j.is_preapproved?'PRE-APPROVED RATE':'NEW RETAILER')}</span></div>
     <div class="job-b">
       <div class="row"><span>System</span><b>${sys}</b></div>
+      ${commercial&&j.panel_qty?`<div class="row"><span>Panels</span><b>${j.panel_qty}</b></div>`:''}
       <div class="row"><span>Storeys / roof</span><b>${j.storeys||'—'} / ${j.roof_type||'—'}</b></div>
+      ${commercial&&dnsp?`<div class="row"><span>Grid connection</span><b>${dnsp}</b></div>`:''}
+      ${commercial&&j.target_completion_date?`<div class="row"><span>Target completion</span><b>${new Date(j.target_completion_date).toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'})}</b></div>`:''}
       ${quote!=null?`<div class="row"><span>Your rate card</span><b>${quote}</b></div>`:''}
       ${j.scheduled_window?`<div class="row"><span>Window</span><b>${j.scheduled_window}</b></div>`:''}
       ${j.general_instructions?`<div class="row"><span>Notes</span><b>${j.general_instructions}</b></div>`:''}
       ${j.edge_perimeter_m&&!j.edge_protection_provided_separately?`<div class="row"><span>Edge protection</span><b>${j.edge_perimeter_m}m — quote it</b></div>`:''}
     </div>
     <div class="job-f">
-      <span style="font-family:var(--mono);font-size:.64rem;color:var(--ink3)">FIRST GRAB WINS</span>
+      <span style="font-family:var(--mono);font-size:.64rem;color:var(--ink3)">${footLabel}</span>
       ${j.forfeited_by_me?`<button class="btn btn-ghost btn-sm" disabled>Locked 24h — you forfeited this</button>`:
+        offersOnly?`<button class="btn btn-amber btn-sm" onclick="amendJob('${j.id}')">Submit offer</button>`:
         `<div style="display:flex;gap:8px">
           <button class="btn btn-ghost btn-sm" onclick="amendJob('${j.id}')">Amend</button>
           <button class="btn btn-amber btn-sm" onclick="grabJob('${j.id}')">Grab job</button>
