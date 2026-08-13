@@ -287,7 +287,7 @@ async function loadInvitables(){
   INVITABLES=data||[];
   $('cInviteList').innerHTML=INVITABLES.map(i=>
     `<label class="f chk" style="margin:0"><input type="checkbox" class="cInv" value="${i.id}"> <span>${i.company_name}${i.preapproved?' <span style="color:var(--green);font-weight:700">· pre-approved</span>':''}</span></label>`
-  ).join('')||'<span style="color:var(--ink3)">No opted-in installers yet.</span>';
+  ).join('')||'<span style="color:var(--ink3)">No installers have opted in to commercial solar yet — the directory fills as they raise their hands.</span>';
 }
 async function postCommercialJob(){
   if(!ME){ $('cErr').textContent='Retailer account not loaded yet.'; return; }
