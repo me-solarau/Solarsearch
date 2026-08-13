@@ -70,6 +70,7 @@ h1{font-family:var(--display);font-size:1.4rem;font-weight:700}
   <span class="logo">solar<em>search</em> <span style="font-weight:600;color:#9FC0B4;font-size:.68rem">RETAILER</span></span>
   <div class="tabs">
     <button class="tab sel" data-p="post">Post a job</button>
+    <button class="tab" data-p="commercial">Commercial</button>
     <button class="tab" data-p="jobs">My jobs</button>
   </div>
   <span class="co">RETAILER</span>
@@ -123,6 +124,66 @@ h1{font-family:var(--display);font-size:1.4rem;font-weight:700}
     <div class="field-err" id="jErr" style="padding:0 18px"></div>
     <div style="padding:16px 18px;display:flex;gap:10px;justify-content:flex-end">
       <button class="btn btn-amber" onclick="postJob()">Post job to board</button>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="p-commercial">
+  <h1>Post a commercial job</h1>
+  <div class="sub">100 kW – 1 MW. From 1 October 2026 these systems earn STCs upfront under the expanded SRES. Every job is executed on the Solarsafe record — geotagged evidence, AI compliance verdicts, and STC sign-off before final payment.</div>
+  <div class="card">
+    <div class="sec-t"><span>System &amp; site</span></div>
+    <div class="fgrid f">
+      <div style="grid-column:1/-1"><label>Job title</label><input id="cTitle" placeholder="e.g. 250 kW rooftop — cold store, Beresfield"></div>
+      <div><label>System size (kW) — 100 to 1,000</label><input class="mono" id="cKw" inputmode="decimal" placeholder="250"></div>
+      <div><label>Battery (kWh, optional)</label><input class="mono" id="cKwh" inputmode="decimal"></div>
+      <div><label>Panel model</label><input id="cPanelModel"></div>
+      <div><label>Panel qty</label><input class="mono" id="cPanelQty" inputmode="numeric"></div>
+      <div><label>Inverter model</label><input id="cInvModel"></div>
+      <div><label>Roof type</label><input id="cRoof" placeholder="e.g. metal deck, klip-lok"></div>
+      <div><label>Storeys</label><input class="mono" id="cStoreys" value="1"></div>
+      <div><label>Suburb</label><input id="cSuburb"></div>
+      <div><label>Postcode</label><input class="mono" id="cPostcode"></div>
+    </div>
+    <div class="sec-t"><span>Commercial specifics</span></div>
+    <div class="fgrid f">
+      <div><label>Grid connection (DNSP) status</label><select id="cDnsp">
+        <option value="not_submitted">Application not submitted yet</option>
+        <option value="submitted">Application submitted — awaiting approval</option>
+        <option value="approved">Connection approved</option>
+      </select></div>
+      <div><label>Target completion date</label><input class="mono" id="cTarget" type="date"></div>
+      <div><label>Job value $ (ex GST)</label><input class="mono" id="cValue" placeholder="e.g. 280000"></div>
+      <div><label>Design file link (optional)</label><input id="cDesign" placeholder="Pylon export / PDF link"></div>
+      <div style="grid-column:1/-1" id="cStcBox" class="tender" hidden></div>
+      <div style="grid-column:1/-1" class="field-err" id="cDateWarn"></div>
+    </div>
+    <div class="sec-t"><span>How installers are sourced</span></div>
+    <div class="fgrid f">
+      <div style="grid-column:1/-1;display:grid;gap:8px">
+        <label class="f chk" style="margin:0"><input type="radio" name="cMode" value="tender" checked> <span><b>Open tender</b> — every opted-in installer can price it; you compare offers and pick one.</span></label>
+        <label class="f chk" style="margin:0"><input type="radio" name="cMode" value="grab"> <span><b>First grab wins</b> — pre-approved installers take it at your posted value, fastest wins.</span></label>
+        <label class="f chk" style="margin:0"><input type="radio" name="cMode" value="invite"> <span><b>Invite only</b> — only installers you name below see the job; they submit offers.</span></label>
+      </div>
+      <div style="grid-column:1/-1" id="cInviteBox" hidden>
+        <label>Invite these installers</label>
+        <div id="cInviteList" style="display:grid;gap:6px;border:1.5px solid var(--line2);border-radius:9px;padding:12px;max-height:220px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div class="sec-t"><span>Instructions</span></div>
+    <div class="fgrid f">
+      <div style="grid-column:1/-1"><label>General instructions for the installer</label><textarea id="cNotes" placeholder="Access, isolation windows, staging, crane, site induction requirements"></textarea></div>
+    </div>
+    <div class="sec-t"><span>Customer (hidden from installers until the job is awarded)</span></div>
+    <div class="fgrid f">
+      <div><label>Customer / business name</label><input id="cCustName"></div>
+      <div><label>Contact phone</label><input id="cCustPhone"></div>
+      <div><label>Contact email</label><input id="cCustEmail"></div>
+      <div style="grid-column:1/-1"><label>Site address</label><input id="cAddr"></div>
+    </div>
+    <div class="field-err" id="cErr" style="padding:0 18px"></div>
+    <div style="padding:16px 18px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-amber" onclick="postCommercialJob()">Post commercial job</button>
     </div>
   </div>
 </section>
@@ -199,6 +260,81 @@ async function postJob(){
   document.querySelector('.tab[data-p="jobs"]').click();
 }
 
+/* ---- commercial posting ---- */
+// STC estimate for the new 100 kW – 1 MW band: kW × zone rating × 5-yr deeming.
+// Zone 3 (Sydney/Hunter/most of coastal NSW) rating 1.382; certificates quoted
+// at a conservative $36–40 band rather than promising the $40 clearing house.
+function stcEstimate(){
+  const kw=parseFloat($('cKw').value);
+  const box=$('cStcBox');
+  if(!kw||kw<100){ box.hidden=true; return; }
+  const stcs=Math.round(kw*1.382*5);
+  box.hidden=false;
+  box.innerHTML=`<div class="row"><span>Estimated STCs (zone 3, 5-yr deeming)</span><b>${stcs.toLocaleString()}</b></div>
+    <div class="row"><span>Upfront value at $36–40 / certificate</span><b>${fmt$(stcs*36)} – ${fmt$(stcs*40)}</b></div>
+    <div style="color:var(--ink3);margin-top:4px">Only systems completed and connected on or after 1 Oct 2026 qualify. Estimate only — final regulations set the mechanics.</div>`;
+}
+function targetDateWarn(){
+  const v=$('cTarget').value;
+  $('cDateWarn').textContent = (v && v < '2026-10-01')
+    ? 'Heads up: a system completed before 1 October 2026 earns NO STCs under the expanded scheme. If the rebate is part of this job’s economics, target completion on or after that date.'
+    : '';
+}
+let INVITABLES=[];
+async function loadInvitables(){
+  const { data, error } = await db.rpc('list_invitable_installers');
+  if(error){ INVITABLES=[]; return; }
+  INVITABLES=data||[];
+  $('cInviteList').innerHTML=INVITABLES.map(i=>
+    `<label class="f chk" style="margin:0"><input type="checkbox" class="cInv" value="${i.id}"> <span>${i.company_name}${i.preapproved?' <span style="color:var(--green);font-weight:700">· pre-approved</span>':''}</span></label>`
+  ).join('')||'<span style="color:var(--ink3)">No opted-in installers yet.</span>';
+}
+async function postCommercialJob(){
+  if(!ME){ $('cErr').textContent='Retailer account not loaded yet.'; return; }
+  const kw=parseFloat($('cKw').value);
+  if(!$('cTitle').value.trim()){ $('cErr').textContent='Job title is required.'; return; }
+  if(!kw||kw<100||kw>1000){ $('cErr').textContent='Commercial jobs are 100 to 1,000 kW. For smaller systems use "Post a job".'; return; }
+  const mode=document.querySelector('input[name="cMode"]:checked').value;
+  const invited=[...document.querySelectorAll('.cInv:checked')].map(el=>el.value);
+  if(mode==='invite'&&!invited.length){ $('cErr').textContent='Invite-only needs at least one installer ticked.'; return; }
+  const payload={
+    retailer_id: ME.id,
+    is_commercial: true,
+    sourcing_mode: mode,
+    invited_installer_ids: mode==='invite'?invited:[],
+    title: $('cTitle').value.trim(),
+    job_type: parseFloat($('cKwh').value)>0?'solar_battery':'solar_install',
+    system_kw: kw,
+    battery_kwh: num($('cKwh').value),
+    panel_model: $('cPanelModel').value.trim()||null,
+    panel_qty: int($('cPanelQty').value),
+    inverter_model: $('cInvModel').value.trim()||null,
+    roof_type: $('cRoof').value.trim()||null,
+    storeys: int($('cStoreys').value),
+    suburb: $('cSuburb').value.trim()||null,
+    postcode: $('cPostcode').value.trim()||null,
+    dnsp_status: $('cDnsp').value,
+    target_completion_date: $('cTarget').value||null,
+    job_value_cents: parseCents($('cValue').value)||null,
+    design_file_url: $('cDesign').value.trim()||null,
+    general_instructions: $('cNotes').value.trim()||null,
+    customer_name: $('cCustName').value.trim()||null,
+    customer_phone: $('cCustPhone').value.trim()||null,
+    customer_email: $('cCustEmail').value.trim()||null,
+    street_address: $('cAddr').value.trim()||null,
+  };
+  const { error } = await db.from('jobs').insert(payload);
+  if(error){ $('cErr').textContent='Post failed: '+error.message; return; }
+  $('cErr').textContent='';
+  toast(mode==='invite'?'Commercial job posted — your invited installers can price it now'
+       :mode==='tender'?'Commercial job posted — offers will appear under My jobs'
+       :'Commercial job posted — pre-approved installers can grab it now');
+  document.querySelectorAll('#p-commercial input, #p-commercial textarea').forEach(el=>{ if(el.type==='checkbox'||el.type==='radio') return; el.value=''; });
+  document.querySelectorAll('.cInv').forEach(el=>el.checked=false);
+  $('cStoreys').value='1'; $('cStcBox').hidden=true; $('cDateWarn').textContent='';
+  document.querySelector('.tab[data-p="jobs"]').click();
+}
+
 let MY_JOBS=[];
 async function loadMyPostedJobs(){
   const { data, error } = await db.from('jobs')
@@ -222,21 +358,28 @@ function renderMyPostedJobs(){
   $('jKpis').innerHTML=[['Posted',MY_JOBS.length],['Open on board',open],['Counter-offers waiting',pendingTenders],
     ['Total value',fmt$(MY_JOBS.reduce((a,j)=>a+(j.job_value_cents||0),0)/100)]]
     .map(k=>`<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join('');
+  const nameOf=id=>{const i=INVITABLES.find(x=>x.id===id);return i?i.company_name:'Installer';};
+  const MODE_LABEL={tender:'OPEN TENDER',grab:'FIRST GRAB',invite:'INVITE ONLY'};
   $('myPostedJobsEl').innerHTML=MY_JOBS.map(j=>{
     const st={open:'p-open',claimed:'p-quoted',scheduled:'p-quoted',cancelled:'p-lost'}[j.status]||'p-open';
     const sys=`${j.system_kw?j.system_kw+' kW':''}${j.system_kw&&j.battery_kwh?' + ':''}${j.battery_kwh?j.battery_kwh+' kWh':''}`||'—';
-    const pending=(j.job_tenders||[]).filter(t=>t.status==='pending');
+    // Commercial tender boards can carry several live offers — cheapest first,
+    // named, so the retailer compares like-for-like at a glance.
+    const pending=(j.job_tenders||[]).filter(t=>t.status==='pending').sort((a,b)=>a.offer_cents-b.offer_cents);
     return `<div class="job">
-    <div class="job-h"><div><div class="ref">${(j.job_type||'').toUpperCase()}</div><div class="addr">${j.title||j.suburb||'Untitled job'}</div></div>
+    <div class="job-h"><div><div class="ref">${j.is_commercial?'COMMERCIAL · '+(MODE_LABEL[j.sourcing_mode]||''):(j.job_type||'').toUpperCase()}</div><div class="addr">${j.title||j.suburb||'Untitled job'}</div></div>
       <span class="pill ${st}">${(j.status||'').toUpperCase()}</span></div>
     <div class="job-b">
       <div class="row"><span>Site</span><b>${j.suburb||'—'} ${j.postcode||''}</b></div>
       <div class="row"><span>System</span><b>${sys}</b></div>
       <div class="row"><span>Job value</span><b>${j.job_value_cents!=null?fmt$(j.job_value_cents/100):'—'}</b></div>
+      ${j.is_commercial?`<div class="row"><span>Grid connection</span><b>${{not_submitted:'Not submitted',submitted:'Submitted',approved:'Approved'}[j.dnsp_status]||'—'}</b></div>`:''}
+      ${j.is_commercial&&j.target_completion_date?`<div class="row"><span>Target completion</span><b>${new Date(j.target_completion_date).toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'})}${j.target_completion_date<'2026-10-01'?' ⚠ pre-STC':''}</b></div>`:''}
       ${j.status!=='open'?`<div class="row"><span>Progress</span><b>${jobProgressLabel(j)}</b></div>`:''}
+      ${j.status==='open'&&j.is_commercial?`<div class="row"><span>Offers</span><b>${pending.length||'None yet'}</b></div>`:''}
     </div>
     ${pending.map(t=>`<div class="tender">
-      <div class="row"><span>Counter-offer</span><b>${fmt$(t.offer_cents/100)}</b></div>
+      <div class="row"><span>${j.is_commercial?'Offer — '+nameOf(t.installer_id):'Counter-offer'}</span><b>${fmt$(t.offer_cents/100)}</b></div>
       ${t.message?`<div class="row"><span>Note</span><b>${t.message}</b></div>`:''}
       <div style="display:flex;justify-content:flex-end;margin-top:6px">
         <button class="btn btn-amber btn-sm" onclick="acceptTender('${t.id}')">Accept &amp; assign job</button>
@@ -261,14 +404,21 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 
 window.toast = toast;
 window.postJob = postJob;
+window.postCommercialJob = postCommercialJob;
 window.acceptTender = acceptTender;
+
+$('cKw').addEventListener('input', stcEstimate);
+$('cTarget').addEventListener('change', targetDateWarn);
+document.querySelectorAll('input[name="cMode"]').forEach(r=>r.addEventListener('change',()=>{
+  $('cInviteBox').hidden = document.querySelector('input[name="cMode"]:checked').value!=='invite';
+}));
 
 (async () => {
   const auth = await requireRole(['retailer'], { loginPage: '/login.html' });
   if (!auth) return;
   mountRoleSwitcher(auth.access);
   await loadMe();
-  await loadMyPostedJobs();
+  await Promise.all([loadMyPostedJobs(), loadInvitables()]);
   renderMyPostedJobs();
 })();
 </script>
