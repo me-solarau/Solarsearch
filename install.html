@@ -18,7 +18,7 @@
   --body:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;--mono:ui-monospace,Menlo,monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:var(--body);background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 env(safe-area-inset-bottom)}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 env(safe-area-inset-bottom);overscroll-behavior-y:none}
 button{font-family:inherit;cursor:pointer}
 .top{position:sticky;top:0;background:var(--ink);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;z-index:5}
 .top b{font-size:1rem}
@@ -50,11 +50,14 @@ label.f{display:block;font-size:.78rem;color:var(--ink2);margin:10px 0 4px}
 input.f,textarea.f,select.f{width:100%;border:1px solid var(--line2);border-radius:10px;padding:9px;font-family:inherit;font-size:.9rem}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:99px;font-size:.85rem;opacity:0;transition:opacity .2s;z-index:20}
 .toast.show{opacity:1}
+#ptr{position:fixed;top:calc(env(safe-area-inset-top) + 8px);left:50%;transform:translate(-50%,0);background:var(--ink);color:#fff;padding:8px 14px;border-radius:99px;font-size:.8rem;font-weight:600;opacity:0;pointer-events:none;z-index:30;transition:opacity .15s}
+#ptr.show{opacity:1}
 .view{display:none}.view.active{display:block}
 </style>
 </head>
 <body>
 <div class="top"><b>Solarsearch · Installer</b><span id="who" class="sub" style="color:#9fc3b7;margin-left:auto"></span></div>
+<div id="ptr">Pull to refresh</div>
 
 <div class="wrap">
   <!-- LIST -->
@@ -462,6 +465,43 @@ async function deleteAccount(){
   if(error){ toast(error.message); return; }
   toast('Account deletion requested'); try{ await db.auth.signOut(); }catch(e){} setTimeout(()=>location.href='/login.html',1500);
 }
+/* Pull-to-refresh: from the home screen there is no browser chrome, so a stale
+   job list or verdict had no way to update short of killing the app. Dragging
+   down from the very top re-pulls jobs, photos and verdicts for whichever view
+   is open — a soft refresh, so the offline queue and session are untouched.
+   overscroll-behavior-y:none on body keeps the browser's own pull-to-reload
+   from double-firing where it exists. */
+let ptrStartY=null, ptrPull=0;
+const PTR_ARM=56; // px of indicator travel that arms the release
+function ptrDist(){ return Math.min(ptrPull*0.4, 80); }
+window.addEventListener('touchstart',e=>{ ptrStartY=(window.scrollY<=0)?e.touches[0].clientY:null; ptrPull=0; },{passive:true});
+window.addEventListener('touchmove',e=>{
+  if(ptrStartY==null) return;
+  ptrPull=e.touches[0].clientY-ptrStartY;
+  if(ptrPull>8&&window.scrollY<=0){
+    const ptr=$('ptr');
+    ptr.style.transform=`translate(-50%,${ptrDist()}px)`;
+    ptr.textContent=ptrDist()>=PTR_ARM?'Release to refresh':'Pull to refresh';
+    ptr.classList.add('show');
+  } else { $('ptr').classList.remove('show'); }
+},{passive:true});
+window.addEventListener('touchend',async()=>{
+  if(ptrStartY==null) return;
+  const go=ptrDist()>=PTR_ARM;
+  ptrStartY=null;
+  const ptr=$('ptr');
+  if(go){
+    ptr.textContent='Refreshing…';
+    try{
+      await flush(); // push any queued offline photos first so the reload shows them
+      if($('v-job').classList.contains('active')&&curId) await openInstall(curId);
+      else if($('v-list').classList.contains('active')) await loadInstalls();
+      // v-report / v-done: refresh nothing — never wipe a half-typed report
+      toast('Up to date');
+    }catch(e){ toast('Refresh failed — check signal'); }
+  }
+  ptr.classList.remove('show'); ptr.style.transform='translate(-50%,0)';
+});
 async function boot(){ await loadInstalls(); showView('v-list'); }
 Object.assign(window,{showView,openInstall,startInstall,pick,rmPhoto,markNA,submitInstall,deleteAccount,boot});
 window.$=$;
