@@ -410,8 +410,16 @@ async function startInstall(){
   const { error } = await db.rpc('start_install',{p_install:curId,p_lat:lat,p_lng:lng});
   if(error){
     if(btn){ btn.disabled=false; btn.textContent='📍 Start install on site'; }
+    // "cannot start from in_progress" means the DB is already past scheduled —
+    // a double-tap, or this render came from a stale cache. That is not a
+    // dead-end: resync and open the job at its real state.
+    if(/cannot start/i.test(error.message||'')){ await loadInstalls(); openInstall(curId); return; }
     toast(error.message); return;
   }
+  // The cache must match the DB before re-render, or openInstall draws the
+  // Start card again from the stale 'scheduled' row — which is exactly the
+  // trap: the second tap then errors on a job that started fine.
+  const j=JOBS.find(x=>x.id===curId); if(j) j.status='in_progress';
   toast(lat==null?'Install started — location unavailable, continuing':'Install started — attendance logged');
   openInstall(curId);
 }
