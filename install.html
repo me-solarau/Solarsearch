@@ -140,7 +140,7 @@ let STEP_SORT='todo';
 const REQUIRED=[
  {key:'array',title:'Panel array on roof',
   hint:'Wide shot showing the whole array in place.'},
- {key:'mounting_feet',title:'Mounting feet',counts:true,
+ {key:'mounting_feet',title:'Mounting feet',counts:true,flash:true,
   min:j=>Math.max(2,Math.ceil((j.panel_qty||0)*2*0.5)),
   hint:j=>`${(j.panel_qty||0)*2} feet on this job (2 per panel). Cover at least half — several feet in one shot is fine and counts for all of them, as long as each is clear enough to judge.`},
  // Tile is where roofs leak. A tin penetration is hard to get wrong; a tile that
@@ -150,7 +150,7 @@ const REQUIRED=[
  // proportionate to that. These are the SAME locations as the mounting-feet step
  // seen from the other side: the foot going into the batten, then the tile back
  // down over it. Multi-item counting keeps that honest rather than doubling work.
- {key:'tile_seating',title:'Tile foot & tile seating',counts:true,
+ {key:'tile_seating',title:'Tile foot & tile seating',counts:true,flash:true,
   when:j=>/tile|terracotta|concrete|slate/i.test(j.roof_material||''),
   min:j=>Math.max(3,Math.ceil((j.panel_qty||0)*2*0.5)),
   hint:j=>`Same ${Math.max(3,Math.ceil((j.panel_qty||0)*2*0.5))} locations as the feet, from the other side. Show the GROUND/RELIEVED tile with the foot under it and the tile laying back down FLAT. The grind is the thing being proven — a tile propped on the bracket is a fail even if nothing is cracked yet. Several tiles per shot is fine.`},
@@ -163,11 +163,11 @@ const REQUIRED=[
   hint:j=>/tile|terracotta|concrete|slate/i.test(j.roof_material||'')
     ? 'Every penetration through the tile — flashing dressed over the course, tile intact around it. This is the classic leak point. Multiple per shot is fine.'
     : 'Every penetration, flashed and sealed. Multiple in one shot is fine — each is counted.'},
- {key:'earthing',title:'Earthing, clamps & galvanic protection',
+ {key:'earthing',title:'Earthing, clamps & galvanic protection',flash:true,
   min:()=>2,
-  hint:'Earth clamp on the frame AND the galvanic/cold-galv spray applied over it.'},
+  hint:'Earth clamp on the frame AND the galvanic/cold-galv spray applied over it. Get close and slightly off-angle so the matte spray stands out against the shiny rail.'},
  {key:'isolators',title:'String / DC isolators'},
- {key:'switchboard',title:'Switchboard + breakers'},
+ {key:'switchboard',title:'Switchboard + breakers',flash:true},
  {key:'inverter',title:'Inverter installed'},
  {key:'labelling',title:'Labelling & signage'},
  {key:'final_tidy',title:'Final tidy / make good'},
@@ -349,6 +349,7 @@ function renderJob(){
     const h=hintOf(st);
     return `<div class="card"><div class="row"><b>${esc(st.title)}${required?'':' <span class="sub">(optional)</span>'}</b>${chip}</div>
       ${h?`<div class="sub" style="margin-top:4px">${esc(h)}</div>`:''}
+      ${st.flash?`<div class="sub" style="margin-top:4px;color:var(--amberd)"><b>⚡ Flash ON — not Auto.</b> Auto won't fire in daytime shade, and shade is what hides the detail here.</div>`:''}
       ${e.na?`<div class="sub" style="margin-top:6px">N/A — ${esc(e.na)}</div>`:`<div class="grid">${tiles}</div>${e.photos.map(p=>aiPanel(p.rowId)).join('')}`}
       <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-sm" onclick="pick('${st.key}')">📷 Camera or library</button>${required?'':`<button class="btn btn-sm" onclick="markNA('${st.key}')">Mark N/A</button>`}</div></div>`;
   };
@@ -423,7 +424,15 @@ async function startInstall(){
   toast(lat==null?'Install started — location unavailable, continuing':'Install started — attendance logged');
   openInstall(curId);
 }
-function pick(stepKey){ activeStep=stepKey; $('fileInput').click(); }
+function pick(stepKey){
+  activeStep=stepKey;
+  // A web page cannot switch the phone's flash on — only coach it at the moment
+  // the camera opens. Auto-flash never fires in daytime shade, which is exactly
+  // where clamp/fastener detail gets lost, so the reminder says ON, not Auto.
+  const st=STEPS.find(s=>s.key===stepKey);
+  if(st&&st.flash) toast('⚡ Flash ON (not Auto) — shade hides the detail');
+  $('fileInput').click();
+}
 async function addPhotos(files){
   const stepKey=activeStep; if(!stepKey) return;
   for(const f of files){
