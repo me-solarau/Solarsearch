@@ -97,20 +97,22 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  const { data: roleRow } = await db
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", data.session.user.id)
-    .single();
+  // Resolve access the same way every portal does: my_access() derives roles
+  // from approved identity records (installer/retailer/sales_rep) as well as
+  // user_roles (admin). The old user_roles-only check locked out anyone whose
+  // role exists as an identity record — every approved installer, for a start.
+  const { data: access } = await db.rpc("my_access");
+  const held = access || {};
+  const first = ["admin", "retailer", "installer", "sales_rep"].find((r) => held[r]);
 
-  if (!roleRow?.role) {
-    showMsg("Signed in, but no role is assigned to this account yet — contact an admin.", "error");
+  if (!first) {
+    showMsg("Signed in, but this account has no access yet — apply below or contact an admin.", "error");
     await db.auth.signOut();
     submitBtn.disabled = false;
     return;
   }
 
-  location.href = nextParam || homeForRole(roleRow.role);
+  location.href = nextParam || homeForRole(first);
 });
 </script>
 </body>
