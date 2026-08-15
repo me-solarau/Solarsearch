@@ -879,6 +879,17 @@ window.stepClick = stepClick;
   renderMyJobs();
   renderRect();
   renderNextBar();
+
+  // The available board only loaded on page-open, so a job posted after that
+  // was invisible until a manual reload — first hit live the day two jobs went
+  // up an hour apart. Refresh it every 60s while the tab is visible, and
+  // immediately when the tab regains focus (phone unlocked, app re-opened).
+  const refreshBoard = async () => {
+    if (document.hidden) return;
+    await loadAvailableJobs(); renderAvailableJobs();
+  };
+  setInterval(refreshBoard, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshBoard(); });
 })();
 </script>
 </body>
