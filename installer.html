@@ -501,6 +501,9 @@ function renderSubCard(inst){
     <div class="row" style="margin-bottom:8px"><span>Scheduled install</span>
       <b style="${sched?'':'color:var(--red)'}">${sched||'Not yet scheduled'}</b></div>
     <div class="stepper">${steps}</div>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px">
+      <button class="btn btn-amber btn-sm" onclick="location.href='/install#${inst.id}'">📷 Open installer app</button>
+    </div>
   </div>`;
 }
 function renderWonCard(w){
@@ -511,8 +514,9 @@ function renderWonCard(w){
     <div class="sub2">${w.address||(w.suburb+' '+(w.postcode||''))} · ${sys}</div>
     <div class="row" style="margin-bottom:8px"><span>Scheduled install</span>
       <b style="${sched?'':'color:var(--red)'}">${sched||'Not yet scheduled'}</b></div>
-    <div style="display:flex;justify-content:flex-end">
-      <button class="btn btn-amber btn-sm" onclick="calPick('won','${w.install_id}')">${sched?'Reschedule':'Set schedule'}</button>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="calPick('won','${w.install_id}')">${sched?'Reschedule':'Set schedule'}</button>
+      <button class="btn btn-amber btn-sm" onclick="location.href='/install#${w.install_id}'">📷 Open installer app</button>
     </div>
   </div>`;
 }
