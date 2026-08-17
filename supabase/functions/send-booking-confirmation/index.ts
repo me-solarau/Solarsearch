@@ -1,5 +1,5 @@
 // Sends a booking-confirmation email after a customer books a visit through
-// index.html (presale) or solarsafe.html (solarsafe). The client passes only
+// index.html. The client passes only
 // a lead_id; this function looks up the customer's stored email server-side
 // (service role) so a caller can never direct the email at an address they
 // don't already own on that lead. Resend key stays server-side.
@@ -30,16 +30,6 @@ const BRAND = {
     next:
       "What happens next: we design your system from real site evidence, then up to three accredited installers price the identical design — and you choose on your private link.",
     accent: "#FFB100",
-  },
-  solarsafe: {
-    from: "Solarsafe <bookings@solarsafe.au>",
-    subject: "Your Solarsafe inspection is booked",
-    name: "Solarsafe",
-    intro:
-      "Thanks for booking your Solarsafe inspection. Our inspector follows a fixed photo protocol — every critical point of your system, geotagged and time-stamped.",
-    next:
-      "What happens next: the 20-minute guided inspection, assessment against the standards, then an accredited assessor reviews and signs before your report lands by email.",
-    accent: "#177A53",
   },
 };
 
@@ -96,8 +86,7 @@ Deno.serve(async (req) => {
       (a: any, z: any) => new Date(z.created_at).getTime() - new Date(a.created_at).getTime()
     );
     const insp = insps[0] || {};
-    const mode = insp.mode === "solarsafe" ? "solarsafe" : "presale";
-    const brand = BRAND[mode];
+    const brand = BRAND.presale;
     const slot = insp?.notes?.slot || "your chosen time";
     const address = lead?.sites?.address || "";
     const name = lead?.customers?.full_name || "";

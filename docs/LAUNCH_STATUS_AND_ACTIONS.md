@@ -38,7 +38,7 @@ Both are Supabase/Vercel **secret settings** — no API, must be done in-dashboa
 ### 2. New-lead alerts (NEW — the missing piece of the lead engine)
 `capture_lead` used to fire **nothing**: a lead that filled the form but didn't
 book was completely silent. A new `notify-new-lead` function is now **deployed
-and ACTIVE**, wired into `index.html` + `solarsafe.html`, and inert until you set:
+and ACTIVE**, wired into `index.html`, and inert until you set:
 - **`HQ_ALERT_SMS`** = the mobile to text on every new lead (e.g. `61430251786`).
   Uses the existing Kudosity path, which is already proven working.
 - **`HQ_ALERT_EMAIL`** = `hello@solarsearch.com.au` (comma-separate for several).
@@ -75,7 +75,7 @@ not guessing.
 - `docs/LAUNCH_STATUS_AND_ACTIONS.md` — this file.
 - `supabase/functions/notify-new-lead/` — new-lead alert (deployed live, inert
   until its secrets are set).
-- `index.html` / `solarsafe.html` — call the new alert on capture; all
+- `index.html` — calls the new alert on capture; all
   notification calls now surface failures instead of swallowing them.
 - DB: admin role fix applied to the live project.
 
