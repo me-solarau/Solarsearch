@@ -404,7 +404,7 @@ function renderAvailableJobs(){
       <div class="row"><span>Storeys / roof</span><b>${j.storeys||'—'} / ${j.roof_type||'—'}</b></div>
       ${commercial&&dnsp?`<div class="row"><span>Grid connection</span><b>${dnsp}</b></div>`:''}
       ${commercial&&j.target_completion_date?`<div class="row"><span>Target completion</span><b>${new Date(j.target_completion_date).toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'})}</b></div>`:''}
-      ${quote!=null?`<div class="row"><span>Your rate card</span><b>${quote}</b></div>`:''}
+      ${quote!=null?`<div class="row"><span>Your rate card (inc GST)</span><b>${quote}</b></div>`:''}
       ${j.scheduled_window?`<div class="row"><span>Window</span><b>${j.scheduled_window}</b></div>`:''}
       ${j.general_instructions?`<div class="row"><span>Notes</span><b>${j.general_instructions}</b></div>`:''}
       ${j.edge_perimeter_m&&!j.edge_protection_provided_separately?`<div class="row"><span>Edge protection</span><b>${j.edge_perimeter_m}m — quote it</b></div>`:''}
@@ -428,7 +428,11 @@ async function grabJob(jobId){
   await Promise.all([loadAvailableJobs(),loadMyJobs()]); renderAvailableJobs(); renderMyJobs(); renderNextBar();
 }
 async function amendJob(jobId){
-  const raw=prompt('Your proposed rate for this job (AUD, ex GST):');
+  // inc GST: the counter-offer is compared against retailer_installer_rates
+  // .rate_cents, which holds an inc-GST figure — the Bulahdelah job's $8,220
+  // is the rate card total including GST. Labelling this "ex GST" invited an
+  // installer to counter 10% under what they meant.
+  const raw=prompt('Your proposed rate for this job (AUD, inc GST):');
   if(raw===null) return;
   const cents=parseCents(raw);
   if(!cents){ toast('Enter a valid amount'); return; }
@@ -497,7 +501,7 @@ function renderSubCard(inst){
   const sched=fmtSched(inst.scheduled_install_at);
   return `<div class="myjob" id="myjob-${inst.id}">
     <h3>${j.title||'Subcontract job'} <span style="font-weight:400;color:var(--ink3);font-size:.78rem">· SUBCONTRACT</span></h3>
-    <div class="sub2">${j.street_address||(j.suburb+' '+(j.postcode||''))} · ${fmt$((inst.job_value_cents||0)/100)}</div>
+    <div class="sub2">${j.street_address||(j.suburb+' '+(j.postcode||''))} · ${fmt$((inst.job_value_cents||0)/100)} inc GST</div>
     <div class="row" style="margin-bottom:8px"><span>Scheduled install</span>
       <b style="${sched?'':'color:var(--red)'}">${sched||'Not yet scheduled'}</b></div>
     <div class="stepper">${steps}</div>
