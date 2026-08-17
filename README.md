@@ -24,7 +24,8 @@ They coexist — one is guided photo capture, the other is a sales consultation.
 ## Pages
 - `index.html` — consumer funnel; ends in a free home-assessment booking.
 - `quote.html` — instant roof-scan estimate (ad landing) → hands to index.html.
-- `solarsafe.html` — Solarsafe consumer site (deploys separately to solarsafe.au).
+- Solarsafe is a separate platform (own repo, own database, own site at
+  solarsafe.au). Solarsearch links to it as a partner and holds none of its data.
 - `choose.html` — customer magic-link quote comparison (`?token=`).
 - `sign.html` — customer magic-link e-signature of the chosen proposal.
 - `hq.html` — Solarsearch HQ (admin): lead inbox, board, deals, **Field ops**

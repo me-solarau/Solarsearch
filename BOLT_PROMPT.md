@@ -17,7 +17,7 @@ Pages:
   price book (Path-1), rectifications, billing.
 - choose.html — Customer magic-link page: identical-design quote comparison,
   consent-gated choice (agent-model wording — do not alter legal lines).
-- solarsafe.html — Solarsafe consumer site (deploys separately to solarsafe.au).
+- Solarsafe is a separate platform (own repo + database); Solarsearch only links to it.
 
 Database:
 - schema.sql then seed.sql — run in the Supabase SQL editor, in that order.

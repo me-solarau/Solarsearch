@@ -18,7 +18,6 @@ export default defineConfig({
         appfield: resolve(__dirname, 'app-field.html'),
         appinstaller: resolve(__dirname, 'app-installer.html'),
         pack: resolve(__dirname, 'pack.html'),
-        solarsafe: resolve(__dirname, 'solarsafe.html'),
         privacy: resolve(__dirname, 'privacy.html'),
         appprivacy: resolve(__dirname, 'app-privacy.html'),
         collection: resolve(__dirname, 'collection-notice.html'),
