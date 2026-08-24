@@ -244,6 +244,7 @@ tbody tr:hover{background:var(--tint2)}
         <button class="chip" data-f="booked">Booked</button>
         <button class="chip" data-f="mine">Waiting on me</button>
         <button class="chip" data-f="hot">Score 80+</button>
+        <button class="chip" data-f="outarea">Out of area</button>
         <button class="chip" id="demoToggle" onclick="toggleDemo()" title="Demo and test leads are excluded from all boards, KPIs and funnel metrics">Demo hidden</button>
       </div>
       <div class="card tscroll"><table>
@@ -644,8 +645,20 @@ function evToTl(e,nowMs){
   return {t:m[0], b, cls:m[2], when:Math.max(1,Math.round((nowMs-new Date(e.created_at).getTime())/HR))};
 }
 
+// Postcodes the installer network actually services (installer_service_areas,
+// unpaused). A lead outside this set gets an OUT OF AREA flag on the board —
+// a Perth or Queensland lead looks identical to a local one otherwise, and the
+// AI contact queue would chase work no crew can do.
+let SERVICE_PCS=new Set();
+async function loadServiceAreas(){
+  const { data } = await db.from('installer_service_areas').select('postcode,paused');
+  SERVICE_PCS=new Set((data||[]).filter(r=>!r.paused).map(r=>String(r.postcode)));
+}
+function outOfArea(pc){ return SERVICE_PCS.size>0 && !SERVICE_PCS.has(String(pc||'')); }
+
 async function loadData(){
   const nowMs=Date.now();
+  await loadServiceAreas();
   const { data:L, error } = await db.from('leads')
     .select('id,site_id,state,lead_type,score,bill_quarterly_cents,timeline,source_platform,utm,choice_token,created_at,existing,wants,existing_system,is_demo,sites(ss_ref,postcode,address,roof_type,storeys),customers(full_name)')
     .order('created_at',{ascending:false});
@@ -678,7 +691,12 @@ async function loadData(){
     const stamps={captured:r.created_at};
     (byLead[r.id]||[]).forEach(e=>{ if(e.event_type==='lead.state_changed'&&e.payload&&e.payload.to) stamps[e.payload.to]=e.created_at; });
     return { id:ix, uuid:r.id, siteId:r.site_id, chToken:r.choice_token, stamps, ss:site.ss_ref||'—', name:cust.full_name||'(no name)',
-      suburb:(site.address||'').split(',').slice(-1)[0].trim(), pc:site.postcode||'',
+      // The address tail often already carries "NSW 2287"; strip state+postcode
+      // so the row shows "Fletcher · 2287" once, never "Fletcher NSW 2287 2287".
+      suburb:(site.address||'').split(',').slice(-1)[0].trim()
+        .replace(/\s+(NSW|QLD|VIC|SA|WA|TAS|NT|ACT)?\s*\d{4}\s*$/i,'').trim()
+        .replace(/\s+(NSW|QLD|VIC|SA|WA|TAS|NT|ACT)$/i,'').trim(),
+      pc:site.postcode||'',
       type, state:r.state, score:(r.score!=null?r.score:calcScore(bill,type,tl)),
       bill, kw:(design&&design.system_kw!=null)?Number(design.system_kw):es.kw,
       kwh:(design&&design.battery_kwh!=null)?Number(design.battery_kwh):es.kwh,
@@ -837,12 +855,13 @@ function leadMatch(l){
   if(leadFilter==='booked')return l.state==='appointment_set';
   if(leadFilter==='mine')return nextStep(l).who==='you';
   if(leadFilter==='hot')return l.score>=80;
+  if(leadFilter==='outarea')return outOfArea(l.pc);
   return true;
 }
 function renderLeads(){
   const rows=leads.filter(leadMatch).sort((a,b)=>a.ageH-b.ageH);
   $('leadRows').innerHTML=rows.map(l=>`<tr onclick="openDrawer(${l.id})">
-    <td><b>${l.name}</b>${l.isDemo?' <span class="src" style="background:var(--tint2);border:1px solid var(--line);border-radius:99px;padding:1px 7px;font-size:.68rem">demo</span>':''}<div class="src">${l.ss} · ${l.suburb} ${l.pc}</div></td>
+    <td><b>${l.name}</b>${l.isDemo?' <span class="src" style="background:var(--tint2);border:1px solid var(--line);border-radius:99px;padding:1px 7px;font-size:.68rem">demo</span>':''}${outOfArea(l.pc)?' <span class="src" style="background:var(--reds,#FBEAE6);color:var(--red,#C2452D);border:1px solid #F0C7BC;border-radius:99px;padding:1px 7px;font-size:.68rem;font-weight:700">OUT OF AREA</span>':''}<div class="src">${l.ss} · ${l.suburb}${l.pc?' · '+l.pc:''}</div></td>
     <td style="font-size:.78rem">${l.type.replace('_',' + ').replace('retrofit','retrofit')}</td>
     <td><span class="score ${scoreCls(l.score)}">${l.score}</span></td>
     <td>${pill(l.state)}</td>
@@ -1366,7 +1385,7 @@ function openDrawer(id){
   $('dAttrLabel').textContent='Attribution'; $('dTimelineLabel').textContent='Timeline — from the event log';
   $('dRef').textContent=l.ss+' · RULES '+RULES.v;
   $('dName').textContent=l.name;
-  $('dMeta').innerHTML=`${l.suburb} ${l.pc} · ${l.type.replace('_',' + ')} · score ${l.score}`
+  $('dMeta').innerHTML=`${l.suburb}${l.pc?' '+l.pc:''}${outOfArea(l.pc)?' · <b style="color:var(--red,#C2452D)">OUT OF SERVICE AREA</b>':''} · ${l.type.replace('_',' + ')} · score ${l.score}`
     +(()=>{const n=nextStep(l);return `<div style="margin-top:8px;padding:8px 11px;background:var(--tint2);border:1px solid var(--line);border-radius:9px;font-size:.82rem">
        <span class="src" style="letter-spacing:.06em">NEXT STEP</span> ${whoChip(n.who)}
        <div style="margin-top:3px;color:var(--ink)"><b>${n.do}</b></div></div>`;})();
