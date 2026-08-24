@@ -1392,7 +1392,7 @@ function openDrawer(id){
   const acts={
     captured:['AI contact now|ai','Sell raw lead|raw','Mark dead|dead'],
     contacted:['View AI transcript|tx','Take over conversation|human'],
-    qualified:['Book inspection|book','Sell as appointment|appt'],
+    qualified:['Book inspection|book','Sell as appointment|appt','View AI transcript|tx'],
     appointment_set:['Text customer times|smsoffer','Ping available techs|pingtechs','Reschedule|resch','Assign consultant|consult'],
     inspected:['Create design|design'],
     designed:['Open installer board|board'],
@@ -1409,6 +1409,7 @@ function openDrawer(id){
     nurture:['View nurture sequence|nur'],
   }[l.state]||[];
   const ACT_FN={consult:`openAssignConsultant('${l.uuid}')`, design:`openDesignForm('${l.uuid}')`, board:`openBoardConfirm('${l.uuid}')`, link:`copyChooseLink('${l.chToken||''}')`, notify:`emailComparison('${l.uuid}')`, sign:`copySignLink('${l.chToken||''}')`, inv:`openInvoice('${l.uuid}')`, pack:`openPack('${l.chToken||''}')`, smsoffer:`smsOfferForLead('${l.uuid}')`, pingtechs:`pingTechs('${l.uuid}')`,
+    ai:`billyStart('${l.uuid}')`, tx:`billyTranscript('${l.uuid}')`, human:`billyTakeover('${l.uuid}')`,
     shoot:`window.open('/install.html#${encodeURIComponent(l.ss||'')}','_blank')`};
   $('dActions').innerHTML=acts.map(a=>{
     const[t,k]=a.split('|');
@@ -1444,6 +1445,35 @@ async function renderSmsThread(leadId){
       </div></div>`;
   }).join('');
   $('dSmsSec').style.display='';
+}
+/* ===== Billy — the AI lead-follow-up agent (lead-agent edge function) ===== */
+async function billyStart(leadId){
+  toast('Waking Billy…');
+  const { data:{ session } } = await db.auth.getSession();
+  try{
+    const res=await fetch(SUPABASE_URL+'/functions/v1/lead-agent',{
+      method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+(session?session.access_token:SUPABASE_ANON_KEY),'Content-Type':'application/json'},
+      body:JSON.stringify({lead_id:leadId})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok){toast('Billy could not start: '+(j.error||('HTTP '+res.status)));return;}
+    toast(j.already_active?'Billy is already talking to this lead.':'Billy has texted the lead.');
+    renderSmsThread(leadId);
+    loadData();
+  }catch(e){toast('Billy could not start: '+e.message);}
+}
+function billyTranscript(leadId){
+  renderSmsThread(leadId);
+  const s=$('dSmsSec'); s.style.display='';
+  s.scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function billyTakeover(leadId){
+  const { error } = await db.from('agent_threads')
+    .update({status:'human',updated_at:new Date().toISOString()})
+    .eq('lead_id',leadId).eq('status','active');
+  toast(error?'Take-over failed: '+error.message
+    :'Billy has stepped back — text the customer yourself; he won\'t reply on this lead again.');
 }
 async function pingTechs(leadId){
   toast('Pinging available techs…');
