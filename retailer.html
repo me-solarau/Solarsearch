@@ -58,6 +58,11 @@ h1{font-family:var(--display);font-size:1.4rem;font-weight:700}
 .f.chk input{width:auto}
 .sec-t{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .field-err{color:var(--red);font-size:.8rem}
+.f-inline{display:flex;gap:8px;align-items:stretch}
+.f-inline>*:first-child{flex:1;min-width:0}
+.f-na{display:flex;align-items:center;gap:4px;font-size:.66rem;color:var(--ink3);font-weight:700;white-space:nowrap;padding:0 2px}
+.f-na input{width:auto}
+.req{color:var(--red)}
 .tender{background:var(--tint2);border-top:1px solid var(--line);padding:10px 16px;font-size:.8rem}
 .tender .row{margin-bottom:4px}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:999px;font-size:.85rem;z-index:300;opacity:0;transition:all .3s;pointer-events:none}
@@ -79,46 +84,86 @@ h1{font-family:var(--display);font-size:1.4rem;font-weight:700}
 <section class="page active" id="p-post">
   <h1>Post a subcontract job</h1>
   <div class="sub">Pre-approved installers see this on their board the moment you post it — first grab wins, no bidding. Customer details stay hidden from installers until the job is grabbed.</div>
+  <div class="sub" style="margin-top:-10px">Every field below is required — tick <b>N/A</b> next to a field that genuinely doesn't apply to this job rather than leaving it blank.</div>
   <div class="card">
     <div class="sec-t"><span>Job details</span></div>
     <div class="fgrid f">
-      <div style="grid-column:1/-1"><label>Job title</label><input id="jTitle" placeholder="e.g. 30x AE Solar 440W + SOLAX Ultra 20kW — shed solar, house battery"></div>
-      <div><label>Job type</label><select id="jType"><option value="solar_install">Solar install</option><option value="solar_battery">Solar + battery</option><option value="battery_install">Battery install</option></select></div>
-      <div><label>Job value $ (ex GST)</label><input class="mono" id="jValue" placeholder="8220"></div>
-      <div><label>Scheduling window / notes</label><input id="jWindow" placeholder="e.g. 2-day install · stock pickup in 2 parts"></div>
-      <div><label>Design file link (optional)</label><input id="jDesign" placeholder="Pylon export / PDF link"></div>
+      <div style="grid-column:1/-1"><label>Job title <span class="req">*</span></label><input id="jTitle" placeholder="e.g. 30x AE Solar 440W + SOLAX Ultra 20kW — shed solar, house battery"></div>
+      <div><label>Job type <span class="req">*</span></label><select id="jType"><option value="solar_install">Solar install</option><option value="solar_battery">Solar + battery</option><option value="battery_install">Battery install</option></select></div>
+      <div><label>Job value $ (ex GST) <span class="req">*</span></label><input class="mono" id="jValue" placeholder="8220"></div>
+      <div><label>Install date window <span class="req">*</span></label>
+        <div class="f-inline"><input id="jWindow" placeholder="e.g. Tues/Wed 1st-2nd Sep"><label class="f-na"><input type="checkbox" id="jWindowNA" onchange="toggleNA('jWindow')">N/A</label></div></div>
+      <div><label>Design file link <span class="req">*</span></label>
+        <div class="f-inline"><input id="jDesign" placeholder="Pylon export / PDF link"><label class="f-na"><input type="checkbox" id="jDesignNA" onchange="toggleNA('jDesign')">N/A</label></div></div>
     </div>
     <div class="sec-t"><span>Site</span></div>
     <div class="fgrid f">
-      <div><label>Suburb</label><input id="jSuburb"></div>
-      <div><label>Postcode</label><input class="mono" id="jPostcode"></div>
-      <div><label>Storeys</label><input class="mono" id="jStoreys" value="1"></div>
-      <div><label>Roof type</label><input id="jRoof" placeholder="e.g. tin, tile, colorbond"></div>
-      <div><label>Edge perimeter (m)</label><input class="mono" id="jEdgeM" placeholder="0"></div>
-      <div class="f chk" style="align-items:flex-end;padding-bottom:10px"><input type="checkbox" id="jEdgeProvided"><label style="margin:0">Edge protection ($180 Safe Work Australia requirement) provided separately</label></div>
+      <div><label>Suburb <span class="req">*</span></label><input id="jSuburb"></div>
+      <div><label>Postcode <span class="req">*</span></label><input class="mono" id="jPostcode"></div>
+      <div style="grid-column:1/-1"><label>Street address <span class="req">*</span></label><input id="jAddr" placeholder="e.g. 440 Markwell Road, Bulahdelah NSW 2423"></div>
+      <div><label>Storeys <span class="req">*</span></label><input class="mono" id="jStoreys" value="1"></div>
+      <div><label>Roof type <span class="req">*</span></label><input id="jRoof" placeholder="e.g. tin, tile, colorbond"></div>
+      <div><label>Edge perimeter (m) <span class="req">*</span></label><input class="mono" id="jEdgeM" placeholder="0"></div>
+      <div class="f chk" style="align-items:flex-end;padding-bottom:10px"><input type="checkbox" id="jEdgeProvided"><label style="margin:0">Edge protection ($180 Safe Work Australia requirement) provided separately / N/A</label></div>
     </div>
     <div class="sec-t"><span>System</span></div>
     <div class="fgrid f">
-      <div><label>System size (kW)</label><input class="mono" id="jKw"></div>
-      <div><label>Battery (kWh)</label><input class="mono" id="jKwh"></div>
-      <div><label>Panel model</label><input id="jPanelModel"></div>
-      <div><label>Panel qty</label><input class="mono" id="jPanelQty"></div>
-      <div><label>Inverter model</label><input id="jInvModel"></div>
-      <div><label>Battery model</label><input id="jBatModel"></div>
-      <div><label>Battery qty (modules)</label><input class="mono" id="jBatQty"></div>
-      <div><label>DC run (m)</label><input class="mono" id="jDcRun"></div>
-      <div><label>AC run (m)</label><input class="mono" id="jAcRun"></div>
+      <div><label>System size (kW) <span class="req">*</span></label>
+        <div class="f-inline"><input class="mono" id="jKw"><label class="f-na"><input type="checkbox" id="jKwNA" onchange="toggleNA('jKw')">N/A</label></div></div>
+      <div><label>Battery (kWh) <span class="req">*</span></label>
+        <div class="f-inline"><input class="mono" id="jKwh"><label class="f-na"><input type="checkbox" id="jKwhNA" onchange="toggleNA('jKwh')">N/A</label></div></div>
+      <div><label>Panel model <span class="req">*</span></label>
+        <div class="f-inline"><input id="jPanelModel"><label class="f-na"><input type="checkbox" id="jPanelModelNA" onchange="toggleNA('jPanelModel')">N/A</label></div></div>
+      <div><label>Panel qty <span class="req">*</span></label>
+        <div class="f-inline"><input class="mono" id="jPanelQty"><label class="f-na"><input type="checkbox" id="jPanelQtyNA" onchange="toggleNA('jPanelQty')">N/A</label></div></div>
+      <div><label>Inverter model <span class="req">*</span></label>
+        <div class="f-inline"><input id="jInvModel"><label class="f-na"><input type="checkbox" id="jInvModelNA" onchange="toggleNA('jInvModel')">N/A</label></div></div>
+      <div><label>Battery model <span class="req">*</span></label>
+        <div class="f-inline"><input id="jBatModel"><label class="f-na"><input type="checkbox" id="jBatModelNA" onchange="toggleNA('jBatModel')">N/A</label></div></div>
+      <div><label>Battery qty (modules) <span class="req">*</span></label>
+        <div class="f-inline"><input class="mono" id="jBatQty"><label class="f-na"><input type="checkbox" id="jBatQtyNA" onchange="toggleNA('jBatQty')">N/A</label></div></div>
+      <div><label>DC run (m) <span class="req">*</span></label>
+        <div class="f-inline"><input class="mono" id="jDcRun"><label class="f-na"><input type="checkbox" id="jDcRunNA" onchange="toggleNA('jDcRun')">N/A</label></div></div>
+      <div><label>AC run (m) <span class="req">*</span></label>
+        <div class="f-inline"><input class="mono" id="jAcRun"><label class="f-na"><input type="checkbox" id="jAcRunNA" onchange="toggleNA('jAcRun')">N/A</label></div></div>
+    </div>
+    <div class="sec-t"><span>Material pickup / delivery</span></div>
+    <div class="fgrid f">
+      <div style="grid-column:1/-1"><label>Pickup address <span class="req">*</span></label>
+        <div class="f-inline"><input id="jPickupAddr" placeholder="e.g. Followmont, 6 Yilen Cl, Beresfield NSW 2322"><label class="f-na"><input type="checkbox" id="jPickupAddrNA" onchange="toggleNA('jPickupAddr')">N/A</label></div></div>
+      <div style="grid-column:1/-1"><label>Pickup / delivery notes <span class="req">*</span></label>
+        <div class="f-inline"><textarea id="jPickupNotes" placeholder="e.g. Stock on the way, should be there latest Monday, if not earlier — someone will likely call you"></textarea><label class="f-na"><input type="checkbox" id="jPickupNotesNA" onchange="toggleNA('jPickupNotes')">N/A</label></div></div>
+    </div>
+    <div class="sec-t"><span>Retailer / account details</span></div>
+    <div class="fgrid f">
+      <div><label>Sales rep name <span class="req">*</span></label>
+        <div class="f-inline"><input id="jSalesRep"><label class="f-na"><input type="checkbox" id="jSalesRepNA" onchange="toggleNA('jSalesRep')">N/A</label></div></div>
+      <div><label>Sale date <span class="req">*</span></label>
+        <div class="f-inline"><input type="date" id="jSaleDate"><label class="f-na"><input type="checkbox" id="jSaleDateNA" onchange="toggleNA('jSaleDate')">N/A</label></div></div>
+      <div><label>Electricity distributor <span class="req">*</span></label>
+        <div class="f-inline"><select id="jDistributor"><option value="">Select…</option><option>Ausgrid</option><option>Endeavour Energy</option><option>Essential Energy</option><option>Other</option></select><label class="f-na"><input type="checkbox" id="jDistributorNA" onchange="toggleNA('jDistributor')">N/A</label></div></div>
+      <div><label>Current retailer <span class="req">*</span></label>
+        <div class="f-inline"><input id="jCurrentRetailer" placeholder="e.g. Red Energy"><label class="f-na"><input type="checkbox" id="jCurrentRetailerNA" onchange="toggleNA('jCurrentRetailer')">N/A</label></div></div>
+      <div style="grid-column:1/-1"><label>NMI <span class="req">*</span></label>
+        <div class="f-inline"><input class="mono" id="jNmi" placeholder="National Metering Identifier"><label class="f-na"><input type="checkbox" id="jNmiNA" onchange="toggleNA('jNmi')">N/A</label></div></div>
     </div>
     <div class="sec-t"><span>Instructions</span></div>
     <div class="fgrid f">
-      <div style="grid-column:1/-1"><label>General instructions for the installer</label><textarea id="jNotes" placeholder="Access, roof pitch, phase, anything job-specific"></textarea></div>
+      <div style="grid-column:1/-1"><label>General instructions / site status <span class="req">*</span></label>
+        <div class="f-inline"><textarea id="jNotes" placeholder="Access, roof pitch, phase, needs site check, roof being painted, anything job-specific"></textarea><label class="f-na"><input type="checkbox" id="jNotesNA" onchange="toggleNA('jNotes')">N/A</label></div></div>
     </div>
     <div class="sec-t"><span>Customer (hidden from installers until the job is grabbed)</span></div>
     <div class="fgrid f">
-      <div><label>Customer name</label><input id="jCustName"></div>
-      <div><label>Customer phone</label><input id="jCustPhone"></div>
-      <div><label>Customer email</label><input id="jCustEmail"></div>
-      <div style="grid-column:1/-1"><label>Street address</label><input id="jAddr" placeholder="e.g. 440 Markwell Road, Bulahdelah NSW 2423"></div>
+      <div><label>Customer name <span class="req">*</span></label><input id="jCustName"></div>
+      <div><label>Customer phone <span class="req">*</span></label><input id="jCustPhone"></div>
+      <div><label>Secondary phone <span class="req">*</span></label>
+        <div class="f-inline"><input id="jCustPhone2"><label class="f-na"><input type="checkbox" id="jCustPhone2NA" onchange="toggleNA('jCustPhone2')">N/A</label></div></div>
+      <div><label>Customer email <span class="req">*</span></label>
+        <div class="f-inline"><input id="jCustEmail"><label class="f-na"><input type="checkbox" id="jCustEmailNA" onchange="toggleNA('jCustEmail')">N/A</label></div></div>
+    </div>
+    <div class="sec-t"><span>Confirmation</span></div>
+    <div class="fgrid f">
+      <div class="f chk" style="grid-column:1/-1"><input type="checkbox" id="jConfirmed"><label style="margin:0"><b>I confirm this customer is booked and ready</b> — contract signed / deposit paid, this is not a tentative quote.</label></div>
     </div>
     <div class="field-err" id="jErr" style="padding:0 18px"></div>
     <div style="padding:16px 18px;display:flex;gap:10px;justify-content:flex-end">
@@ -159,43 +204,115 @@ async function loadMe(){
   const co=document.querySelector('.co'); if(co) co.textContent=ME.company_name.toUpperCase();
 }
 
+function toggleNA(id){
+  const el=$(id), na=$(id+'NA');
+  if(!el||!na) return;
+  el.disabled=na.checked;
+  if(na.checked) el.value='';
+}
+window.toggleNA=toggleNA;
+
+// Every field the retailer must either fill in or explicitly mark N/A before
+// posting -- mirrors the real columns Sun Central Solar tracks in their own
+// job-planner sheet (job ref/rep/date, distributor, current retailer, NMI,
+// pickup logistics) so nothing gets lost going from their process into ours.
+// A handful of fields (title/type/value/site address/customer identity) have
+// no N/A option: the payment engine and the installer both need them on
+// every job, with no legitimate case where they don't apply.
+const NA_FIELDS=[
+  {id:'jWindow',label:'Install date window'},
+  {id:'jDesign',label:'Design file link'},
+  {id:'jKw',label:'System size (kW)'},
+  {id:'jKwh',label:'Battery (kWh)'},
+  {id:'jPanelModel',label:'Panel model'},
+  {id:'jPanelQty',label:'Panel qty'},
+  {id:'jInvModel',label:'Inverter model'},
+  {id:'jBatModel',label:'Battery model'},
+  {id:'jBatQty',label:'Battery qty'},
+  {id:'jDcRun',label:'DC run'},
+  {id:'jAcRun',label:'AC run'},
+  {id:'jPickupAddr',label:'Pickup address'},
+  {id:'jPickupNotes',label:'Pickup / delivery notes'},
+  {id:'jSalesRep',label:'Sales rep name'},
+  {id:'jSaleDate',label:'Sale date'},
+  {id:'jDistributor',label:'Electricity distributor'},
+  {id:'jCurrentRetailer',label:'Current retailer'},
+  {id:'jNmi',label:'NMI'},
+  {id:'jCustPhone2',label:'Secondary phone'},
+  {id:'jCustEmail',label:'Customer email'},
+  {id:'jNotes',label:'General instructions / site status'},
+];
+const REQUIRED_FIELDS=[
+  {id:'jTitle',label:'Job title'},
+  {id:'jValue',label:'Job value'},
+  {id:'jSuburb',label:'Suburb'},
+  {id:'jPostcode',label:'Postcode'},
+  {id:'jAddr',label:'Street address'},
+  {id:'jStoreys',label:'Storeys'},
+  {id:'jRoof',label:'Roof type'},
+  {id:'jCustName',label:'Customer name'},
+  {id:'jCustPhone',label:'Customer phone'},
+];
+function validateJobForm(){
+  const missing=[];
+  for(const f of REQUIRED_FIELDS){ if(!$(f.id).value.trim()) missing.push(f.label); }
+  for(const f of NA_FIELDS){ if(!$(f.id+'NA').checked && !$(f.id).value.trim()) missing.push(f.label); }
+  if(!$('jEdgeProvided').checked && !$('jEdgeM').value.trim()) missing.push('Edge perimeter');
+  if(!$('jConfirmed').checked) missing.push('"Booked and ready" confirmation');
+  return missing;
+}
 async function postJob(){
   if(!ME){ $('jErr').textContent='Retailer account not loaded yet.'; return; }
-  if(!$('jTitle').value.trim()){ $('jErr').textContent='Job title is required.'; return; }
+  const missing=validateJobForm();
+  if(missing.length){ $('jErr').textContent='Complete or mark N/A: '+missing.join(', '); return; }
+  const orNA=(id)=>$(id+'NA').checked?null:$(id).value.trim()||null;
+  const numOrNA=(id)=>$(id+'NA').checked?null:num($(id).value);
+  const intOrNA=(id)=>$(id+'NA').checked?null:int($(id).value);
   const payload={
     retailer_id: ME.id,
     title: $('jTitle').value.trim(),
     job_type: $('jType').value,
     job_value_cents: parseCents($('jValue').value) || null,
-    scheduled_window: $('jWindow').value.trim() || null,
-    design_file_url: $('jDesign').value.trim() || null,
+    scheduled_window: orNA('jWindow'),
+    design_file_url: orNA('jDesign'),
     suburb: $('jSuburb').value.trim() || null,
     postcode: $('jPostcode').value.trim() || null,
+    street_address: $('jAddr').value.trim() || null,
     storeys: int($('jStoreys').value),
     roof_type: $('jRoof').value.trim() || null,
-    edge_perimeter_m: num($('jEdgeM').value),
+    edge_perimeter_m: $('jEdgeProvided').checked ? null : num($('jEdgeM').value),
     edge_protection_provided_separately: $('jEdgeProvided').checked,
-    system_kw: num($('jKw').value),
-    battery_kwh: num($('jKwh').value),
-    panel_model: $('jPanelModel').value.trim() || null,
-    panel_qty: int($('jPanelQty').value),
-    inverter_model: $('jInvModel').value.trim() || null,
-    battery_model: $('jBatModel').value.trim() || null,
-    battery_qty: int($('jBatQty').value),
-    dc_run_m: num($('jDcRun').value),
-    ac_run_m: num($('jAcRun').value),
-    general_instructions: $('jNotes').value.trim() || null,
+    system_kw: numOrNA('jKw'),
+    battery_kwh: numOrNA('jKwh'),
+    panel_model: orNA('jPanelModel'),
+    panel_qty: intOrNA('jPanelQty'),
+    inverter_model: orNA('jInvModel'),
+    battery_model: orNA('jBatModel'),
+    battery_qty: intOrNA('jBatQty'),
+    dc_run_m: numOrNA('jDcRun'),
+    ac_run_m: numOrNA('jAcRun'),
+    pickup_address: orNA('jPickupAddr'),
+    pickup_notes: orNA('jPickupNotes'),
+    sales_rep_name: orNA('jSalesRep'),
+    sale_date: $('jSaleDateNA').checked?null:($('jSaleDate').value||null),
+    distributor: orNA('jDistributor'),
+    current_retailer: orNA('jCurrentRetailer'),
+    nmi: orNA('jNmi'),
+    general_instructions: orNA('jNotes'),
     customer_name: $('jCustName').value.trim() || null,
     customer_phone: $('jCustPhone').value.trim() || null,
-    customer_email: $('jCustEmail').value.trim() || null,
-    street_address: $('jAddr').value.trim() || null,
+    secondary_phone: orNA('jCustPhone2'),
+    customer_email: orNA('jCustEmail'),
+    customer_confirmed_at: new Date().toISOString(),
   };
   const { error } = await db.from('jobs').insert(payload);
   if(error){ $('jErr').textContent='Post failed: '+error.message; return; }
   $('jErr').textContent='';
   toast('Job posted — pre-approved installers can grab it now');
-  document.querySelectorAll('#p-post input, #p-post textarea').forEach(el=>{ if(el.type==='checkbox') el.checked=false; else el.value=''; });
-  $('jStoreys').value='1';
+  document.querySelectorAll('#p-post input, #p-post textarea, #p-post select').forEach(el=>{
+    if(el.type==='checkbox'){ el.checked=false; } else { el.value=''; el.disabled=false; }
+  });
+  $('jStoreys').value='1'; $('jType').value='solar_install'; $('jDistributor').value='';
   document.querySelector('.tab[data-p="jobs"]').click();
 }
 
