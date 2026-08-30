@@ -172,6 +172,14 @@ tr:last-child td{border-bottom:none}
   <h1>Jobs</h1>
   <div class="sub">Subcontract jobs from retailers with pre-approved rates. First grab wins — no bidding.</div>
 
+  <div class="card" id="commOptCard" style="padding:14px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div>
+      <b>Commercial solar (30 kW – 1 MW)</b>
+      <div class="sub" style="margin:2px 0 0" id="commOptSub">Loading…</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="commOptBtn" onclick="toggleCommercial()">…</button>
+  </div>
+
   <div style="font-weight:700;margin:6px 0 10px">Available now</div>
   <div class="board" id="availJobsEl"></div>
   <div class="note" style="margin-bottom:26px">FIRST GRAB WINS · MUST SCHEDULE WITHIN 72 BUSINESS HOURS OF GRABBING OR THE JOB RETURNS TO THE BOARD WITH A 24H LOCKOUT FOR YOU</div>
@@ -380,13 +388,23 @@ function renderAvailableJobs(){
   $('availJobsEl').innerHTML=AVAIL_JOBS.map(j=>{
     const sys=`${j.system_kw?j.system_kw+' kW':''}${j.system_kw&&j.battery_kwh?' + ':''}${j.battery_kwh?j.battery_kwh+' kWh':''}`||'Design pending';
     const quote=j.pre_quote_cents!=null?fmt$(j.pre_quote_cents/100):null;
+    const commercial=!!j.is_commercial;
+    // Commercial jobs are sourced by the mode the retailer chose: grab keeps the
+    // race, tender/invite take priced offers and the retailer picks one.
+    const offersOnly=commercial&&j.sourcing_mode!=='grab';
+    const ref=commercial?`COMMERCIAL${j.sourcing_mode==='invite'?' · INVITED':''}`:(j.job_type||'JOB').toUpperCase();
+    const footLabel=offersOnly?'OFFERS — RETAILER CHOOSES':'FIRST GRAB WINS';
+    const dnsp={not_submitted:'Not submitted',submitted:'Submitted',approved:'Approved'}[j.dnsp_status];
     return `<div class="job">
-    <div class="job-h"><div><div class="ref">${(j.job_type||'JOB').toUpperCase()}</div><div class="addr">${j.suburb||'—'} ${j.postcode||''}</div></div>
-      <span class="pill ${j.is_preapproved?'p-quoted':'p-open'}">${j.is_preapproved?'PRE-APPROVED RATE':'NEW RETAILER'}</span></div>
+    <div class="job-h"><div><div class="ref">${ref}</div><div class="addr">${j.suburb||'—'} ${j.postcode||''}</div></div>
+      <span class="pill ${commercial?'p-won':(j.is_preapproved?'p-quoted':'p-open')}">${commercial?(j.system_kw||'?')+' kW':(j.is_preapproved?'PRE-APPROVED RATE':'NEW RETAILER')}</span></div>
     <div class="job-b">
       <div class="row"><span>System</span><b>${sys}</b></div>
+      ${commercial&&j.panel_qty?`<div class="row"><span>Panels</span><b>${j.panel_qty}</b></div>`:''}
       <div class="row"><span>Storeys / roof</span><b>${j.storeys||'—'} / ${j.roof_type||'—'}</b></div>
-      ${quote!=null?`<div class="row"><span>Your rate card</span><b>${quote}</b></div>`:''}
+      ${commercial&&dnsp?`<div class="row"><span>Grid connection</span><b>${dnsp}</b></div>`:''}
+      ${commercial&&j.target_completion_date?`<div class="row"><span>Target completion</span><b>${new Date(j.target_completion_date).toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'})}</b></div>`:''}
+      ${quote!=null?`<div class="row"><span>Your rate card (inc GST)</span><b>${quote}</b></div>`:''}
       ${j.scheduled_window?`<div class="row"><span>Window</span><b>${j.scheduled_window}</b></div>`:''}
       ${j.general_instructions?`<div class="row"><span>Notes</span><b>${j.general_instructions}</b></div>`:''}
       ${j.edge_perimeter_m&&!j.edge_protection_provided_separately?`<div class="row"><span>Edge protection</span><b>${j.edge_perimeter_m}m — quote it</b></div>`:''}
@@ -394,8 +412,9 @@ function renderAvailableJobs(){
       ${j.pickup_notes?`<div class="row" style="align-items:flex-start"><span>Pickup notes</span><b style="text-align:right;max-width:70%">${j.pickup_notes}</b></div>`:''}
     </div>
     <div class="job-f">
-      <span style="font-family:var(--mono);font-size:.64rem;color:var(--ink3)">FIRST GRAB WINS</span>
+      <span style="font-family:var(--mono);font-size:.64rem;color:var(--ink3)">${footLabel}</span>
       ${j.forfeited_by_me?`<button class="btn btn-ghost btn-sm" disabled>Locked 24h — you forfeited this</button>`:
+        offersOnly?`<button class="btn btn-amber btn-sm" onclick="amendJob('${j.id}')">Submit offer</button>`:
         `<div style="display:flex;gap:8px">
           <button class="btn btn-ghost btn-sm" onclick="amendJob('${j.id}')">Amend</button>
           <button class="btn btn-amber btn-sm" onclick="grabJob('${j.id}')">Grab job</button>
@@ -411,7 +430,11 @@ async function grabJob(jobId){
   await Promise.all([loadAvailableJobs(),loadMyJobs()]); renderAvailableJobs(); renderMyJobs(); renderNextBar();
 }
 async function amendJob(jobId){
-  const raw=prompt('Your proposed rate for this job (AUD, ex GST):');
+  // inc GST: the counter-offer is compared against retailer_installer_rates
+  // .rate_cents, which holds an inc-GST figure — the Bulahdelah job's $8,220
+  // is the rate card total including GST. Labelling this "ex GST" invited an
+  // installer to counter 10% under what they meant.
+  const raw=prompt('Your proposed rate for this job (AUD, inc GST):');
   if(raw===null) return;
   const cents=parseCents(raw);
   if(!cents){ toast('Enter a valid amount'); return; }
@@ -480,12 +503,15 @@ function renderSubCard(inst){
   const sched=fmtSched(inst.scheduled_install_at);
   return `<div class="myjob" id="myjob-${inst.id}">
     <h3>${j.title||'Subcontract job'} <span style="font-weight:400;color:var(--ink3);font-size:.78rem">· SUBCONTRACT</span></h3>
-    <div class="sub2">${j.street_address||(j.suburb+' '+(j.postcode||''))} · ${fmt$((inst.job_value_cents||0)/100)}</div>
+    <div class="sub2">${j.street_address||(j.suburb+' '+(j.postcode||''))} · ${fmt$((inst.job_value_cents||0)/100)} inc GST</div>
     <div class="row" style="margin-bottom:8px"><span>Scheduled install</span>
       <b style="${sched?'':'color:var(--red)'}">${sched||'Not yet scheduled'}</b></div>
     ${j.pickup_address?`<div class="row" style="margin-bottom:2px"><span>Material pickup</span><b>${j.pickup_address}</b></div>`:''}
     ${j.pickup_notes?`<div class="row" style="margin-bottom:8px;align-items:flex-start"><span>Pickup notes</span><b style="text-align:right;max-width:70%">${j.pickup_notes}</b></div>`:''}
     <div class="stepper">${steps}</div>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px">
+      <button class="btn btn-amber btn-sm" onclick="location.href='/install#${inst.id}'">📷 Open installer app</button>
+    </div>
   </div>`;
 }
 function renderWonCard(w){
@@ -496,8 +522,9 @@ function renderWonCard(w){
     <div class="sub2">${w.address||(w.suburb+' '+(w.postcode||''))} · ${sys}</div>
     <div class="row" style="margin-bottom:8px"><span>Scheduled install</span>
       <b style="${sched?'':'color:var(--red)'}">${sched||'Not yet scheduled'}</b></div>
-    <div style="display:flex;justify-content:flex-end">
-      <button class="btn btn-amber btn-sm" onclick="calPick('won','${w.install_id}')">${sched?'Reschedule':'Set schedule'}</button>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="calPick('won','${w.install_id}')">${sched?'Reschedule':'Set schedule'}</button>
+      <button class="btn btn-amber btn-sm" onclick="location.href='/install#${w.install_id}'">📷 Open installer app</button>
     </div>
   </div>`;
 }
@@ -820,6 +847,29 @@ window.goToNextStep = goToNextStep;
 // Module scope — expose the onclick="" handlers used in markup + rendered rows.
 window.toast = toast;
 window.buySeat = buySeat;
+/* ---- commercial opt-in: commercial jobs never appear on this board (and can
+   never be grabbed or offered on — enforced server-side) until the installer
+   raises their hand for that class of work. ---- */
+let COMM_IN=false;
+function renderCommOpt(){
+  $('commOptSub').textContent=COMM_IN
+    ?'You are opted in — commercial jobs appear on your board and retailers can invite you.'
+    :'Opted out — no commercial jobs will be shown or offered to you. Not everybody’s cup of tea.';
+  const b=$('commOptBtn');
+  b.textContent=COMM_IN?'Opt out':'Opt in to commercial';
+  b.className='btn btn-sm '+(COMM_IN?'btn-ghost':'btn-amber');
+}
+async function toggleCommercial(){
+  const next=!COMM_IN;
+  if(!next&&!confirm('Opt out of commercial solar? Commercial jobs will disappear from your board and retailers can no longer invite you.')) return;
+  const { error } = await db.rpc('set_commercial_opt_in',{p_in:next});
+  if(error){ toast('Could not update: '+error.message); return; }
+  COMM_IN=next; renderCommOpt();
+  toast(next?'Opted in — commercial jobs will now appear on your board':'Opted out of commercial solar');
+  await loadAvailableJobs(); renderAvailableJobs();
+}
+window.toggleCommercial = toggleCommercial;
+
 window.savePriceBook = savePriceBook;
 window.grabJob = grabJob;
 window.amendJob = amendJob;
@@ -829,8 +879,9 @@ window.stepClick = stepClick;
   const auth = await requireRole(['installer'], { loginPage: '/login.html' });
   if (!auth) return;
   mountRoleSwitcher(auth.access);
-  const { data:me } = await db.from('installers').select('company_name').eq('auth_uid',auth.session.user.id).maybeSingle();
+  const { data:me } = await db.from('installers').select('company_name, commercial_opted_in_at').eq('auth_uid',auth.session.user.id).maybeSingle();
   if(me&&me.company_name){ const co=document.querySelector('.co'); if(co) co.textContent=me.company_name.toUpperCase(); }
+  COMM_IN=!!(me&&me.commercial_opted_in_at); renderCommOpt();
   await loadBoard();
   renderBoard();
   loadPriceBook();
@@ -840,6 +891,17 @@ window.stepClick = stepClick;
   renderMyJobs();
   renderRect();
   renderNextBar();
+
+  // The available board only loaded on page-open, so a job posted after that
+  // was invisible until a manual reload — first hit live the day two jobs went
+  // up an hour apart. Refresh it every 60s while the tab is visible, and
+  // immediately when the tab regains focus (phone unlocked, app re-opened).
+  const refreshBoard = async () => {
+    if (document.hidden) return;
+    await loadAvailableJobs(); renderAvailableJobs();
+  };
+  setInterval(refreshBoard, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshBoard(); });
 })();
 </script>
 </body>

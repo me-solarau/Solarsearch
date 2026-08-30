@@ -5,12 +5,12 @@
 //   1|2|3            -> sms_confirm_visit + confirm SMS (+ schedule day-of reminder)
 //   RESCHEDULE       -> sms_mark_reschedule + re-run sms-offer-windows
 //   CANCEL           -> sms_release_assessment (lead back to pool)
-//   STOP/UNSUBSCRIBE -> set customers.sms_opt_out
-//   anything else, matching no open booking -> cold inbound enquiry. Was
-//   previously a dead end (fallback reply only, nothing recorded) -- now
-//   creates a real lead via capture_lead (or reuses the existing contact's
-//   most recent lead on a repeat text) and alerts HQ via notify-new-lead,
-//   the same pipeline the public web funnel uses. See handleUnmatchedInbound.
+//   STOP/UNSUBSCRIBE -> set customers.sms_opt_out (+ close any Billy thread)
+//   anything else, matching no open booking -> Billy (lead-agent). An active
+//   agent thread means Billy answers in context; a cold text creates a lead
+//   via capture_lead and Billy opens the conversation from what they wrote.
+//   Only if Billy can't act (no API key, caps hit) does the old canned
+//   fallback + notify-new-lead path run, so a text never goes unanswered.
 // Kudosity can't reply inline (no TwiML), so every reply is sent as a normal
 // outbound message via sms-send. The confirm path calls SECURITY DEFINER RPCs
 // granted to service_role only, so no browser can forge a confirmation.
@@ -57,6 +57,9 @@ const OUR_PHRASES = [
   "we ll text you fresh times shortly",
   "new lead",
   "reminder your solarsearch home assessment",
+  "billy from solarsearch here",
+  "billy — qualified",
+  "billy wants a human",
 ].map(canon);
 const looksLikeOurOwnText = (body: string) => {
   const c = canon(body);
@@ -118,12 +121,12 @@ async function reply(to: string, body: string, assessment_id?: string | null, le
   }
   await callFn("sms-send", { to, body, assessment_id: assessment_id ?? null, lead_id: lead_id ?? null, kind }).catch(() => {});
 }
-// A cold inbound text matches no open assessment. Previously: fallback reply,
-// nothing recorded, nobody told. Now: create a real lead (or, for a repeat
-// text from someone already in the system, reuse their most recent lead
-// instead of spawning a duplicate), then hand off to notify-new-lead -- the
-// same SMS+email alert pipeline the public funnel already uses, so this
-// doesn't need its own separate alert formatting.
+// A cold inbound text matches no open assessment. Create a real lead (or, for
+// a repeat text from someone already in the system, reuse their most recent
+// lead), then hand the conversation to Billy (lead-agent) so the sender gets
+// an intelligent reply to what they actually wrote. If Billy can't act, fall
+// back to the canned acknowledgement so nobody is left on read. Either way
+// notify-new-lead alerts HQ, same as the public web funnel.
 async function handleUnmatchedInbound(from: string, body: string) {
   const digits = normPhone(from);
   let leadId: string | null = null;
@@ -154,7 +157,18 @@ async function handleUnmatchedInbound(from: string, body: string) {
     leadId = capJson?.lead_id || null;
   }
 
-  await reply(from, "Thanks — we've got your enquiry and will call you shortly.", null, null, "fallback");
+  // Billy first: start (or continue) an agent thread seeded with their text.
+  let billyReplied = false;
+  if (leadId) {
+    try {
+      const st = await callFn("lead-agent", { lead_id: leadId, has_inbound_text: true });
+      const sj = await st.json().catch(() => ({}));
+      billyReplied = !!(sj && (sj.sent || sj.replied));
+    } catch (_) { /* fall through to canned */ }
+  }
+  if (!billyReplied) {
+    await reply(from, "Thanks — we've got your enquiry and will call you shortly.", null, null, "fallback");
+  }
   if (leadId) await callFn("notify-new-lead", { lead_id: leadId }).catch(() => {});
 }
 
@@ -215,6 +229,10 @@ Deno.serve(async (req) => {
       const custs = await (await sbFetch(`customers?select=id,mobile`)).json().catch(() => []);
       const ids = (custs || []).filter((c: { mobile?: string }) => normPhone(c.mobile || "") === fromDigits).map((c: { id: string }) => c.id);
       for (const id of ids) await sbFetch(`customers?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ sms_opt_out: true }) });
+      // Billy goes quiet too — close any live agent thread for this number.
+      await sbFetch(`agent_threads?phone=eq.${fromDigits}&status=eq.active`, {
+        method: "PATCH", body: JSON.stringify({ status: "opted_out", updated_at: new Date().toISOString() }),
+      }).catch(() => {});
       return ok();
     }
 
@@ -226,7 +244,14 @@ Deno.serve(async (req) => {
     const match = (Array.isArray(rows) ? rows : []).find(
       (r: any) => normPhone(r.leads?.customers?.mobile || "") === fromDigits,
     );
-    if (!match) { await handleUnmatchedInbound(from, bodyRaw); return ok(); }
+    if (!match) {
+      // No open booking — Billy's territory. An active thread answers in
+      // context; otherwise treat as a cold enquiry (lead + Billy opener).
+      const fwd = await callFn("lead-agent", { inbound: { from, body: bodyRaw } }).catch(() => null);
+      const fj = fwd ? await fwd.json().catch(() => ({})) : {};
+      if (!fj?.handled) await handleUnmatchedInbound(from, bodyRaw);
+      return ok();
+    }
 
     const wins: { iso: string; label: string }[] = match.offered_windows || [];
     const first = (match.leads?.customers?.full_name || "").split(" ")[0];

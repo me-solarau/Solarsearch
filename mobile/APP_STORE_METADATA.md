@@ -4,8 +4,8 @@ Prepared so the App Store Connect / TestFlight forms are copy‑paste. Two apps,
 Apple org account you already use for inspector + voya.
 
 ## Bundle IDs
-- Sales Technician — `net.solarme.solarsearch.tech`
-- Installer — `net.solarme.solarsearch.installer`
+- Sales Technician — `au.com.solarsearch.field`
+- Installer — `au.com.solarsearch.installer`
 
 ## Listing (fill/adjust)
 | Field | Sales Technician | Installer |

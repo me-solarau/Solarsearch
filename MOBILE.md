@@ -74,3 +74,12 @@ TestFlight and you're ready to test device push.
   with a seeded job in the pool.
 - **Installer app**: "Portal for accredited solar installers to view
   pre-designed, site-verified jobs and manage quotes." Provide a review login.
+
+## Camera flash (from a field lesson)
+The web app cannot control the phone's flash — a file-input capture uses the
+native camera sheet, and iOS gives web pages no flash API. The install capture
+page coaches "Flash ON, not Auto" on shade-sensitive steps (auto-flash never
+fires in daytime shade, which is exactly where clamp/fastener detail is lost).
+When the Capacitor installer app is built, use a camera plugin that can FORCE
+flash on for those steps (`@capacitor/camera` opens the native UI only; a
+custom-view plugin like camera-preview can set flash mode programmatically).

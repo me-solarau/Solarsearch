@@ -54,7 +54,6 @@ h1{font-family:var(--display);font-size:1.35rem;font-weight:700;letter-spacing:-
 .job .meta{font-size:.8rem;color:var(--ink2);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap}
 .mode-pill{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.06em;padding:4px 10px;border-radius:99px}
 .mode-pill.presale{background:var(--ambers);color:#7A5A00}
-.mode-pill.solarsafe{background:var(--safes);color:var(--safe)}
 .prog-mini{height:5px;background:var(--line);border-radius:99px;margin-top:12px;overflow:hidden}
 .prog-mini i{display:block;height:100%;background:var(--safe);border-radius:99px}
 
@@ -94,14 +93,9 @@ textarea:focus{outline:none;border-color:var(--ink)}
 .cap-nav{position:fixed;bottom:0;left:0;right:0;background:var(--paper);border-top:1px solid var(--line);padding:12px 18px calc(12px + env(safe-area-inset-bottom));display:flex;gap:10px;z-index:30}
 .cap-nav .btn{flex:1}
 
-/* gate + convert */
+/* gate */
 .gate{background:var(--reds);border:1px solid #F0C7BC;border-radius:12px;padding:13px 15px;font-size:.84rem;color:var(--red);margin-top:14px;display:none}
 .gate.show{display:block}
-.convert{background:var(--ink);color:#fff;border-radius:14px;padding:16px;margin-top:20px}
-.convert b{display:block;margin-bottom:4px}
-.convert p{font-size:.82rem;color:#A9C6BB;margin-bottom:12px}
-.consent-line{display:flex;gap:10px;align-items:flex-start;font-size:.8rem;color:#CFE5DA;margin-bottom:12px}
-.consent-line input{width:17px;height:17px;accent-color:var(--amber);flex:none;margin-top:2px}
 .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:999px;font-size:.85rem;z-index:300;opacity:0;transition:all .3s;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .done-wrap{text-align:center;padding:40px 10px}
@@ -133,12 +127,6 @@ textarea:focus{outline:none;border-color:var(--ink)}
   </div>
   <div id="checklist"></div>
   <div class="gate" id="gateMsg"></div>
-  <div class="convert" id="convertBox" style="display:none">
-    <b>Customer wants upgrade pricing?</b>
-    <p>One tap clones this site into the Solarsearch pipeline at inspection-complete — quotes without a second visit.</p>
-    <label class="consent-line"><input type="checkbox" id="convertConsent"><span>Customer consents on-screen to receiving quotes via Solarsearch and to this inspection being used as their site assessment. Consent v3.2 recorded.</span></label>
-    <button class="btn btn-amber btn-block" onclick="convertLead()">Create quote lead from this inspection</button>
-  </div>
   <div style="margin-top:20px">
     <button class="btn btn-safe btn-block" id="completeBtn" onclick="completeJob()">Complete inspection</button>
   </div>
@@ -175,7 +163,7 @@ textarea:focus{outline:none;border-color:var(--ink)}
     <div class="ic"><svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     <h1>Inspection complete</h1>
     <p class="sub" id="doneSummary" style="margin:8px 0 18px"></p>
-    <p style="font-size:.85rem;color:var(--ink2)">Evidence pack queued for sync. Presale jobs go to the design queue; Solarsafe jobs go to assessment and human sign-off.</p>
+    <p style="font-size:.85rem;color:var(--ink2)">Evidence pack queued for sync. Pre-sale jobs go to the design queue.</p>
     <button class="btn btn-ghost" style="margin-top:20px" onclick="goJobs()">Back to jobs</button>
   </div>
 </section>
@@ -230,21 +218,14 @@ const PROTOCOL=[
  ]},
 ];
 
-/* modes per job type: presale = presale; solarsafe jobs pick safety +/- battery variants,
-   inferred from the reason the customer booked (recorded in inspections.notes.reason by
-   solarsafe.html's booking step). */
-const REASON_LABEL={battery:'Battery-ready check',batteryinstalled:'Installed battery check',safety:'Safety & compliance review',prepurchase:'Pre-purchase check',newinstall:'New install verification',issue:'Fault investigation'};
+/* Solarsearch books one kind of inspection: the pre-sale consultant visit that
+   feeds the design queue. Compliance inspections are Solarsafe's product, on
+   Solarsafe's own platform — this app no longer carries a 'solarsafe' mode. */
 function modesForRow(row){
-  if(row.mode==='presale') return ['presale'];
-  const reason=row.notes&&row.notes.reason;
-  if(reason==='battery') return ['safety','battery_ready'];
-  if(reason==='batteryinstalled') return ['safety','battery_installed'];
-  return ['safety'];
+  return ['presale'];
 }
 function labelForRow(row){
-  if(row.mode==='presale') return 'Pre-sale inspection';
-  const reason=row.notes&&row.notes.reason;
-  return 'Solarsafe — '+(REASON_LABEL[reason]||'inspection');
+  return 'Pre-sale inspection';
 }
 
 /* ================= state ================= */
@@ -329,7 +310,7 @@ function renderJobs(){
     const p=jobProgress(j);
     return `<button class="job" onclick="openJob('${j.id}')">
       <div class="row1"><div><div class="ref">${j.ref} · ${j.time}</div><div class="addr">${j.addr}</div></div>
-      <span class="mode-pill ${j.mode}">${j.mode==='presale'?'PRE-SALE':'SOLARSAFE'}</span></div>
+      <span class="mode-pill presale">PRE-SALE</span></div>
       <div class="meta"><span>${j.customer}</span><span>${j.label}</span><span class="mono">${p.done}/${p.total} steps</span></div>
       <div class="prog-mini"><i style="width:${p.total?p.done/p.total*100:0}%"></i></div>
     </button>`;
@@ -341,9 +322,8 @@ function openJob(id){
   $('jRef').textContent=curJob.ref+' · '+curJob.time;
   $('jAddr').textContent=curJob.addr;
   $('jMeta').textContent=curJob.customer+' · '+curJob.label;
-  $('jMode').className='mode-pill '+curJob.mode;
-  $('jMode').textContent=curJob.mode==='presale'?'PRE-SALE':'SOLARSAFE';
-  $('convertBox').style.display=curJob.mode==='solarsafe'?'block':'none';
+  $('jMode').className='mode-pill presale';
+  $('jMode').textContent='PRE-SALE';
   renderChecklist();
   showView('v-job');
 }
@@ -453,14 +433,7 @@ async function saveStep(next){
   else{renderChecklist();showView('v-job',false);navStack.pop()}
 }
 
-/* ================= convert + complete ================= */
-async function convertLead(){
-  if(!$('convertConsent').checked)return toast('Customer consent box first');
-  const { data, error } = await db.rpc('convert_solarsafe_lead',{p_inspection_id:curJob.id,p_staff_id:MY_STAFF_ID});
-  if(error){ toast('Conversion failed: '+error.message); return; }
-  toast('Quote lead created — '+(data&&data.ss_ref?data.ss_ref:'')+' — enters the pipeline at Inspected');
-  $('convertConsent').checked=false;
-}
+/* ================= complete ================= */
 async function completeJob(){
   const d=store[curJob.id]||{}; const fs=flatSteps(curJob);
   const counts={pass:0,minor:0,major:0,na:0};
@@ -489,7 +462,6 @@ window.openStep = openStep;
 window.retake = retake;
 window.setAssess = setAssess;
 window.saveStep = saveStep;
-window.convertLead = convertLead;
 window.completeJob = completeJob;
 
 (async () => {

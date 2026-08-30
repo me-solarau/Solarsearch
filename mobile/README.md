@@ -12,8 +12,8 @@ still works against the remote content.
 ## Two apps (one Capacitor project each)
 | App | Folder | Bundle ID | Loads | Signed-in routing |
 |-----|--------|-----------|-------|-------------------|
-| **Field** (Sales Technician) | `mobile/field` | `net.solarme.solarsearch.tech` | `/app-field.html` | `sales_rep` → `/tech.html` |
-| **Installer** | `mobile/installer` | `net.solarme.solarsearch.installer` | `/app-installer.html` | `installer` → `/installer.html` |
+| **Field** (Sales Technician) | `mobile/field` | `au.com.solarsearch.field` | `/app-field.html` | `sales_rep` → `/tech.html` |
+| **Installer** | `mobile/installer` | `au.com.solarsearch.installer` | `/app-installer.html` | `installer` → `/installer.html` |
 
 Live host: **https://www.solarsearch.com.au** (set in each `capacitor.config.ts`).
 

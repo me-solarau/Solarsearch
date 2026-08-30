@@ -7,7 +7,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // The local www/ splash covers the brief moment before the site loads (and any
 // offline launch).
 const config: CapacitorConfig = {
-  appId: "net.solarme.solarsearch.tech",
+  appId: "au.com.solarsearch.field",
   appName: "Solarsearch Field",
   webDir: "www",
   server: {

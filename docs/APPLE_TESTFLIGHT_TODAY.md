@@ -6,14 +6,14 @@ getting both apps into TestFlight, plus the handful of items only you can do.
 ## What's already done (in the repo)
 - Two clean Capacitor projects: `mobile/field` + `mobile/installer` (stale duplicate configs removed).
 - Correct live host on both: `https://www.solarsearch.com.au`.
-- Consistent bundle IDs: `net.solarme.solarsearch.tech` / `net.solarme.solarsearch.installer`.
+- Consistent bundle IDs: `au.com.solarsearch.field` / `au.com.solarsearch.installer`.
 - Launcher "Apply" buttons route to the T&C application flow (`/apply.html?role=…`).
 - In‑app account deletion (5.1.1(v)) present in both apps.
 - `app-privacy.html` filled (entity, ABN 95 665 045 465, hosting region); live at `/app-privacy.html`.
 - `mobile/APP_STORE_METADATA.md` — listing text, privacy labels, single‑role demo‑login note.
 
 ## Decisions to confirm before you archive
-1. **Bundle IDs** — confirm `net.solarme.solarsearch.tech` / `…installer` match (or get registered as)
+1. **Bundle IDs** — confirm `au.com.solarsearch.field` / `…installer` match (or get registered as)
    App IDs under your Apple team. Change `appId` in the two `capacitor.config.ts` first if not.
 2. **Installer app home** — currently a signed‑in installer lands on `/installer.html` (the portal:
    browse/win jobs); the install‑evidence capture (`/install.html`) is reached per job. If you'd

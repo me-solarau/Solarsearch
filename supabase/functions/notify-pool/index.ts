@@ -1,7 +1,7 @@
 // notify-pool — "ping, new job near you." When a lead becomes pool-eligible
 // (booked a visit, state='appointment_set'), find every approved technician
 // whose regions cover the suburb and web-push their devices. Called
-// fire-and-forget from the booking path (index.html / solarsafe.html) and from
+// fire-and-forget from the booking path (index.html) and from
 // an HQ "Ping available techs" action. Dead endpoints (410/404) are pruned.
 //
 // Secrets: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:/https:).

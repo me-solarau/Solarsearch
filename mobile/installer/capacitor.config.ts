@@ -6,7 +6,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // in-app purchases: seats + commissions are billed outside the app (Stripe),
 // so Apple IAP obligations never trigger.
 const config: CapacitorConfig = {
-  appId: "net.solarme.solarsearch.installer",
+  appId: "au.com.solarsearch.installer",
   appName: "Solarsearch for Installers",
   webDir: "www",
   server: {

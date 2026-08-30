@@ -130,7 +130,7 @@ If the tile is sitting proud, tilted, or riding on the bracket, that is NOT comp
     clauses: ["AS/NZS 5033 cl 4.5", "AS/NZS 3000 cl 5.3", "AS/NZS 3000 cl 5.4"],
     params: `- Array frame bonded with a correctly sized earthing conductor, continuous across rails and rows.
 - Purpose-made earthing lug with a tooth washer biting through the anodising to clean metal.
-- GALVANIC / COLD-GALVANISING PROTECTION VISIBLY APPLIED over the clamp and the bared metal at the connection — this is the specific thing to look for and report on. Say plainly whether you can see evidence of it (a dull grey/zinc coating over the joint) or whether the bare metal is still exposed.
+- GALVANIC / COLD-GALVANISING PROTECTION over the clamp and the bared metal at the connection — this is the specific thing to look for and report on. Know what FIELD-APPLIED cold-gal actually looks like in a photo: light-grey MATTE patches with a dusty, non-uniform texture, often with a fine overspray mist extending past the joint onto the surrounding rail — nothing like a neat factory finish. A dark factory-coated clamp body also counts as protected. Mark this not_met ONLY when the connection clearly shows bright, untreated bare metal with no matte grey patches or overspray anywhere around it. If lighting, resolution or angle make the surface finish ambiguous, that is cannot_tell — never report the spray as missing just because it is subtle.
 - Corrosion protection wherever dissimilar metals meet, which matters most near the coast.
 - Conductor supported and protected along its run; terminations tight with no strands escaping the lug.`,
   },

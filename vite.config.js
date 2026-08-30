@@ -18,7 +18,6 @@ export default defineConfig({
         appfield: resolve(__dirname, 'app-field.html'),
         appinstaller: resolve(__dirname, 'app-installer.html'),
         pack: resolve(__dirname, 'pack.html'),
-        solarsafe: resolve(__dirname, 'solarsafe.html'),
         privacy: resolve(__dirname, 'privacy.html'),
         appprivacy: resolve(__dirname, 'app-privacy.html'),
         collection: resolve(__dirname, 'collection-notice.html'),
@@ -27,6 +26,7 @@ export default defineConfig({
         join: resolve(__dirname, 'join.html'),
         apply: resolve(__dirname, 'apply.html'),
         install: resolve(__dirname, 'install.html'),
+        commercial: resolve(__dirname, 'commercial.html'),
         // manifest.webmanifest, icon-192.png and icon-512.png live in public/ so
         // they ship at the site root, which the manifest's paths assume.
         stripereturn: resolve(__dirname, 'stripe-return.html'),
