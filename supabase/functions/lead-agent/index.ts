@@ -246,6 +246,8 @@ The LEAD CONTEXT names the CHANNEL (SMS, Messenger or WhatsApp). On Messenger th
 
 Goal: qualify the lead, get an indicative estimate in front of them, gauge budget fit, collect site photos, and land the free on-site assessment. FIRST, always confirm WHERE they are if the LEAD CONTEXT does not already show a postcode/suburb — we currently service Newcastle, Lake Macquarie, the Hunter and NSW Mid-Coast only; record extracted.postcode (4 digits) and extracted.suburb. If the LEAD CONTEXT marks the location OUTSIDE our service area: apologise warmly, say we are expanding and will keep their details for when we reach them, set status "not_interested" with "out of area" in the summary, and do NOT qualify further or promise anything. Then learn, worked in naturally over a few messages (never as a form): (1) rough quarterly electricity bill, (2) timeline — ready now / ~3 months / ~6 months / next 12 months / just researching, (3) rebate history — ask whether they've ever claimed the federal Cheaper Home Batteries rebate (NEVER ask bluntly if they own the home; the rebate question covers eligibility and ownership naturally — renters and prior claimants reveal themselves in the answer; record both owner_status and rebate_claimed from it), (4) single or double storey and roof type (tin/tile), (5) battery interest, (6) any existing solar (size, age, inverter brand), (7) what system size they have in mind, in kW, if they have one.
 
+ADDRESS — REQUIRED BEFORE ANY ESTIMATE: before you qualify them, get the full street address of the install (street number + street + suburb, e.g. "12 Ocean St, Merewether"). The natural line: the estimate is site-specific and the free assessment happens at the property, so you need the address to put real numbers against it. Record it in extracted.address (and postcode/suburb from it). The system will NOT send an estimate until an address is on file — never promise the estimate before you have it, and never guess or complete a partial address yourself.
+
 Site photos: once the conversation is flowing, ask them to text back three photos — their switchboard with the door open, their electricity meter, and a step-back shot showing where the switchboard sits and the space around it. Explain why in one line: it lets the installer confirm a compliant spot for the inverter before anyone visits. Photos arrive in the transcript as [photo: …] lines — thank them and track progress in extracted.photos ("requested", "some", "all"). NEVER claim to have looked at or assessed a photo; a licensed installer reviews them.
 
 Pricing protocol — strict: you never invent or state dollar figures yourself. When you set status "qualified", the system automatically texts the customer an official indicative estimate right after your message (it will appear in the transcript). From your next turn, gauge whether that estimate fits their budget — record extracted.budget_fit as "yes", "stretch" or "no" — and reassure them a formal quote for acceptance follows the free assessment. You may refer to the estimate's figures once they appear in the transcript, but never adjust or renegotiate them; if they push on price, note it and steer to the assessment where the formal quote is prepared.
@@ -260,12 +262,12 @@ Incentives you may mention as approximate, never promised: federal STC rebate on
 
 Never: give electrical or safety advice, promise savings figures, discuss other customers, invent discounts, or keep pushing after a clear no. Complex, sensitive or off-topic requests → hand to the team.
 
-CONTACT DETAILS — HARD RULE: the ONLY contact details you may ever give out are these two, exactly as written: this number they're already talking to you on (0430 251 786) and the email hello@solarsearch.com.au. Never state any other phone number, email, website page, or physical address — anything else would be invented and could belong to a stranger. The natural line: replying here always reaches us, the team will text them from this number, and hello@solarsearch.com.au works for anything written.
+CONTACT DETAILS — HARD RULE: the ONLY contact details you may ever give out are these two, exactly as written: this number they're already talking to you on (0430 251 786) and the email hello@solarsearch.com.au. Never state any other phone number, email, website page, or physical address — anything else would be invented and could belong to a stranger. (Details the customer gave you themselves — their own address or mobile — are fine to confirm back to them.) The natural line: replying here always reaches us, the team will text them from this number, and hello@solarsearch.com.au works for anything written.
 
 Output ONLY JSON, no markdown fences:
-{"reply":"...","status":"active|qualified|book|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"rebate_claimed":true|false|null,"postcode":"..."|null,"suburb":"..."|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"size_kw_pref":number|null,"photos":"requested|some|all"|null,"budget_fit":"yes|stretch|no"|null,"mobile":"..."|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
+{"reply":"...","status":"active|qualified|book|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"rebate_claimed":true|false|null,"address":"..."|null,"postcode":"..."|null,"suburb":"..."|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"size_kw_pref":number|null,"photos":"requested|some|all"|null,"budget_fit":"yes|stretch|no"|null,"mobile":"..."|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
 
-Status rules: "qualified" once location is confirmed in-area AND bill + timeline and the rebate/ownership picture are known (reply should thank them and lead into the estimate that's about to arrive — e.g. "give me one sec and I'll fire through an indicative estimate"). "book" when the customer agrees to or asks for the assessment — reply should confirm the team will text appointment times shortly. "human" if they ask for a person or a call, or raise anything complex. "not_interested" on a clear no (close politely). Otherwise "active". "reply" may be "" to stay silent (e.g. abuse or spam). In "extracted" report only what you actually learned, null otherwise; bill_quarterly in whole dollars. "summary" must always reflect everything known so far, including budget fit and photo status.`;
+Status rules: "qualified" once the location is confirmed in-area AND the full street address is recorded AND bill + timeline and the rebate/ownership picture are known (reply should thank them and lead into the estimate that's about to arrive — e.g. "give me one sec and I'll fire through an indicative estimate"). Without a street address, stay "active" and ask for it. "book" when the customer agrees to or asks for the assessment — reply should confirm the team will text appointment times shortly. "human" if they ask for a person or a call, or raise anything complex. "not_interested" on a clear no (close politely). Otherwise "active". "reply" may be "" to stay silent (e.g. abuse or spam). In "extracted" report only what you actually learned, null otherwise; bill_quarterly in whole dollars. "summary" must always reflect everything known so far, including budget fit and photo status.`;
 
 type BillyOut = {
   reply?: string;
@@ -276,7 +278,7 @@ type BillyOut = {
 
 // Only these keys from the model's extracted blob survive the merge — the
 // bookkeeping flags (qualified_alerted, instant_estimate, …) are code-owned.
-const EXTRACT_KEYS = ["bill_quarterly", "timeline", "owner_status", "rebate_claimed", "postcode", "suburb", "mobile", "storeys", "roof",
+const EXTRACT_KEYS = ["bill_quarterly", "timeline", "owner_status", "rebate_claimed", "address", "postcode", "suburb", "mobile", "storeys", "roof",
   "battery_interest", "existing_solar", "size_kw_pref", "photos", "budget_fit", "notes"];
 
 async function askBilly(context: string): Promise<BillyOut | null> {
@@ -447,8 +449,11 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   }
 
   // Qualified: price it through the shared engine and text the official
-  // indicative estimate as its own message. Fires once per thread.
-  if (status === "qualified" && !merged.qualified_alerted) {
+  // indicative estimate as its own message. Fires once per thread — and only
+  // once a full street address is on file (the estimate is site-specific and
+  // the assessment happens at the property). If the model jumps the gun the
+  // block simply doesn't run, and fires on a later turn when the address lands.
+  if (status === "qualified" && String(merged.address || "").trim() && !merged.qualified_alerted) {
     merged.qualified_alerted = true;
     let estLine = "";
     const pcQ = String(merged.postcode || lead?.sites?.postcode || "").trim();
@@ -462,7 +467,7 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
       };
       estLine = ` Indicative: ${est.sysText} ≈ ${fmt$(est.total)} after rebates.`;
     }
-    await hqAlert(`Billy — QUALIFIED: ${name} (${mob}). ${out.summary || ""}${estLine}`);
+    await hqAlert(`Billy — QUALIFIED: ${name} (${mob}), ${merged.address}. ${out.summary || ""}${estLine}`);
     await noteLead(lead.id, `Billy — ${out.summary || "qualified"}${estLine}`);
     await setLeadState(lead.id, ["captured", "validated", "scored", "contacted"], "qualified");
   }
