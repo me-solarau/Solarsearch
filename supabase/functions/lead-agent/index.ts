@@ -114,6 +114,16 @@ async function billySentLastHour(digits: string): Promise<number> {
   } catch { return HOURLY_CAP; }
 }
 
+// Deterministic service-area check against the same table HQ uses. null =
+// unknown postcode / lookup failed (treat as unverified, not out-of-area).
+async function inServiceArea(pc: string): Promise<boolean | null> {
+  if (!/^\d{4}$/.test(pc)) return null;
+  const r = await sbFetch(`installer_service_areas?select=postcode&postcode=eq.${pc}&paused=eq.false&limit=1`);
+  const rows = await r.json().catch(() => null);
+  if (!Array.isArray(rows)) return null;
+  return rows.length > 0;
+}
+
 // ---------------------------------------------------------------------------
 // Instant estimate — deterministic sizing + the shared quote_estimate engine.
 // The model NEVER produces these numbers; it only reacts to them afterwards.
@@ -178,7 +188,7 @@ const BILLY_SYSTEM = `You are Billy, the SMS assistant for Solarsearch (solarsea
 
 You are texting. Every reply must be under 300 characters, one question at a time, plain friendly Australian English. No emoji unless the customer uses them first. If asked whether you are a bot, say you're Solarsearch's AI assistant and a human specialist follows up — never pretend to be human.
 
-Goal: qualify the lead, get an indicative estimate in front of them, gauge budget fit, collect site photos, and land the free on-site assessment. Learn, worked in naturally over a few messages (never as a form): (1) rough quarterly electricity bill, (2) timeline — ready now / ~3 months / ~6 months / next 12 months / just researching, (3) do they own the home, (4) single or double storey and roof type (tin/tile), (5) battery interest, (6) any existing solar (size, age, inverter brand), (7) what system size they have in mind, in kW, if they have one.
+Goal: qualify the lead, get an indicative estimate in front of them, gauge budget fit, collect site photos, and land the free on-site assessment. FIRST, always confirm WHERE they are if the LEAD CONTEXT does not already show a postcode/suburb — we currently service Newcastle, Lake Macquarie, the Hunter and NSW Mid-Coast only; record extracted.postcode (4 digits) and extracted.suburb. If the LEAD CONTEXT marks the location OUTSIDE our service area: apologise warmly, say we are expanding and will keep their details for when we reach them, set status "not_interested" with "out of area" in the summary, and do NOT qualify further or promise anything. Then learn, worked in naturally over a few messages (never as a form): (1) rough quarterly electricity bill, (2) timeline — ready now / ~3 months / ~6 months / next 12 months / just researching, (3) rebate history — ask whether they've ever claimed the federal Cheaper Home Batteries rebate (NEVER ask bluntly if they own the home; the rebate question covers eligibility and ownership naturally — renters and prior claimants reveal themselves in the answer; record both owner_status and rebate_claimed from it), (4) single or double storey and roof type (tin/tile), (5) battery interest, (6) any existing solar (size, age, inverter brand), (7) what system size they have in mind, in kW, if they have one.
 
 Site photos: once the conversation is flowing, ask them to text back three photos — their switchboard with the door open, their electricity meter, and a step-back shot showing where the switchboard sits and the space around it. Explain why in one line: it lets the installer confirm a compliant spot for the inverter before anyone visits. Photos arrive in the transcript as [photo: …] lines — thank them and track progress in extracted.photos ("requested", "some", "all"). NEVER claim to have looked at or assessed a photo; a licensed installer reviews them.
 
@@ -195,9 +205,9 @@ Incentives you may mention as approximate, never promised: federal STC rebate on
 Never: give electrical or safety advice, promise savings figures, discuss other customers, invent discounts, or keep pushing after a clear no. Complex, sensitive or off-topic requests → hand to the team.
 
 Output ONLY JSON, no markdown fences:
-{"reply":"...","status":"active|qualified|book|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"size_kw_pref":number|null,"photos":"requested|some|all"|null,"budget_fit":"yes|stretch|no"|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
+{"reply":"...","status":"active|qualified|book|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"rebate_claimed":true|false|null,"postcode":"..."|null,"suburb":"..."|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"size_kw_pref":number|null,"photos":"requested|some|all"|null,"budget_fit":"yes|stretch|no"|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
 
-Status rules: "qualified" once bill + timeline + ownership are known (reply should thank them and lead into the estimate that's about to arrive — e.g. "give me one sec and I'll fire through an indicative estimate"). "book" when the customer agrees to or asks for the assessment — reply should confirm the team will text appointment times shortly. "human" if they ask for a person or a call, or raise anything complex. "not_interested" on a clear no (close politely). Otherwise "active". "reply" may be "" to stay silent (e.g. abuse or spam). In "extracted" report only what you actually learned, null otherwise; bill_quarterly in whole dollars. "summary" must always reflect everything known so far, including budget fit and photo status.`;
+Status rules: "qualified" once location is confirmed in-area AND bill + timeline and the rebate/ownership picture are known (reply should thank them and lead into the estimate that's about to arrive — e.g. "give me one sec and I'll fire through an indicative estimate"). "book" when the customer agrees to or asks for the assessment — reply should confirm the team will text appointment times shortly. "human" if they ask for a person or a call, or raise anything complex. "not_interested" on a clear no (close politely). Otherwise "active". "reply" may be "" to stay silent (e.g. abuse or spam). In "extracted" report only what you actually learned, null otherwise; bill_quarterly in whole dollars. "summary" must always reflect everything known so far, including budget fit and photo status.`;
 
 type BillyOut = {
   reply?: string;
@@ -208,7 +218,7 @@ type BillyOut = {
 
 // Only these keys from the model's extracted blob survive the merge — the
 // bookkeeping flags (qualified_alerted, instant_estimate, …) are code-owned.
-const EXTRACT_KEYS = ["bill_quarterly", "timeline", "owner_status", "storeys", "roof",
+const EXTRACT_KEYS = ["bill_quarterly", "timeline", "owner_status", "rebate_claimed", "postcode", "suburb", "storeys", "roof",
   "battery_interest", "existing_solar", "size_kw_pref", "photos", "budget_fit", "notes"];
 
 async function askBilly(context: string): Promise<BillyOut | null> {
@@ -297,18 +307,19 @@ async function adoptInboundRows(lead_id: string, digits: string) {
 
 async function leadFor(lead_id: string) {
   const r = await sbFetch(
-    `leads?id=eq.${lead_id}&select=id,state,lead_type,bill_quarterly_cents,timeline,owner_status,customers(full_name,mobile)`,
+    `leads?id=eq.${lead_id}&select=id,state,lead_type,bill_quarterly_cents,timeline,owner_status,customers(full_name,mobile),sites(postcode,address)`,
   );
   const rows = await r.json().catch(() => []);
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
 
-function leadContext(lead: Record<string, any>, thread: Record<string, any> | null) {
+function leadContext(lead: Record<string, any>, thread: Record<string, any> | null, locLine = "") {
   const name = lead?.customers?.full_name || "";
   return [
     `LEAD CONTEXT`,
     `Name: ${name || "(unknown)"}`,
     `Enquiry type: ${lead?.lead_type || "solar"}`,
+    locLine,
     lead?.bill_quarterly_cents ? `Known quarterly bill: $${Math.round(lead.bill_quarterly_cents / 100)}` : "",
     lead?.timeline ? `Known timeline: ${lead.timeline}` : "",
     lead?.owner_status ? `Known ownership: ${lead.owner_status}` : "",
@@ -335,9 +346,20 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
     return { handled: true, note: "hourly cap" };
   }
 
+  // location: prefer what Billy has extracted, else the lead's site record
+  const pc = String(thread?.extracted?.postcode || lead?.sites?.postcode || "").trim();
+  let locLine = "";
+  if (pc) {
+    const svc = await inServiceArea(pc);
+    locLine = `Location: postcode ${pc}` +
+      (svc === true ? " (WITHIN our service area)" : svc === false ? " — OUTSIDE our current service area" : "");
+  } else {
+    locLine = "Location: UNKNOWN — confirm their suburb/postcode before qualifying";
+  }
+
   const tx = await transcriptFor(digits);
   const out = await askBilly(
-    `${leadContext(lead, thread)}\n\nCONVERSATION SO FAR (oldest first):\n${tx}\n\nThe last CUSTOMER message is the one to answer. Reply as Billy.`,
+    `${leadContext(lead, thread, locLine)}\n\nCONVERSATION SO FAR (oldest first):\n${tx}\n\nThe last CUSTOMER message is the one to answer. Reply as Billy.`,
   );
   if (!out) return { handled: true, note: "model unavailable" };
 
@@ -363,7 +385,8 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   if (status === "qualified" && !merged.qualified_alerted) {
     merged.qualified_alerted = true;
     let estLine = "";
-    const est = await instantEstimate(merged, lead);
+    const pcQ = String(merged.postcode || lead?.sites?.postcode || "").trim();
+    const est = (await inServiceArea(pcQ)) === false ? null : await instantEstimate(merged, lead);
     if (est) {
       const r = await billySend("0" + digits, estimateSms(first, est), lead.id);
       if (r.ok) sends++;

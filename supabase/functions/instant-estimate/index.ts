@@ -129,11 +129,34 @@ Deno.serve(async (req) => {
       if (!digits) return json({ ok: true, skipped: "no mobile" });
       if (OUR_NUMBERS.includes(digits)) return json({ ok: true, skipped: "own number" });
 
-      // one active thread per number — a repeat submit is a no-op
-      const exist = await (await sbFetch(`agent_threads?phone=eq.${digits}&status=eq.active&select=id&limit=1`)).json().catch(() => []);
-      if (Array.isArray(exist) && exist.length) return json({ ok: true, skipped: "thread active" });
-
       const est = body.lead.estimate || null; // what the page showed them, for the opener
+      const first0 = String(lead?.customers?.full_name || "").split(" ")[0];
+
+      // Already talking to Billy on this number? Don't open a second thread —
+      // drop the web estimate into the existing conversation instead, so the
+      // customer hears one voice. Repeat submits within the hour are silent.
+      const exist = await (await sbFetch(
+        `agent_threads?phone=eq.${digits}&status=eq.active&select=id,msg_count,extracted&limit=1`,
+      )).json().catch(() => []);
+      if (Array.isArray(exist) && exist.length) {
+        const th = exist[0];
+        const prevAt = th?.extracted?.instant_estimate?.at;
+        const recently = prevAt && (Date.now() - new Date(prevAt).getTime()) < 3600e3;
+        if (!est?.total || recently) return json({ ok: true, skipped: "thread active" });
+        const note =
+          `Hi${first0 ? " " + first0 : ""}, Billy here — saw you just ran an estimate on our site: ${est.system} ` +
+          `around ${fmt$(est.total)} after rebates. Want me to firm it up and book your free assessment?`;
+        await callFn("sms-send", { to: "0" + digits, body: note, lead_id: lead.id, kind: "billy" }).catch(() => {});
+        await sbFetch(`agent_threads?id=eq.${th.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            extracted: { ...(th.extracted || {}), instant_estimate: { system: est.system, total: est.total, rebate: est.rebate, at: new Date().toISOString() } },
+            msg_count: (th.msg_count ?? 0) + 1,
+            updated_at: new Date().toISOString(),
+          }),
+        }).catch(() => {});
+        return json({ ok: true, joined_thread: th.id });
+      }
       const ins = await sbFetch("agent_threads", {
         method: "POST",
         body: JSON.stringify({
@@ -146,8 +169,8 @@ Deno.serve(async (req) => {
 
       const first = String(lead?.customers?.full_name || "").split(" ")[0];
       const opener = est?.total
-        ? `Hi${first ? " " + first : ""}, Billy from Solarsearch — your instant estimate is in: ${est.system} around ${fmt$(est.total)} after rebates. I can firm that up and line up your free on-site assessment. Quick one: do you own the home?`
-        : `Hi${first ? " " + first : ""}, Billy from Solarsearch — thanks for your enquiry. I'll line up the right local accredited installers for you. Quick one to get started: do you own the home?`;
+        ? `Hi${first ? " " + first : ""}, Billy from Solarsearch — your instant estimate is in: ${est.system} around ${fmt$(est.total)} after rebates. I can firm that up and line up your free on-site assessment. Quick one: have you ever claimed the federal Cheaper Home Batteries rebate before?`
+        : `Hi${first ? " " + first : ""}, Billy from Solarsearch — thanks for your enquiry. I'll line up the right local accredited installers for you. Quick one to get started: have you ever claimed the federal Cheaper Home Batteries rebate before?`;
       await callFn("sms-send", { to: "0" + digits, body: opener, lead_id: lead.id, kind: "billy" }).catch(() => {});
       await sbFetch(`leads?id=eq.${lead.id}&state=in.(captured,validated,scored)`, {
         method: "PATCH", body: JSON.stringify({ state: "contacted" }),
