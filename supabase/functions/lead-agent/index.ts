@@ -37,6 +37,9 @@ const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const MODEL = Deno.env.get("MODEL") || "claude-sonnet-4-5";
 const HQ_SMS = Deno.env.get("HQ_ALERT_SMS") || "";
 const K_FROM = Deno.env.get("KUDOSITY_FROM_NUMBER") || "";
+const META_PAGE_TOKEN = Deno.env.get("META_PAGE_TOKEN") || "";   // Messenger sends
+const WA_TOKEN = Deno.env.get("WA_TOKEN") || "";                 // WhatsApp Cloud API
+const WA_PHONE_NUMBER_ID = Deno.env.get("WA_PHONE_NUMBER_ID") || "";
 
 const MAX_MSGS = 18;   // Billy outbound per thread, lifetime (estimate SMS included)
 const HOURLY_CAP = 6;  // Billy outbound per number per hour
@@ -95,6 +98,55 @@ async function billySend(to: string, body: string, lead_id: string | null) {
   }
   const j = await r.json().catch(() => ({}));
   return { ok: r.ok, ...j };
+}
+
+// Log a non-SMS Billy message into the same audit table the transcripts read.
+async function logChannelMsg(direction: string, ident: string, body: string, lead_id: string | null, kind: string) {
+  await sbFetch("sms_messages", { method: "POST", body: JSON.stringify({
+    direction, body, lead_id,
+    from_number: direction === "in" ? ident : "billy",
+    to_number: direction === "in" ? "billy" : ident,
+    status: direction === "in" ? "received" : "sent", kind,
+  }) }).catch(() => {});
+}
+
+// Messenger reply via the Graph Send API.
+async function fbSend(psid: string, text: string, lead_id: string | null) {
+  if (!META_PAGE_TOKEN) return { ok: false, error: "META_PAGE_TOKEN not set" };
+  const r = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(META_PAGE_TOKEN)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } }),
+  });
+  const ok = r.ok;
+  if (!ok) console.error("lead-agent: fbSend failed", r.status, await r.text().catch(() => ""));
+  await logChannelMsg("out", `fb:${psid}`, text, lead_id, "billy");
+  return { ok };
+}
+
+// WhatsApp reply via the Cloud API (session message — always a response
+// inside the 24h customer-service window, since Billy only ever replies).
+async function waSend(waId: string, text: string, lead_id: string | null) {
+  if (!WA_TOKEN || !WA_PHONE_NUMBER_ID) return { ok: false, error: "WhatsApp not configured" };
+  const r = await fetch(`https://graph.facebook.com/v21.0/${WA_PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${WA_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", to: waId, type: "text", text: { body: text } }),
+  });
+  const ok = r.ok;
+  if (!ok) console.error("lead-agent: waSend failed", r.status, await r.text().catch(() => ""));
+  await logChannelMsg("out", `wa:${waId}`, text, lead_id, "billy");
+  return { ok };
+}
+
+// One door for every channel Billy speaks through.
+async function channelSend(thread: Record<string, any>, text: string, lead_id: string | null) {
+  const ch = thread.channel || "sms";
+  if (ch === "messenger") return fbSend(String(thread.phone).replace(/^fb:/, ""), text, lead_id);
+  if (ch === "whatsapp") {
+    const d = String(thread.phone).replace(/\D/g, "");
+    return waSend(d.length === 9 ? "61" + d : d, text, lead_id);
+  }
+  return billySend("0" + thread.phone, text, lead_id);
 }
 
 async function hqAlert(text: string) {
@@ -190,7 +242,7 @@ function estimateSms(first: string, est: { sysText: string; total: number; stc_r
 // ---------------------------------------------------------------------------
 const BILLY_SYSTEM = `You are Billy, the SMS assistant for Solarsearch (solarsearch.com.au) — the solar & battery marketplace for Newcastle, Lake Macquarie, the Hunter and NSW Mid-Coast. You follow up people who enquired about solar, a battery, or both.
 
-You are texting. Every reply must be under 300 characters, one question at a time, plain friendly Australian English. No emoji unless the customer uses them first. If asked whether you are a bot, say you're Solarsearch's AI assistant and a human specialist follows up — never pretend to be human.
+The LEAD CONTEXT names the CHANNEL (SMS, Messenger or WhatsApp). On Messenger the customer has no phone number on file — once things are moving (qualified, or booking), ask for their best mobile so the team can confirm the assessment by text; record it in extracted.mobile. Every reply must be under 300 characters, one question at a time, plain friendly Australian English. No emoji unless the customer uses them first. If asked whether you are a bot, say you're Solarsearch's AI assistant and a human specialist follows up — never pretend to be human.
 
 Goal: qualify the lead, get an indicative estimate in front of them, gauge budget fit, collect site photos, and land the free on-site assessment. FIRST, always confirm WHERE they are if the LEAD CONTEXT does not already show a postcode/suburb — we currently service Newcastle, Lake Macquarie, the Hunter and NSW Mid-Coast only; record extracted.postcode (4 digits) and extracted.suburb. If the LEAD CONTEXT marks the location OUTSIDE our service area: apologise warmly, say we are expanding and will keep their details for when we reach them, set status "not_interested" with "out of area" in the summary, and do NOT qualify further or promise anything. Then learn, worked in naturally over a few messages (never as a form): (1) rough quarterly electricity bill, (2) timeline — ready now / ~3 months / ~6 months / next 12 months / just researching, (3) rebate history — ask whether they've ever claimed the federal Cheaper Home Batteries rebate (NEVER ask bluntly if they own the home; the rebate question covers eligibility and ownership naturally — renters and prior claimants reveal themselves in the answer; record both owner_status and rebate_claimed from it), (4) single or double storey and roof type (tin/tile), (5) battery interest, (6) any existing solar (size, age, inverter brand), (7) what system size they have in mind, in kW, if they have one.
 
@@ -209,7 +261,7 @@ Incentives you may mention as approximate, never promised: federal STC rebate on
 Never: give electrical or safety advice, promise savings figures, discuss other customers, invent discounts, or keep pushing after a clear no. Complex, sensitive or off-topic requests → hand to the team.
 
 Output ONLY JSON, no markdown fences:
-{"reply":"...","status":"active|qualified|book|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"rebate_claimed":true|false|null,"postcode":"..."|null,"suburb":"..."|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"size_kw_pref":number|null,"photos":"requested|some|all"|null,"budget_fit":"yes|stretch|no"|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
+{"reply":"...","status":"active|qualified|book|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"rebate_claimed":true|false|null,"postcode":"..."|null,"suburb":"..."|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"size_kw_pref":number|null,"photos":"requested|some|all"|null,"budget_fit":"yes|stretch|no"|null,"mobile":"..."|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
 
 Status rules: "qualified" once location is confirmed in-area AND bill + timeline and the rebate/ownership picture are known (reply should thank them and lead into the estimate that's about to arrive — e.g. "give me one sec and I'll fire through an indicative estimate"). "book" when the customer agrees to or asks for the assessment — reply should confirm the team will text appointment times shortly. "human" if they ask for a person or a call, or raise anything complex. "not_interested" on a clear no (close politely). Otherwise "active". "reply" may be "" to stay silent (e.g. abuse or spam). In "extracted" report only what you actually learned, null otherwise; bill_quarterly in whole dollars. "summary" must always reflect everything known so far, including budget fit and photo status.`;
 
@@ -222,7 +274,7 @@ type BillyOut = {
 
 // Only these keys from the model's extracted blob survive the merge — the
 // bookkeeping flags (qualified_alerted, instant_estimate, …) are code-owned.
-const EXTRACT_KEYS = ["bill_quarterly", "timeline", "owner_status", "rebate_claimed", "postcode", "suburb", "storeys", "roof",
+const EXTRACT_KEYS = ["bill_quarterly", "timeline", "owner_status", "rebate_claimed", "postcode", "suburb", "mobile", "storeys", "roof",
   "battery_interest", "existing_solar", "size_kw_pref", "photos", "budget_fit", "notes"];
 
 async function askBilly(context: string): Promise<BillyOut | null> {
@@ -279,7 +331,14 @@ async function patchThread(id: string, patch: Record<string, unknown>) {
 
 // Push what Billy learned onto the lead row itself so HQ scoring/next-step
 // logic sees real columns, not a side store.
-async function updateLeadFromExtract(lead_id: string, ex: Record<string, unknown>) {
+async function updateLeadFromExtract(lead_id: string, ex: Record<string, unknown>, customer_id?: string, customer_mobile?: string) {
+  // A mobile learned on Messenger unlocks SMS/WhatsApp contact later.
+  const mdigits = String(ex?.mobile || "").replace(/\D/g, "");
+  if (customer_id && !customer_mobile && /^0?4\d{8}$/.test(mdigits)) {
+    await sbFetch(`customers?id=eq.${customer_id}`, {
+      method: "PATCH", body: JSON.stringify({ mobile: (mdigits.length === 9 ? "0" : "") + mdigits }),
+    }).catch(() => {});
+  }
   const patch: Record<string, unknown> = {};
   const bill = Number(ex?.bill_quarterly);
   if (bill > 0) patch.bill_quarterly_cents = Math.round(bill * 100);
@@ -311,7 +370,7 @@ async function adoptInboundRows(lead_id: string, digits: string) {
 
 async function leadFor(lead_id: string) {
   const r = await sbFetch(
-    `leads?id=eq.${lead_id}&select=id,state,lead_type,bill_quarterly_cents,timeline,owner_status,customers(full_name,mobile),sites(postcode,address)`,
+    `leads?id=eq.${lead_id}&select=id,state,lead_type,bill_quarterly_cents,timeline,owner_status,customers(id,full_name,mobile),sites(postcode,address)`,
   );
   const rows = await r.json().catch(() => []);
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
@@ -323,6 +382,7 @@ function leadContext(lead: Record<string, any>, thread: Record<string, any> | nu
     `LEAD CONTEXT`,
     `Name: ${name || "(unknown)"}`,
     `Enquiry type: ${lead?.lead_type || "solar"}`,
+    `Channel: ${thread?.channel === "messenger" ? "Facebook Messenger" : thread?.channel === "whatsapp" ? "WhatsApp" : "SMS"}`,
     locLine,
     lead?.bill_quarterly_cents ? `Known quarterly bill: $${Math.round(lead.bill_quarterly_cents / 100)}` : "",
     lead?.timeline ? `Known timeline: ${lead.timeline}` : "",
@@ -345,7 +405,7 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
     await hqAlert(`Billy — thread with ${name} hit the message cap. ${thread.summary || ""}`);
     return { handled: true, note: "message cap" };
   }
-  if (await billySentLastHour(digits) >= HOURLY_CAP) {
+  if (await billySentLastHour(String(digits).replace(/\D/g, "")) >= HOURLY_CAP) {
     console.warn("lead-agent: hourly cap reached, staying silent", digits);
     return { handled: true, note: "hourly cap" };
   }
@@ -361,7 +421,7 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
     locLine = "Location: UNKNOWN — confirm their suburb/postcode before qualifying";
   }
 
-  const tx = await transcriptFor(digits);
+  const tx = await transcriptFor(String(digits).replace(/\D/g, ""));
   const out = await askBilly(
     `${leadContext(lead, thread, locLine)}\n\nCONVERSATION SO FAR (oldest first):\n${tx}\n\nThe last CUSTOMER message is the one to answer. Reply as Billy.`,
   );
@@ -372,7 +432,7 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   const exClean: Record<string, unknown> = {};
   for (const k of EXTRACT_KEYS) if (exIn[k] !== undefined && exIn[k] !== null) exClean[k] = exIn[k];
   const merged: Record<string, any> = { ...(thread.extracted || {}), ...exClean };
-  await updateLeadFromExtract(lead.id, merged);
+  await updateLeadFromExtract(lead.id, merged, lead?.customers?.id, lead?.customers?.mobile);
 
   const status = ["active", "qualified", "book", "human", "not_interested"].includes(out.status || "")
     ? out.status! : "active";
@@ -380,7 +440,7 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
 
   let sends = 0;
   if (reply) {
-    const r = await billySend("0" + digits, reply, lead.id);
+    const r = await channelSend(thread, reply, lead.id);
     if (r.ok) sends++;
   }
 
@@ -392,7 +452,7 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
     const pcQ = String(merged.postcode || lead?.sites?.postcode || "").trim();
     const est = (await inServiceArea(pcQ)) === false ? null : await instantEstimate(merged, lead);
     if (est) {
-      const r = await billySend("0" + digits, estimateSms(first, est), lead.id);
+      const r = await channelSend(thread, estimateSms(first, est), lead.id);
       if (r.ok) sends++;
       merged.instant_estimate = {
         system: est.sysText, total: est.total, stc_rebate: est.stc_rebate,
@@ -450,6 +510,49 @@ Deno.serve(async (req) => {
       const lead = await leadFor(thread.lead_id);
       if (!lead) return json({ handled: false });
       await adoptInboundRows(lead.id, digits);
+      await setLeadState(lead.id, ["captured", "validated", "scored"], "contacted");
+      const r = await converse(thread, lead);
+      return json(r);
+    }
+
+    // ---- Messenger / WhatsApp inbound, forwarded by meta-inbound (service role only) ----
+    if (body.channel_inbound) {
+      if (!isService) return json({ error: "forbidden" }, 403);
+      const ch = body.channel_inbound.channel === "whatsapp" ? "whatsapp" : "messenger";
+      const sender = String(body.channel_inbound.sender || "").replace(/[^\d]/g, "");
+      const text = String(body.channel_inbound.text || "").slice(0, 1500).trim();
+      if (!sender || !text) return json({ handled: false });
+      // Thread key: WhatsApp uses real phone digits (shared with SMS threads);
+      // Messenger has no phone, so the PSID is namespaced.
+      const key = ch === "whatsapp" ? normPhone(sender) : `fb:${sender}`;
+      const ident = ch === "whatsapp" ? `wa:${sender}` : `fb:${sender}`;
+      if (ch === "whatsapp" && OUR_NUMBERS.includes(normPhone(sender))) return json({ handled: false });
+
+      let thread = await loadThread(key);
+      let lead: Record<string, any> | null = null;
+      if (thread) {
+        lead = await leadFor(thread.lead_id);
+        if (thread.channel !== ch) { await patchThread(thread.id, { channel: ch }); thread.channel = ch; }
+      } else {
+        const name = String(body.channel_inbound.name || "").slice(0, 80);
+        const cap = await rpc("capture_lead", { payload: {
+          name, mobile: ch === "whatsapp" ? "0" + normPhone(sender) : null,
+          source_platform: ch === "whatsapp" ? "whatsapp" : "facebook_messenger",
+          utm: { channel: ch, sender_id: sender },
+        } });
+        const cj = await cap.json().catch(() => null);
+        if (!cj?.lead_id) { console.error("lead-agent: capture_lead failed for", ch); return json({ handled: false }); }
+        const ins = await sbFetch("agent_threads", {
+          method: "POST",
+          body: JSON.stringify({ lead_id: cj.lead_id, phone: key, status: "active", channel: ch }),
+        });
+        thread = (await ins.json().catch(() => []))?.[0];
+        if (!thread) return json({ handled: false });
+        lead = await leadFor(cj.lead_id);
+        await callFn("notify-new-lead", { lead_id: cj.lead_id }).catch(() => {});
+      }
+      if (!lead) return json({ handled: false });
+      await logChannelMsg("in", ident, text, lead.id, "inbound");
       await setLeadState(lead.id, ["captured", "validated", "scored"], "contacted");
       const r = await converse(thread, lead);
       return json(r);
