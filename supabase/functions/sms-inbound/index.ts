@@ -206,7 +206,15 @@ Deno.serve(async (req) => {
     if (!INBOUND_SECRET || params.secret !== INBOUND_SECRET) return new Response("forbidden", { status: 403 });
 
     const from = params.mobile || params.msisdn || params.from || "";
-    const bodyRaw = (params.response || params.message || params.body || params.sms || "").trim();
+    let bodyRaw = (params.response || params.message || params.body || params.sms || "").trim();
+    // MMS: Kudosity delivers media as extra URL params. Fold them into the
+    // message body as [photo: …] lines so they reach the audit log, the HQ
+    // drawer transcript, and Billy's context (he asks customers for
+    // switchboard / meter / location photos for inverter placement).
+    const media = Object.entries(params)
+      .filter(([k, v]) => /media|mms|attachment|file|image/i.test(k) && /^https?:\/\//i.test(String(v)))
+      .map(([, v]) => String(v));
+    if (media.length) bodyRaw = (bodyRaw + "\n" + media.map((u) => `[photo: ${u}]`).join("\n")).trim();
     const upper = bodyRaw.toUpperCase();
     const fromDigits = normPhone(from);
     if (!from) return ok();
