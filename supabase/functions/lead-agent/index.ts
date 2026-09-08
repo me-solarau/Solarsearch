@@ -1,8 +1,12 @@
 // lead-agent — "Billy", the Solarsearch AI lead-follow-up agent.
 //
 // Billy texts new leads from the Solarsearch Kudosity number, qualifies them
-// (bill, timeline, ownership, roof, battery interest, existing solar) and
-// hands the owner an informed briefing when done. Conversation state lives in
+// (bill, timeline, ownership, roof, battery interest, existing solar, size
+// preference), collects switchboard/meter/location photos for compliant
+// inverter placement, and — the moment a lead qualifies — prices an official
+// indicative estimate through the SAME quote_estimate engine HQ's Instant
+// quote uses, texts it, then gauges budget fit and pushes toward the free
+// on-site assessment (formal quote follows that). Conversation state lives in
 // agent_threads; every message goes through sms-send so the sms_messages log
 // stays the single audit trail.
 //
@@ -13,7 +17,9 @@
 //
 // Guards (in addition to sms-send's suppression/quiet-hours/opt-out gates):
 //   never text our own numbers; hard cap of MAX_MSGS Billy messages per
-//   thread; at most HOURLY_CAP Billy sends per number per hour.
+//   thread; at most HOURLY_CAP Billy sends per number per hour. Dollar
+//   figures come ONLY from quote_estimate — the model is forbidden to invent
+//   prices and the estimate SMS is composed in code, not by the model.
 //
 // Secrets: ANTHROPIC_API_KEY, optional MODEL (default claude-sonnet-4-5),
 // HQ_ALERT_SMS, KUDOSITY_FROM_NUMBER. SUPABASE_URL / SERVICE_ROLE injected.
@@ -32,8 +38,14 @@ const MODEL = Deno.env.get("MODEL") || "claude-sonnet-4-5";
 const HQ_SMS = Deno.env.get("HQ_ALERT_SMS") || "";
 const K_FROM = Deno.env.get("KUDOSITY_FROM_NUMBER") || "";
 
-const MAX_MSGS = 14;   // Billy outbound per thread, lifetime
+const MAX_MSGS = 18;   // Billy outbound per thread, lifetime (estimate SMS included)
 const HOURLY_CAP = 6;  // Billy outbound per number per hour
+
+// Default gear — identical to HQ's Instant quote defaults so both quote the
+// same reference system.
+const PANEL_PART = "AIKO-A465-MAH54Mb";   // 465 W
+const INVERTER_PART = "GW-GW15K-ETA-G20";
+const BATTERY_PART = "GDWGW8.3-BAT-D-G20"; // 8.3 kWh usable per module
 
 const normPhone = (n: string) => String(n || "").replace(/\D/g, "").slice(-9);
 const OUR_NUMBERS = [HQ_SMS, K_FROM].map(normPhone).filter(Boolean);
@@ -46,6 +58,13 @@ async function sbFetch(path: string, init: RequestInit = {}) {
       "Content-Type": "application/json", Prefer: "return=representation",
       ...(init.headers || {}),
     },
+  });
+}
+async function rpc(fn: string, args: Record<string, unknown>) {
+  return fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
   });
 }
 async function callFn(name: string, payload: Record<string, unknown>) {
@@ -96,6 +115,61 @@ async function billySentLastHour(digits: string): Promise<number> {
 }
 
 // ---------------------------------------------------------------------------
+// Instant estimate — deterministic sizing + the shared quote_estimate engine.
+// The model NEVER produces these numbers; it only reacts to them afterwards.
+// ---------------------------------------------------------------------------
+function sizeSystem(ex: Record<string, any>, lead: Record<string, any>) {
+  const bill = Number(ex?.bill_quarterly) || (lead?.bill_quarterly_cents ? lead.bill_quarterly_cents / 100 : 0);
+  const daily = bill > 0 ? bill / 29.2 : 20; // ~kWh/day at 32c and 91.25 days
+  const pref = Number(ex?.size_kw_pref) || 0;
+  const hasExisting = !!(ex?.existing_solar && /\d/.test(String(ex.existing_solar)));
+  let kw = pref > 0 ? pref : Math.min(13.3, Math.max(6.6, Math.round((daily / 3.8) * 2) / 2));
+  if (hasExisting && pref === 0) kw = 0; // battery retrofit on an existing array
+  let panelQty = 0;
+  if (kw > 0) { panelQty = Math.ceil((kw * 1000) / 465); kw = Math.round(panelQty * 0.465 * 10) / 10; }
+  const wantsBattery = ex?.battery_interest !== false;
+  const modules = !wantsBattery ? 0 : bill >= 900 ? 3 : bill >= 550 ? 2 : 1;
+  const kwh = Math.round(modules * 8.3 * 10) / 10;
+  const storey = Number(ex?.storeys) === 2 ? 2 : 1;
+  return { kw, panelQty, modules, kwh, storey };
+}
+
+async function instantEstimate(ex: Record<string, any>, lead: Record<string, any>) {
+  const s = sizeSystem(ex, lead);
+  if (!s.panelQty && !s.modules) return null;
+  const payload = {
+    solar_kw: s.kw, panel_part: PANEL_PART, panel_qty: s.panelQty,
+    inverter_part: INVERTER_PART, inverter_qty: 1, inverter_kw: Math.max(s.kw, 5),
+    battery_part: BATTERY_PART, battery_qty: s.modules, battery_kwh_usable: s.kwh,
+    battery_modules: s.modules, battery_stacks: 1,
+    mounting_bos: s.panelQty * 45, storey: s.storey, phase: 1,
+    dc_run_m: s.panelQty ? 25 : 0, ac_run_m: 5,
+  };
+  const r = await rpc("quote_estimate", { p: payload });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j?.total_incl_gst) {
+    console.error("lead-agent: quote_estimate failed", r.status, JSON.stringify(j).slice(0, 300));
+    return null;
+  }
+  const total = Math.round(Number(j.total_incl_gst) / 100) * 100;
+  const sysText = [s.kw > 0 ? `${s.kw} kW solar` : null, s.kwh > 0 ? `${s.kwh} kWh battery` : null]
+    .filter(Boolean).join(" + ");
+  return {
+    sysText, total, sizing: s,
+    stc_rebate: j.stc_rebate, stc_solar: j.stc_solar, stc_battery: j.stc_battery,
+    engine_total: j.total_incl_gst,
+  };
+}
+
+const fmt$ = (n: number) => "$" + Number(n || 0).toLocaleString("en-AU", { maximumFractionDigits: 0 });
+
+function estimateSms(first: string, est: { sysText: string; total: number; stc_rebate: number }) {
+  return `${first ? first + ", h" : "H"}ere's your indicative Solarsearch estimate: ${est.sysText} — around ` +
+    `${fmt$(est.total)} installed after ${fmt$(est.stc_rebate)} in rebates. It's an estimate only — a formal ` +
+    `quote for acceptance follows your free on-site assessment. Is that roughly in line with what you had in mind?`;
+}
+
+// ---------------------------------------------------------------------------
 // Billy's brain. Product knowledge is drawn from what installers on the
 // network (ME-SOLAR and peers) actually install, but the voice is pure
 // Solarsearch — Billy never names an installer to a customer.
@@ -104,22 +178,26 @@ const BILLY_SYSTEM = `You are Billy, the SMS assistant for Solarsearch (solarsea
 
 You are texting. Every reply must be under 300 characters, one question at a time, plain friendly Australian English. No emoji unless the customer uses them first. If asked whether you are a bot, say you're Solarsearch's AI assistant and a human specialist follows up — never pretend to be human.
 
-Goal: qualify the lead, then hand off. You want to learn, worked in naturally over a few messages (never as a form): (1) rough quarterly electricity bill, (2) timeline — ready now / ~3 months / ~6 months / next 12 months / just researching, (3) do they own the home, (4) single or double storey and roof type (tin/tile), (5) battery interest, (6) any existing solar (size, age, inverter brand).
+Goal: qualify the lead, get an indicative estimate in front of them, gauge budget fit, collect site photos, and land the free on-site assessment. Learn, worked in naturally over a few messages (never as a form): (1) rough quarterly electricity bill, (2) timeline — ready now / ~3 months / ~6 months / next 12 months / just researching, (3) do they own the home, (4) single or double storey and roof type (tin/tile), (5) battery interest, (6) any existing solar (size, age, inverter brand), (7) what system size they have in mind, in kW, if they have one.
+
+Site photos: once the conversation is flowing, ask them to text back three photos — their switchboard with the door open, their electricity meter, and a step-back shot showing where the switchboard sits and the space around it. Explain why in one line: it lets the installer confirm a compliant spot for the inverter before anyone visits. Photos arrive in the transcript as [photo: …] lines — thank them and track progress in extracted.photos ("requested", "some", "all"). NEVER claim to have looked at or assessed a photo; a licensed installer reviews them.
+
+Pricing protocol — strict: you never invent or state dollar figures yourself. When you set status "qualified", the system automatically texts the customer an official indicative estimate right after your message (it will appear in the transcript). From your next turn, gauge whether that estimate fits their budget — record extracted.budget_fit as "yes", "stretch" or "no" — and reassure them a formal quote for acceptance follows the free assessment. You may refer to the estimate's figures once they appear in the transcript, but never adjust or renegotiate them; if they push on price, note it and steer to the assessment where the formal quote is prepared.
 
 Product knowledge — equipment the accredited installers on the Solarsearch network fit (answer questions briefly and confidently; never name a specific installer):
-- Batteries / hybrid systems: Sigenergy SigenStor (modular stack, ~8–48 kWh, VPP-ready), Tesla Powerwall 3, Enphase IQ Battery.
-- Inverters: Sigenergy, Sungrow, SMA, Fronius, GoodWe, Growatt, Solis, Enphase IQ8 microinverters, Q CELLS Q.VOLT hybrid.
-- Panels: Jinko, Trina, LONGi, Q CELLS — typically 440–475 W residential panels.
+- Batteries / hybrid systems: Sigenergy SigenStor (modular stack, ~8–48 kWh, VPP-ready), Tesla Powerwall 3, Enphase IQ Battery, GoodWe.
+- Inverters: Sigenergy, GoodWe, Sungrow, SMA, Fronius, Growatt, Solis, Enphase IQ8 microinverters, Q CELLS Q.VOLT hybrid.
+- Panels: AIKO, Jinko, Trina, LONGi, Q CELLS — typically 440–475 W residential panels.
 - Racking: Clenergy, engineered for both tin and tile roofs.
-- Typical homes land on 6.6–13.2 kW of solar; batteries usually 10–32 kWh.
-Incentives you may mention as approximate, never promised: federal STC rebate on solar (built into quotes); federal Cheaper Home Batteries discount (~30% off installed battery cost); VPP programs that pay battery owners. Never quote a firm price — pricing comes after a free home assessment, where installers on the platform quote competitively.
+- Typical homes land on 6.6–13.2 kW of solar; batteries usually 8–25 kWh.
+Incentives you may mention as approximate, never promised: federal STC rebate on solar (built into quotes); federal Cheaper Home Batteries discount (~30% off installed battery cost); VPP programs that pay battery owners.
 
 Never: give electrical or safety advice, promise savings figures, discuss other customers, invent discounts, or keep pushing after a clear no. Complex, sensitive or off-topic requests → hand to the team.
 
 Output ONLY JSON, no markdown fences:
-{"reply":"...","status":"active|qualified|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
+{"reply":"...","status":"active|qualified|book|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"size_kw_pref":number|null,"photos":"requested|some|all"|null,"budget_fit":"yes|stretch|no"|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
 
-Rules: set status "qualified" once bill + timeline + ownership are known — the reply should thank them and say a local specialist will be in touch to arrange a free home assessment. Set "human" if they ask for a person or a call, or raise anything complex. Set "not_interested" on a clear no (close politely). Otherwise "active". "reply" may be "" to stay silent (e.g. abuse or spam). In "extracted" report only what you actually learned this conversation, null otherwise; bill_quarterly in whole dollars. "summary" must always reflect everything known so far.`;
+Status rules: "qualified" once bill + timeline + ownership are known (reply should thank them and lead into the estimate that's about to arrive — e.g. "give me one sec and I'll fire through an indicative estimate"). "book" when the customer agrees to or asks for the assessment — reply should confirm the team will text appointment times shortly. "human" if they ask for a person or a call, or raise anything complex. "not_interested" on a clear no (close politely). Otherwise "active". "reply" may be "" to stay silent (e.g. abuse or spam). In "extracted" report only what you actually learned, null otherwise; bill_quarterly in whole dollars. "summary" must always reflect everything known so far, including budget fit and photo status.`;
 
 type BillyOut = {
   reply?: string;
@@ -127,6 +205,11 @@ type BillyOut = {
   extracted?: Record<string, unknown>;
   summary?: string;
 };
+
+// Only these keys from the model's extracted blob survive the merge — the
+// bookkeeping flags (qualified_alerted, instant_estimate, …) are code-owned.
+const EXTRACT_KEYS = ["bill_quarterly", "timeline", "owner_status", "storeys", "roof",
+  "battery_interest", "existing_solar", "size_kw_pref", "photos", "budget_fit", "notes"];
 
 async function askBilly(context: string): Promise<BillyOut | null> {
   if (!ANTHROPIC_KEY) return null;
@@ -158,7 +241,7 @@ async function transcriptFor(digits: string): Promise<string> {
   const r = await sbFetch(
     `sms_messages?select=direction,body,kind,created_at` +
     `&or=(from_number.like.*${digits},to_number.like.*${digits})` +
-    `&order=created_at.asc&limit=40`,
+    `&order=created_at.asc&limit=60`,
   );
   const rows = await r.json().catch(() => []);
   return (Array.isArray(rows) ? rows : [])
@@ -198,6 +281,11 @@ async function setLeadState(lead_id: string, from: string[], to: string) {
     method: "PATCH", body: JSON.stringify({ state: to }),
   }).catch(() => {});
 }
+async function noteLead(lead_id: string, note: string) {
+  await sbFetch(`leads?id=eq.${lead_id}`, {
+    method: "PATCH", body: JSON.stringify({ admin_notes: note.slice(0, 900) }),
+  }).catch(() => {});
+}
 
 // Attach stray inbound log rows (logged before any lead was known) to the lead
 // so the HQ drawer transcript is complete. Update-only — never deletes.
@@ -229,28 +317,17 @@ function leadContext(lead: Record<string, any>, thread: Record<string, any> | nu
   ].filter(Boolean).join("\n");
 }
 
-async function finishTerminal(thread: Record<string, any>, lead: Record<string, any>, out: BillyOut) {
-  const name = lead?.customers?.full_name || "lead";
-  const mob = lead?.customers?.mobile || thread.phone;
-  const tag = out.status === "qualified" ? "QUALIFIED"
-    : out.status === "human" ? "WANTS A HUMAN" : "NOT INTERESTED";
-  await hqAlert(`Billy — ${tag}: ${name} (${mob}). ${out.summary || ""}`);
-  await sbFetch(`leads?id=eq.${lead.id}`, {
-    method: "PATCH",
-    body: JSON.stringify({ admin_notes: `Billy — ${out.summary || tag}` }),
-  }).catch(() => {});
-  if (out.status === "qualified") {
-    await setLeadState(lead.id, ["captured", "validated", "scored", "contacted"], "qualified");
-  }
-}
-
 // Run one Billy turn (used for both a fresh customer message and an AI-opener
 // on a lead that arrived with initial text).
 async function converse(thread: Record<string, any>, lead: Record<string, any>) {
   const digits = thread.phone as string;
+  const name = lead?.customers?.full_name || "lead";
+  const first = String(lead?.customers?.full_name || "").split(" ")[0];
+  const mob = lead?.customers?.mobile || digits;
+
   if ((thread.msg_count ?? 0) >= MAX_MSGS) {
     await patchThread(thread.id, { status: "expired", summary: thread.summary || "Hit message cap" });
-    await hqAlert(`Billy — thread with ${lead?.customers?.full_name || digits} hit the message cap. ${thread.summary || ""}`);
+    await hqAlert(`Billy — thread with ${name} hit the message cap. ${thread.summary || ""}`);
     return { handled: true, note: "message cap" };
   }
   if (await billySentLastHour(digits) >= HOURLY_CAP) {
@@ -264,27 +341,66 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   );
   if (!out) return { handled: true, note: "model unavailable" };
 
-  const ex = (out.extracted || {}) as Record<string, unknown>;
-  await updateLeadFromExtract(lead.id, ex);
+  // merge model-extracted facts under code-owned bookkeeping
+  const exIn = (out.extracted || {}) as Record<string, unknown>;
+  const exClean: Record<string, unknown> = {};
+  for (const k of EXTRACT_KEYS) if (exIn[k] !== undefined && exIn[k] !== null) exClean[k] = exIn[k];
+  const merged: Record<string, any> = { ...(thread.extracted || {}), ...exClean };
+  await updateLeadFromExtract(lead.id, merged);
 
-  const status = ["active", "qualified", "human", "not_interested"].includes(out.status || "")
+  const status = ["active", "qualified", "book", "human", "not_interested"].includes(out.status || "")
     ? out.status! : "active";
   const reply = (out.reply || "").trim().slice(0, 480);
 
-  let sent = false;
+  let sends = 0;
   if (reply) {
     const r = await billySend("0" + digits, reply, lead.id);
-    sent = !!r.ok;
+    if (r.ok) sends++;
   }
+
+  // Qualified: price it through the shared engine and text the official
+  // indicative estimate as its own message. Fires once per thread.
+  if (status === "qualified" && !merged.qualified_alerted) {
+    merged.qualified_alerted = true;
+    let estLine = "";
+    const est = await instantEstimate(merged, lead);
+    if (est) {
+      const r = await billySend("0" + digits, estimateSms(first, est), lead.id);
+      if (r.ok) sends++;
+      merged.instant_estimate = {
+        system: est.sysText, total: est.total, stc_rebate: est.stc_rebate,
+        sized: est.sizing, at: new Date().toISOString(),
+      };
+      estLine = ` Indicative: ${est.sysText} ≈ ${fmt$(est.total)} after rebates.`;
+    }
+    await hqAlert(`Billy — QUALIFIED: ${name} (${mob}). ${out.summary || ""}${estLine}`);
+    await noteLead(lead.id, `Billy — ${out.summary || "qualified"}${estLine}`);
+    await setLeadState(lead.id, ["captured", "validated", "scored", "contacted"], "qualified");
+  }
+
+  // Wants the assessment: tell the owner — the pool/booking machinery takes
+  // over from HQ (tech grabs, then times are texted). Fires once per thread.
+  if (status === "book" && !merged.booking_alerted) {
+    merged.booking_alerted = true;
+    await hqAlert(`Billy — WANTS ASSESSMENT: ${name} (${mob}). ${out.summary || ""} Book it from HQ (tech grab → text times).`);
+    await noteLead(lead.id, `Billy — wants assessment. ${out.summary || ""}`);
+    await setLeadState(lead.id, ["captured", "validated", "scored", "contacted"], "qualified");
+  }
+
+  const closing = status === "human" || status === "not_interested";
   await patchThread(thread.id, {
-    status: status === "active" ? "active" : status,
-    extracted: { ...(thread.extracted || {}), ...ex },
+    status: closing ? status : "active",
+    extracted: merged,
     summary: out.summary || thread.summary || null,
-    msg_count: (thread.msg_count ?? 0) + (sent ? 1 : 0),
+    msg_count: (thread.msg_count ?? 0) + sends,
     last_inbound_at: new Date().toISOString(),
   });
-  if (status !== "active") await finishTerminal({ ...thread }, lead, { ...out, status });
-  return { handled: true, replied: sent, status };
+  if (closing) {
+    const tag = status === "human" ? "WANTS A HUMAN" : "NOT INTERESTED";
+    await hqAlert(`Billy — ${tag}: ${name} (${mob}). ${out.summary || ""}`);
+    await noteLead(lead.id, `Billy — ${out.summary || tag}`);
+  }
+  return { handled: true, replied: sends > 0, status };
 }
 
 Deno.serve(async (req) => {
