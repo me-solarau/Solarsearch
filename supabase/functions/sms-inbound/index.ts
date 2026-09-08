@@ -6,11 +6,14 @@
 //   RESCHEDULE       -> sms_mark_reschedule + re-run sms-offer-windows
 //   CANCEL           -> sms_release_assessment (lead back to pool)
 //   STOP/UNSUBSCRIBE -> set customers.sms_opt_out (+ close any Billy thread)
-//   anything else, matching no open booking -> if Billy (lead-agent) already
-//   runs a thread with this number he answers in context; otherwise the text
-//   is logged, a lead is created/attached and HQ is alerted — no auto-reply,
-//   because the number is shared with human business messaging (Gary). Billy
-//   is started deliberately from HQ ("AI contact now").
+//   anything else, matching no open booking -> Billy (lead-agent). An active
+//   agent thread answers in context; a cold text creates a lead and Billy
+//   opens from what the sender wrote — but ONLY when the message was sent to
+//   Billy's own number (KUDOSITY_FROM_NUMBER, 61430251786). The Kudosity
+//   account also holds 61430251806, Gary's human Me-Solar messaging line; if
+//   that sender is ever pointed at this webhook too, its traffic is logged
+//   and alerted to HQ but never auto-replied, so Billy cannot barge into a
+//   human conversation under the wrong brand.
 // Kudosity can't reply inline (no TwiML), so every reply is sent as a normal
 // outbound message via sms-send. The confirm path calls SECURITY DEFINER RPCs
 // granted to service_role only, so no browser can forge a confirmation.
@@ -123,15 +126,13 @@ async function reply(to: string, body: string, assessment_id?: string | null, le
 }
 // A cold inbound text matches no open assessment. Create a real lead (or, for
 // a repeat text from someone already in the system, reuse their most recent
-// lead) and alert HQ via notify-new-lead — but send NO automatic reply.
-// 2026-09-08: the Kudosity number is shared with human business messaging
-// (Gary texts customers from the Kudosity inbox), so a cold-looking inbound
-// is often a reply to a human mid-conversation. An auto-reply — Billy or
-// canned — would barge into those threads under the wrong brand. Billy is
-// started deliberately from HQ ("AI contact now") instead, and still handles
-// every thread he is already in. Re-enable auto-engage only when Billy has a
-// dedicated number.
-async function handleUnmatchedInbound(from: string, body: string) {
+// lead) and alert HQ via notify-new-lead. When the text was addressed to
+// Billy's own number (billyAllowed), hand the conversation to Billy so the
+// sender gets an intelligent reply to what they actually wrote, with the
+// canned acknowledgement as fallback if Billy can't act. Traffic addressed
+// to any other sender in the account (Gary's 61430251806 human messaging
+// line) is recorded and surfaced only — never auto-replied.
+async function handleUnmatchedInbound(from: string, body: string, billyAllowed: boolean) {
   const digits = normPhone(from);
   let leadId: string | null = null;
 
@@ -161,6 +162,18 @@ async function handleUnmatchedInbound(from: string, body: string) {
     leadId = capJson?.lead_id || null;
   }
 
+  // Billy first: start (or continue) an agent thread seeded with their text.
+  let billyReplied = false;
+  if (billyAllowed && leadId) {
+    try {
+      const st = await callFn("lead-agent", { lead_id: leadId, has_inbound_text: true });
+      const sj = await st.json().catch(() => ({}));
+      billyReplied = !!(sj && (sj.sent || sj.replied));
+    } catch (_) { /* fall through to canned */ }
+  }
+  if (billyAllowed && !billyReplied) {
+    await reply(from, "Thanks — we've got your enquiry and will call you shortly.", null, null, "fallback");
+  }
   if (leadId) await callFn("notify-new-lead", { lead_id: leadId }).catch(() => {});
 }
 
@@ -237,12 +250,14 @@ Deno.serve(async (req) => {
       (r: any) => normPhone(r.leads?.customers?.mobile || "") === fromDigits,
     );
     if (!match) {
-      // No open booking. A thread Billy is already running answers in context;
-      // anything else is recorded and surfaced to HQ, never auto-replied
-      // (shared number — see handleUnmatchedInbound).
+      // No open booking — Billy's territory. A thread he already runs answers
+      // in context; a cold text auto-engages only if it was addressed to
+      // Billy's own number (see handleUnmatchedInbound).
+      const billyAllowed = !!K_FROM &&
+        normPhone(params.longcode || params.to || "") === normPhone(K_FROM);
       const fwd = await callFn("lead-agent", { inbound: { from, body: bodyRaw } }).catch(() => null);
       const fj = fwd ? await fwd.json().catch(() => ({})) : {};
-      if (!fj?.handled) await handleUnmatchedInbound(from, bodyRaw);
+      if (!fj?.handled) await handleUnmatchedInbound(from, bodyRaw, billyAllowed);
       return ok();
     }
 
