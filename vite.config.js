@@ -7,6 +7,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         quote: resolve(__dirname, 'quote.html'),
+        howitworks: resolve(__dirname, 'how-it-works.html'),
         hq: resolve(__dirname, 'hq.html'),
         field: resolve(__dirname, 'field.html'),
         installer: resolve(__dirname, 'installer.html'),

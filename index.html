@@ -464,6 +464,46 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .ss-grid{display:grid}@media(max-width:860px){.ss-grid{grid-template-columns:1fr!important}}
 </style>
+<style>
+/* ---------- Billy estimator card ---------- */
+.billy-card{background:#fff;border-radius:22px;padding:22px 22px 20px;box-shadow:0 24px 70px rgba(0,0,0,.35);max-width:440px;margin-left:auto;color:var(--ink)}
+@media(max-width:980px){.billy-card{margin:28px auto 40px}}
+.bc-head{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.bc-avatar{width:42px;height:42px;border-radius:50%;background:var(--amber);color:#0F2E27;font-weight:800;font-size:1.25rem;display:flex;align-items:center;justify-content:center;font-family:var(--display)}
+.bc-id{flex:1;line-height:1.25}
+.bc-id b{display:block;font-size:1rem}
+.bc-id span{font-size:.76rem;color:var(--ink-2)}
+.bc-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(23,122,83,.18)}
+.bc-bubble{background:var(--tint);border-radius:4px 16px 16px 16px;padding:12px 15px;font-size:.92rem;margin-bottom:14px}
+.bc-label{display:block;font-size:.76rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);margin:12px 0 6px}
+.bc-chips{display:flex;gap:8px;flex-wrap:wrap}
+.bc-chips button{border:1.5px solid var(--line-2);background:#fff;border-radius:999px;padding:8px 15px;font-size:.88rem;font-weight:600;cursor:pointer;color:var(--ink)}
+.bc-chips button.on{background:#0F2E27;border-color:#0F2E27;color:#fff}
+.bc-row{display:flex;gap:14px;margin-top:2px}
+.bc-input{width:100%;border:1.5px solid var(--line-2);border-radius:12px;padding:11px 14px;font-size:.95rem;margin-top:6px}
+.bc-input:focus{outline:none;border-color:var(--ink)}
+.billy-card input[type=range]{width:100%;margin:6px 0 2px;accent-color:var(--amber)}
+.bc-cta{width:100%;margin-top:14px;justify-content:center}
+.bc-fine{font-size:.73rem;color:var(--ink-3,#8a948f);margin-top:9px;line-height:1.45}
+.bc-price{background:#0F2E27;color:#fff;border-radius:16px;padding:18px;text-align:center;margin-bottom:14px}
+.bc-sys{font-size:.86rem;color:#9FC0B4;letter-spacing:.03em}
+.bc-total{font-size:2.4rem;font-weight:800;font-family:var(--display);margin:4px 0 2px}
+.bc-rebate{font-size:.8rem;color:var(--amber);font-weight:600}
+.bc-price .bc-fine{color:#9FC0B4}
+.bc-consent{display:flex;gap:9px;align-items:flex-start;font-size:.76rem;color:var(--ink-2);margin-top:12px;line-height:1.5}
+.bc-consent input{margin-top:2px}
+.bc-back{background:none;border:none;color:var(--ink-2);font-size:.82rem;margin-top:10px;cursor:pointer;text-decoration:underline;width:100%}
+/* ---------- brand strip ---------- */
+.brand-strip{background:#0A211C;border-top:1px solid rgba(255,255,255,.08);padding:34px 0 38px;color:#fff}
+.bs-label{text-align:center;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:#9FC0B4;margin-bottom:18px}
+.bs-hero{display:flex;justify-content:center;align-items:baseline;gap:7vw;flex-wrap:wrap}
+.bs-mark{font-family:var(--display);font-weight:800;font-size:clamp(1.25rem,2.6vw,1.9rem);letter-spacing:.04em;opacity:.95}
+.m-sigen{color:#fff}
+.m-enphase{color:#FF7A29;text-transform:lowercase;font-weight:700}
+.m-goodwe{color:#E4372E}
+.m-sungrow{color:#F59A23}
+.bs-rest{text-align:center;font-size:.85rem;color:#C7DCD4;margin-top:16px;letter-spacing:.02em}
+</style>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
 {"@type":"Organization","@id":"https://solarsearch.com.au/#org","name":"Solarsearch",
@@ -494,16 +534,12 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
       solar<span class="wm">search</span>
     </a>
     <ul class="nav-links">
-      <li><a href="#how">How it works</a></li>
-      <li><a href="#rebate">Battery rebate</a></li>
-      <li><a href="#index">Market ledger</a></li>
+      <li><a href="/how-it-works">How it works</a></li>
       <li><a href="https://solarsafe.au">Solarsafe</a></li>
-      <li><a href="#calc">Calculator</a></li>
-      <li><a href="quote.html">Instant quote</a></li>
       <li><a href="/commercial.html">Commercial</a></li>
       <li><a href="/join.html">Partner with us</a></li>
     </ul>
-    <button class="btn btn-amber" onclick="openFunnel()">See live prices</button>
+    <a class="btn btn-amber" href="#estimate">Get my instant estimate</a>
   </div>
 </header>
 
@@ -513,91 +549,95 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
 <section class="hero-dark">
   <div class="wrap hero-dark-grid">
     <div>
-      <span class="eyebrow"><span class="dot"></span>One design · three quotes · a protected installer network</span>
-      <h1>Australia's solar industry, <span class="wm">connected.</span></h1>
-      <p class="lede">The platform that transforms solar from enquiry to installation.</p>
+      <span class="eyebrow"><span class="dot"></span>Real prices &middot; accredited installers &middot; free assessment</span>
+      <h1>Your solar &amp; battery price, <span class="wm">in 60 seconds.</span></h1>
+      <p class="lede">Slide in your power bill and Billy — our AI solar assistant — shows you a real installed price on the spot, rebates included. Like it? He texts your estimate and books your free on-site assessment.</p>
       <div class="hero-checklist">
-        <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>One accredited design</span>
-        <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Three quotes</span>
-        <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Trusted installers</span>
-        <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Protected payments</span>
+        <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Instant real-dollar estimate</span>
+        <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Federal rebates included</span>
+        <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Up to three competing quotes</span>
+        <span><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Free on-site assessment</span>
       </div>
       <div class="hero-cta-row">
-        <a class="btn btn-amber" href="#audiences">See what's in it for you →</a>
-        <a class="btn btn-outline-lt" href="#how">How it works</a>
+        <a class="btn btn-amber" href="#estimate">Get my instant estimate &rarr;</a>
+        <a class="btn btn-outline-lt" href="/how-it-works">How it works</a>
       </div>
-      <a class="hero-quote-teaser" href="quote.html">
-        <span class="hq-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.9"/><path d="M12 7.5v9M14.5 9.8c0-1-1-1.8-2.5-1.8s-2.5.8-2.5 1.8c0 2.6 5 1.2 5 3.9 0 1-1 1.8-2.5 1.8s-2.5-.8-2.5-1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
-        <span class="hq-text"><b>See a real price in 60 seconds</b><span>Panels, brand, battery — powered by the same pricing our installers quote from</span></span>
-        <span class="hq-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-      </a>
       <div class="hero-social">
         <span class="avatars"><span>JK</span><span>MR</span><span>AS</span></span>
         <span class="rating"><b>SAA accredited</b> installer network</span>
       </div>
     </div>
 
-    <div class="dash-panel" aria-label="Illustrative example of a job moving through Solarsearch — not a live screenshot">
-      <div class="dash-side">
-        <div class="dlogo">solar<em>search</em></div>
-        <nav>
-          <span class="on">◆ Overview</span>
-          <span>Design</span>
-          <span>Quotes</span>
-          <span>Installers</span>
-          <span>Installation</span>
-          <span>Payments</span>
-          <span>Compliance</span>
-          <span>Reports</span>
-          <span>Messages</span>
-          <span>Settings</span>
-        </nav>
+    <div class="billy-card" id="estimate" aria-label="Get your instant solar and battery estimate from Billy">
+      <div class="bc-head">
+        <span class="bc-avatar">B</span>
+        <span class="bc-id"><b>Billy</b><span>Solarsearch AI &middot; online now</span></span>
+        <span class="bc-dot" aria-hidden="true"></span>
       </div>
-      <div class="dash-main">
-        <div class="dtop">
-          <b>Project Overview</b>
-          <div class="dtop-icons">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10a6 6 0 0112 0v4l1.5 3h-15L6 14v-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 20a2 2 0 004 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16v10H8l-4 3.5V6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-            <span class="av">JK</span>
-            <span class="dash-pill">On track</span>
+      <div class="bc-bubble">G'day! Two quick things and I'll show you a real price &mdash; no details needed yet.</div>
+      <div id="beStep1">
+        <label class="bc-label">What are you after?</label>
+        <div class="bc-chips">
+          <button type="button" data-want="solar" onclick="wWant('solar')">Solar</button>
+          <button type="button" data-want="battery" onclick="wWant('battery')">Battery</button>
+          <button type="button" data-want="both" class="on" onclick="wWant('both')">Solar + battery</button>
+        </div>
+        <label class="bc-label">Your power bill &mdash; <output id="wBillOut" class="mono">$800</output>&thinsp;/&thinsp;quarter</label>
+        <input type="range" id="wBill" min="200" max="2000" step="50" value="800" aria-label="Quarterly electricity bill">
+        <div class="bc-row">
+          <div style="flex:1">
+            <label class="bc-label">Storeys</label>
+            <div class="bc-chips">
+              <button type="button" data-storeys="1" class="on" onclick="wStoreys(1)">Single</button>
+              <button type="button" data-storeys="2" onclick="wStoreys(2)">Double</button>
+            </div>
+          </div>
+          <div style="flex:1">
+            <label class="bc-label" for="wPostcode">Postcode</label>
+            <input class="bc-input mono" id="wPostcode" inputmode="numeric" maxlength="4" placeholder="2287">
           </div>
         </div>
-        <div class="dash-addr mono">Illustrative example · not a live screenshot</div>
-        <div class="dash-steps">
-          <div class="dash-step done"><span class="dot">✓</span><span class="lbl">Accepted</span></div>
-          <div class="dash-step done"><span class="dot">✓</span><span class="lbl">Scheduled</span></div>
-          <div class="dash-step now"><span class="dot">●</span><span class="lbl">Funded 40%</span></div>
-          <div class="dash-step"><span class="dot"></span><span class="lbl">Verified</span></div>
-          <div class="dash-step"><span class="dot"></span><span class="lbl">Paid 50%</span></div>
+        <div class="field-err" id="wErr" role="alert"></div>
+        <button class="btn btn-amber btn-lg bc-cta" id="wGo" onclick="wPrice()">Show my price &rarr;</button>
+        <div class="bc-fine">Priced by the same engine our installers quote from.</div>
+      </div>
+      <div id="beResult" hidden>
+        <div class="bc-price">
+          <div class="bc-sys" id="wSys">&mdash;</div>
+          <div class="bc-total" id="wTotal">&mdash;</div>
+          <div class="bc-rebate" id="wRebate">&mdash;</div>
+          <div class="bc-fine">Indicative estimate, fully installed. Your formal quote follows a free on-site assessment.</div>
         </div>
-        <div class="dash-cards">
-          <div class="dc">
-            <h5>Accredited design · 6.6kW</h5>
-            <ul>
-              <li><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>AIKO 465W panels</li>
-              <li><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>GoodWe ESA inverter</li>
-              <li><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>10kWh battery</li>
-            </ul>
-          </div>
-          <div class="dc">
-            <h5>Quotes (3)</h5>
-            <div class="quote-row"><i style="background:var(--red)"></i><span>Retailer One</span><b>$8,250</b></div>
-            <div class="quote-row"><i style="background:var(--amber)"></i><span>Retailer Two</span><b>$8,495</b></div>
-            <div class="quote-row"><i style="background:var(--green)"></i><span>Retailer Three</span><b>$8,890</b></div>
-          </div>
-          <div class="dc"><h5>Next step</h5><div class="row"><span>Install</span><b>24 biz hrs</b></div><div class="row"><span>Final 50%</span><b>on verify</b></div></div>
-        </div>
-        <div class="dash-stats">
-          <div class="ds"><div class="v">$8,250</div><div class="l">Project value</div></div>
-          <div class="ds"><div class="v">6.6 kW</div><div class="l">System size</div></div>
-          <div class="ds"><div class="v">9,100 kWh</div><div class="l">Est. generation/yr</div></div>
-          <div class="ds"><div class="v">$1,642</div><div class="l">Est. savings/yr</div></div>
-        </div>
+        <div class="bc-bubble">Want it firmed up? I'll text you this estimate plus your next steps.</div>
+        <input class="bc-input" id="wName" placeholder="First name" autocomplete="given-name">
+        <input class="bc-input mono" id="wMobile" inputmode="tel" placeholder="04XX XXX XXX" autocomplete="tel">
+        <label class="bc-consent"><input type="checkbox" id="wConsent"> I agree to the <a href="/collection-notice.html" target="_blank" rel="noopener">collection notice</a> &mdash; Billy may text me about my estimate. No spam, opt out anytime.</label>
+        <div class="field-err" id="wErr2" role="alert"></div>
+        <button class="btn btn-amber btn-lg bc-cta" id="wSend" onclick="wSubmit()">Text me my estimate + quote</button>
+        <button class="bc-back" type="button" onclick="wBack()">&larr; Change my details</button>
+      </div>
+      <div id="beDone" hidden>
+        <div class="bc-bubble">Done &mdash; check your phone! I've just texted your estimate. Reply to me there and I'll firm it up and book your free assessment.</div>
+        <div class="bc-fine">Nothing arrives? Text &ldquo;hi&rdquo; to 0430 251 786 and I'll pick it up.</div>
       </div>
     </div>
   </div>
 </section>
+
+<!-- ================= BRAND STRIP ================= -->
+<section class="brand-strip">
+  <div class="wrap">
+    <div class="bs-label">The gear we quote &mdash; tier-one only</div>
+    <div class="bs-hero">
+      <span class="bs-mark m-sigen">SIGENERGY</span>
+      <span class="bs-mark m-enphase">enphase.</span>
+      <span class="bs-mark m-goodwe">GOODWE</span>
+      <span class="bs-mark m-sungrow">SUNGROW</span>
+    </div>
+    <div class="bs-rest">Tesla Powerwall &middot; AIKO &middot; Jinko &middot; Trina Solar &middot; LONGi &middot; Q CELLS &middot; SMA &middot; Fronius &middot; Clenergy racking</div>
+  </div>
+</section>
+
 
 <!-- ================= THREE AUDIENCES ================= -->
 <section class="aud-section" id="audiences">
@@ -667,238 +707,6 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
 </section>
 
 <!-- ================= JOURNEY ================= -->
-<section class="journey">
-  <div class="wrap">
-    <span class="eyebrow" style="justify-content:center;display:flex"><span class="dot"></span>The Solarsearch Journey</span>
-    <h2 style="margin-top:12px">From enquiry to installation</h2>
-    <p style="color:var(--ink-2)">Connected, transparent and protected — every step.</p>
-    <div class="journey-steps">
-      <div class="j-step"><span class="j-badge">1</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5" stroke="currentColor" stroke-width="1.7"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="j-lbl">Customer Assessment</span><span class="j-sub">Homeowner provides details and site information</span></div>
-      <div class="j-step"><span class="j-badge">2</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20L15 4l5 3.5L9 21H4v-1z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 8l4 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="j-lbl">Accredited Design</span><span class="j-sub">An independent, accredited system design is created</span></div>
-      <div class="j-step"><span class="j-badge">3</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 3L5 14h6l-1 7 8-11h-6l1-7z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span><span class="j-lbl">Three Retailer Quotes</span><span class="j-sub">Vetted retailers compete on the exact same design</span></div>
-      <div class="j-step"><span class="j-badge">4</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="9" cy="8" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M4 20c0-3 2.2-5 5-5s5 2 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M15 4.5a3 3 0 010 6M17 14.2c1.8.4 3 1.9 3 3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="j-lbl">Installer Allocation</span><span class="j-sub">Retailer and installer confirmed, project scheduled</span></div>
-      <div class="j-step"><span class="j-badge">5</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M11 18.5h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M9.5 6.5l2 2 3-3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="j-lbl">Smart Installation</span><span class="j-sub">Digital reports and AI verification ensure quality</span></div>
-      <div class="j-step"><span class="j-badge">6</span><span class="j-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5v9M14.5 9.8c0-1-1-1.8-2.5-1.8s-2.5.8-2.5 1.8c0 2.6 5 1.2 5 3.9 0 1-1 1.8-2.5 1.8s-2.5-.8-2.5-1.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span><span class="j-lbl">Protected Payment</span><span class="j-sub">Milestone payments released automatically</span></div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= THREE-COLUMN PROOF ================= -->
-<section class="section" style="padding-top:0">
-  <div class="wrap">
-    <div class="proof-grid">
-      <div class="proof-col pf-home">
-        <span class="p-eyebrow">For homeowners</span>
-        <h3>Real comparison. Real confidence.</h3>
-        <div class="quote-mini"><div class="qtop"><span>Retailer One</span><span class="amt">$8,250</span></div><div style="color:var(--ink-2)">Same design · same products · same inclusions</div></div>
-        <div class="quote-mini"><div class="qtop"><span>Retailer Two</span><span class="amt">$8,495</span></div><div style="color:var(--ink-2)">Same design · same products · same inclusions</div></div>
-        <div class="quote-mini"><div class="qtop"><span>Retailer Three</span><span class="amt">$8,890</span></div><div style="color:var(--ink-2)">Same design · same products · same inclusions</div></div>
-      </div>
-      <div class="proof-col pf-installer">
-        <span class="p-eyebrow">For installers</span>
-        <h3>Good work. Fair system.</h3>
-        <div class="phone-mock">
-          <div class="pm-top">NEW JOB AVAILABLE</div>
-          <div class="pm-card"><b>Retailer One</b>6.6kW system · Est. install 24 May<br><span class="mono">Project value $8,250</span></div>
-          <button>Accept job</button>
-        </div>
-      </div>
-      <div class="proof-col pf-retailer">
-        <span class="p-eyebrow">For retailers</span>
-        <h3>More capacity. Happier customers.</h3>
-        <div class="ba-row">
-          <div class="ba-col before"><div class="ba-h">Before Solarsearch</div>
-            <li>✕ Installer shortages</li><li>✕ Project delays</li><li>✕ Manual payments</li>
-          </div>
-          <div class="ba-col after"><div class="ba-h">With Solarsearch</div>
-            <li>✓ Vetted installer network</li><li>✓ Automated payments</li><li>✓ AI compliance verification</li>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= REBATE (signature widget) ================= -->
-<section class="section" id="rebate" style="padding-top:0">
-  <div class="wrap" style="max-width:640px;margin:0 auto">
-    <aside class="stair-card" aria-label="Federal battery rebate step-down">
-      <span class="eyebrow"><span class="dot"></span>Federal battery rebate</span>
-      <h3>The rebate steps down every 6 months</h3>
-      <div class="sub">Cheaper Home Batteries Program · locked at your installation date</div>
-      <div class="now">
-        <span class="val" id="stairNow">~$252</span>
-        <span class="lbl">per usable kWh today (first 14 kWh) · next cut <b class="mono" style="color:#fff">1 Jan 2027</b></span>
-      </div>
-      <svg class="stair-svg" viewBox="0 0 520 210" role="img" aria-label="Chart showing the federal battery rebate declining in steps from 2026 to 2030">
-        <g font-family="'Spline Sans Mono',monospace" font-size="11" fill="#7FA396">
-          <text x="14" y="200">2026</text><text x="130" y="200">2027</text><text x="240" y="200">2028</text><text x="350" y="200">2029</text><text x="458" y="200">2030</text>
-        </g>
-        <!-- staircase -->
-        <g id="stairSteps"></g>
-        <!-- you are here -->
-        <g id="youAreHere">
-          <line x1="46" y1="26" x2="46" y2="62" stroke="#FFB100" stroke-width="1.5" stroke-dasharray="3 3"/>
-          <circle cx="46" cy="66" r="5" fill="#FFB100"/>
-          <rect x="12" y="4" rx="6" width="112" height="22" fill="#FFB100"/>
-          <text x="68" y="19" text-anchor="middle" font-family="'Spline Sans Mono',monospace" font-size="11" font-weight="700" fill="#0F2E27">YOU ARE HERE</text>
-        </g>
-      </svg>
-      <div class="stair-note">STC factor 6.8/kWh · Jul–Dec 2026 window · declines to ~2.1 by 2030 · source: DCCEEW</div>
-    </aside>
-  </div>
-</section>
-
-<!-- ================= TRUST (dark stats band) ================= -->
-<div class="stats-dark">
-  <div class="wrap trust-row">
-    <div class="trust-item"><div class="n mono">SAA</div><div class="l">accredited installer network</div></div>
-    <div class="trust-item"><div class="n mono">1</div><div class="l">design — every quote priced against it</div></div>
-    <div class="trust-item"><div class="n mono">3</div><div class="l">max installers competing, you pick</div></div>
-    <div class="trust-item"><div class="n mono">$0</div><div class="l">to compare & choose — the installer you select pays our fee</div></div>
-  </div>
-</div>
-
-<!-- ================= EQUIPMENT BRANDS (honest framing — not claimed partnerships) ================= -->
-<div class="brands-strip">
-  <div class="wrap">
-    <span class="eyebrow" style="justify-content:center;display:flex"><span class="dot"></span>Equipment on the platform</span>
-    <div class="b-sub">Brands installers on Solarsearch commonly spec — not exclusive partnerships.</div>
-    <div class="brand-chips">
-      <span>Jinko Solar</span><span>Trina</span><span>REC</span><span>Sungrow</span><span>Fronius</span><span>GoodWe</span><span>Enphase</span><span>Sigenergy</span><span>Tesla Powerwall</span><span>BYD</span>
-    </div>
-  </div>
-</div>
-
-<!-- ================= HOW IT WORKS ================= -->
-<section class="section" id="how">
-  <div class="wrap">
-    <div class="section-head">
-      <span class="eyebrow"><span class="dot"></span>How it works</span>
-      <h2>Three strangers on three days? No. One proper visit.</h2>
-      <p>Getting solar quotes usually means three companies measuring three different things and quoting three systems you can't compare. We inspect once, design once — and installers compete on the identical system.</p>
-    </div>
-    <div class="steps" style="grid-template-columns:repeat(4,1fr)">
-      <div class="step">
-        <span class="tag">20 SEC</span>
-        <div class="badge">1</div>
-        <h3>Instant estimate online</h3>
-        <p>Enter your address, see your roof, a system and a price range in about twenty seconds.</p>
-      </div>
-      <div class="step">
-        <span class="tag">20 MIN</span>
-        <div class="badge">2</div>
-        <h3>Free home assessment</h3>
-        <p>Our technician visits once: roof, switchboard, battery spot. No sales pitch, nothing to sign.</p>
-      </div>
-      <div class="step">
-        <span class="tag">3 QUOTES</span>
-        <div class="badge">3</div>
-        <h3>One design, priced three ways</h3>
-        <p>Accredited local installers price the identical system — you compare price, gear and reputation.</p>
-      </div>
-      <div class="step">
-        <span class="tag">YOU DECIDE</span>
-        <div class="badge">4</div>
-        <h3>Choose — or walk away</h3>
-        <p>Pick your installer on your private link, or keep the quotes and do nothing. Nobody calls unless you say so.</p>
-      </div>
-    </div>
-  </section>
-
-<!-- ================= PRICE INDEX ================= -->
-<section class="section" id="index" style="padding-top:20px">
-  <div class="wrap">
-    <div class="section-head">
-      <span class="eyebrow"><span class="dot"></span>The Solarsearch Market Ledger</span>
-      <h2>What Australians actually paid last month</h2>
-      <p>Median fully-installed prices drawn from live installer price books across our network. Updated on the first of every month.</p>
-    </div>
-    <div class="index-card">
-      <div class="index-head">
-        <span class="t">Market Ledger — battery &amp; solar medians, June 2026</span>
-        <span class="d">N = 2,913 OFFERS · AFTER FEDERAL REBATE</span>
-      </div>
-      <table class="index">
-        <thead><tr><th scope="col">City</th><th scope="col">6.6 kW solar</th><th scope="col" class="idx-hide">10 kW solar</th><th scope="col">13.5 kWh battery*</th><th scope="col">vs May</th></tr></thead>
-        <tbody>
-          <tr><td>Sydney</td><td class="m">$5,940</td><td class="m idx-hide">$8,720</td><td class="m">$8,190</td><td><span class="delta down">▼ 2.1%</span></td></tr>
-          <tr><td>Melbourne</td><td class="m">$5,720</td><td class="m idx-hide">$8,450</td><td class="m">$8,340</td><td><span class="delta down">▼ 1.4%</span></td></tr>
-          <tr><td>Brisbane</td><td class="m">$5,510</td><td class="m idx-hide">$8,180</td><td class="m">$7,960</td><td><span class="delta down">▼ 2.8%</span></td></tr>
-          <tr><td>Adelaide</td><td class="m">$5,380</td><td class="m idx-hide">$7,990</td><td class="m">$8,050</td><td><span class="delta flat">— 0.3%</span></td></tr>
-          <tr><td>Perth</td><td class="m">$5,290</td><td class="m idx-hide">$7,860</td><td class="m">$6,740</td><td><span class="delta down">▼ 3.5%</span></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p style="font-family:var(--mono);font-size:.7rem;color:var(--ink-3);margin-top:12px;letter-spacing:.04em">* RETROFIT TO EXISTING SOLAR · INCLUDES FEDERAL CHEAPER HOME BATTERIES DISCOUNT · WA INCLUDES STATE SCHEME · DEMONSTRATION DATA</p>
-  </div>
-</section>
-
-<!-- ================= SOLARSAFE ================= -->
-<section class="section" id="solarsafe" style="padding-top:24px">
-  <div class="wrap">
-    <div class="stair-card" style="border-radius:20px">
-      <div style="display:grid;grid-template-columns:1.2fr .8fr;gap:30px;align-items:center" class="ss-grid">
-        <div>
-          <span class="eyebrow"><span class="dot"></span>Solarsafe — for existing solar homes</span>
-          <h3 style="font-size:1.5rem;margin-top:12px">Already have solar? Get it checked before you add a battery.</h3>
-          <p style="color:#A9C6BB;font-size:.95rem;margin:12px 0 18px">A 20-minute AI-assisted inspection of your existing system — compliance, inverter health, switchboard capacity and battery readiness. Clause-referenced report with accredited sign-off. If anything needs fixing, we send a single rectification notice on your authority and build the date-stamped evidence file that keeps you in control.</p>
-          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem;color:#CFE5DA">
-            <span>✓ Battery-ready check</span><span>✓ Standards-referenced findings</span><span>✓ Independent — and we say so in writing</span>
-          </div>
-          <a class="btn btn-amber" style="margin-top:22px" href="https://solarsafe.au">Book a battery-ready check</a>
-        </div>
-        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:20px">
-          <div class="stair-note" style="margin:0 0 12px">SAMPLE FINDING</div>
-          <div style="font-family:var(--mono);font-size:.78rem;color:#F2F7F3;line-height:1.7">
-            F-03 · DC isolator label<br>
-            <span style="color:#FFB100">AS/NZS 5033 · MINOR</span><br>
-            <span style="color:#A9C6BB">Weathered label on rooftop isolator. Photo 11 attached. Rectification requested — 14-day response window.</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================= CALCULATOR ================= -->
-<section class="section" id="calc" style="padding-top:24px">
-  <div class="wrap">
-    <div class="section-head">
-      <span class="eyebrow"><span class="dot"></span>Rebate calculator</span>
-      <h2>What's the federal battery rebate worth on your system?</h2>
-      <p>The discount is tiered by size and steps down every six months. Slide to your battery size — we'll do the certificate maths.</p>
-    </div>
-    <div class="calc">
-      <div>
-        <h3>Your battery</h3>
-        <p class="hint">Usable capacity in kWh. A typical family evening load suits 10–13.5 kWh; EV charging or a pool usually means more.</p>
-        <div class="range-row">
-          <label for="calcKwh">Usable capacity <output id="calcKwhOut" class="mono">13.5 kWh</output></label>
-          <input type="range" id="calcKwh" min="5" max="40" step="0.5" value="13.5" aria-describedby="tierLegend">
-        </div>
-        <div class="tier-bar" id="tierBar" aria-hidden="true"><div class="t1" style="width:100%"></div></div>
-        <div class="tier-legend" id="tierLegend">
-          <span><i style="background:var(--amber)"></i>0–14 kWh · 100% rate</span>
-          <span><i style="background:#FFD879"></i>14–28 kWh · 60%</span>
-          <span><i style="background:#FFF0C7"></i>28–50 kWh · 15%</span>
-        </div>
-      </div>
-      <div class="calc-out" aria-live="polite">
-        <div class="big" id="calcRebate">$3,397</div>
-        <div class="big-l">estimated federal discount, taken off your invoice</div>
-        <dl>
-          <dt>Certificates created (STCs)</dt><dd id="calcStc">92</dd>
-          <dt>Assumed STC value (net of admin)</dt><dd>$37</dd>
-          <dt>Effective rate, first 14 kWh</dt><dd>$252 / kWh</dd>
-          <dt>Next step-down</dt><dd>1 Jan 2027</dd>
-        </dl>
-        <div class="rule-v">RULES v2026.05 · JUL–DEC 2026 STC FACTOR 6.8/kWh · ESTIMATE ONLY</div>
-        <button class="btn btn-amber" style="margin-top:18px;width:100%" onclick="openFunnel('battery')">Compare battery quotes at this size</button>
-      </div>
-    </div>
-  </div>
-</section>
 
 </main>
 
@@ -914,7 +722,7 @@ footer{background:var(--ink);color:#B9D2C7;margin-top:40px}
         <p class="blurb">Independent comparison for solar and home batteries. We don't sell or install systems — installers pay us for introductions you approve.</p>
       </div>
       <div><h4>Compare</h4><ul><li><a href="quote.html">Instant roof quote</a></li><li><a href="#" onclick="openFunnel('solar');return false;">Solar quotes</a></li><li><a href="#" onclick="openFunnel('both');return false;">Solar + battery</a></li><li><a href="#" onclick="openFunnel('battery');return false;">Battery retrofit</a></li><li><a href="#" onclick="openFunnel('commercial');return false;">Commercial</a></li></ul></div>
-      <div><h4>Learn</h4><ul><li><a href="#rebate">Federal battery rebate</a></li><li><a href="#index">Market ledger</a></li><li><a href="#calc">Rebate calculator</a></li><li><a href="#how">How we work</a></li></ul></div>
+      <div><h4>Learn</h4><ul><li><a href="/how-it-works#rebate">Federal battery rebate</a></li><li><a href="/how-it-works#index">Market ledger</a></li><li><a href="/how-it-works#calc">Rebate calculator</a></li><li><a href="/how-it-works">How we work</a></li></ul></div>
       <div><h4>Company</h4><ul><li><a href="/join.html">Work with us</a></li><li><a href="/join.html">Partner with us</a></li><li><a href="/commercial.html">Commercial solar</a></li><li><a href="/privacy.html">Privacy policy</a></li><li><a href="/collection-notice.html">Collection notice</a></li><li><a href="#" onclick="return false;">Contact</a></li></ul></div>
       <div><h4>Sign in</h4><ul><li><a href="/login.html">Installer login</a></li><li><a href="/login.html">Retailer login</a></li><li><a href="/login.html">Sales staff login</a></li><li><a href="/login.html">Admin login</a></li></ul></div>
     </div>
@@ -1246,38 +1054,67 @@ function pingPool(){
   fireNotify('notify-pool',{lead_id:S.leadId});
 }
 
-/* =============== staircase svg =============== */
-(function(){
-  const vals=[311,252,214,182,155,132,112,95,78]; // per-kWh steps 2026→2030 (demo)
-  const g=document.getElementById('stairSteps');
-  const x0=20,w=54,top=44,bottom=186,max=320;
-  let html='';
-  vals.forEach((v,i)=>{
-    const h=(v/max)*(bottom-top);
-    const x=x0+i*w, y=bottom-h;
-    html+=`<rect x="${x}" y="${y}" width="${w-6}" height="${h}" rx="4" fill="${i===0?'#FFB100':'rgba(255,177,0,'+(0.55-i*0.055)+')'}"/>`;
-    if(i===0||i===2||i===4||i===6||i===8){
-      html+=`<text x="${x+(w-6)/2}" y="${y-(i===0?17:7)}" text-anchor="middle" font-family="'Spline Sans Mono',monospace" font-size="10.5" fill="${i===0?'#FFB100':'#9FC0B4'}" font-weight="${i===0?700:400}">$${v}</text>`;
-    }
-  });
-  g.innerHTML=html;
-})();
-
-/* =============== calculator =============== */
-const calcKwh=document.getElementById('calcKwh');
+/* =============== range fill helper (funnel + estimator) =============== */
 function paintRange(el){ const p=(el.value-el.min)/(el.max-el.min)*100; el.style.setProperty('--fill',p+'%'); }
-function runCalc(){
-  const kwh=parseFloat(calcKwh.value);
-  paintRange(calcKwh);
-  document.getElementById('calcKwhOut').textContent=kwh+' kWh';
-  const r=batteryRebate(kwh);
-  document.getElementById('calcRebate').textContent='$'+r.dollars.toLocaleString();
-  document.getElementById('calcStc').textContent=r.stc;
-  const bar=document.getElementById('tierBar');
-  const t1=Math.min(kwh,14), t2=Math.max(0,Math.min(kwh,28)-14), t3=Math.max(0,Math.min(kwh,50)-28);
-  bar.innerHTML=`<div class="t1" style="width:${t1/kwh*100}%"></div><div class="t2" style="width:${t2/kwh*100}%"></div><div class="t3" style="width:${t3/kwh*100}%"></div>`;
-}
-calcKwh.addEventListener('input',runCalc); runCalc();
+
+/* =============== Billy instant estimator (hero) =============== */
+const W={want:'both',storeys:1,est:null,postcode:''};
+function wChips(group,val){ document.querySelectorAll('[data-'+group+']').forEach(b=>b.classList.toggle('on',b.dataset[group]===String(val))); }
+window.wWant=v=>{ W.want=v; wChips('want',v); };
+window.wStoreys=v=>{ W.storeys=v; wChips('storeys',v); };
+const wBill=document.getElementById('wBill');
+wBill.addEventListener('input',()=>{ paintRange(wBill); document.getElementById('wBillOut').textContent='$'+(+wBill.value).toLocaleString(); });
+paintRange(wBill);
+window.wPrice=async()=>{
+  const pc=document.getElementById('wPostcode').value.trim();
+  const errEl=document.getElementById('wErr'); errEl.textContent='';
+  if(!/^\d{4}$/.test(pc)){ errEl.textContent='Enter your 4-digit postcode.'; return; }
+  const btn=document.getElementById('wGo'); btn.disabled=true; btn.textContent='Pricing\u2026';
+  try{
+    const res=await fetch(SB_URL+'/functions/v1/instant-estimate',{
+      method:'POST',
+      headers:{apikey:SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({estimate:{bill:+wBill.value,want:W.want,storeys:W.storeys}})
+    });
+    const j=await res.json();
+    if(!res.ok||!j.total) throw new Error(j.error||'pricing unavailable');
+    W.est=j; W.postcode=pc;
+    document.getElementById('wSys').textContent=j.system;
+    document.getElementById('wTotal').textContent='$'+j.total.toLocaleString();
+    document.getElementById('wRebate').textContent='includes $'+j.rebate.toLocaleString()+' federal rebate';
+    document.getElementById('beStep1').hidden=true;
+    document.getElementById('beResult').hidden=false;
+  }catch(e){ errEl.textContent='Pricing is briefly unavailable \u2014 try again in a moment.'; }
+  btn.disabled=false; btn.textContent='Show my price \u2192';
+};
+window.wBack=()=>{ document.getElementById('beResult').hidden=true; document.getElementById('beStep1').hidden=false; };
+window.wSubmit=async()=>{
+  const name=document.getElementById('wName').value.trim();
+  const digits=document.getElementById('wMobile').value.replace(/\D/g,'');
+  const errEl=document.getElementById('wErr2'); errEl.textContent='';
+  if(name.length<2){ errEl.textContent='Your name, so Billy knows who he\u2019s texting.'; return; }
+  if(!/^0?4\d{8}$/.test(digits)){ errEl.textContent='Enter an Australian mobile (04XX XXX XXX).'; return; }
+  if(!document.getElementById('wConsent').checked){ errEl.textContent='Please tick the consent box so Billy can text you.'; return; }
+  const btn=document.getElementById('wSend'); btn.disabled=true; btn.textContent='Sending\u2026';
+  const payload={
+    name, mobile:(digits.length===9?'0':'')+digits, postcode:W.postcode||null,
+    goal:W.want==='both'?'solar_battery':W.want,
+    bill:String(+wBill.value), storeys:String(W.storeys),
+    consent_privacy:true, consent_version:'collection-notice-2026-07',
+    source_platform:QS.get('utm_source')||'organic', referrer:document.referrer||null,
+    utm:{utm_source:QS.get('utm_source'),utm_medium:QS.get('utm_medium'),utm_campaign:QS.get('utm_campaign')}
+  };
+  const r=await sbRpc('capture_lead',{payload});
+  if(r&&r.lead_id){
+    fireNotify('notify-new-lead',{lead_id:r.lead_id});
+    fireNotify('instant-estimate',{lead:{lead_id:r.lead_id,estimate:W.est}});
+    document.getElementById('beResult').hidden=true;
+    document.getElementById('beDone').hidden=false;
+  }else{
+    errEl.textContent='Something hiccuped \u2014 try again, or text \u201chi\u201d to 0430 251 786.';
+    btn.disabled=false; btn.textContent='Text me my estimate + quote';
+  }
+};
 
 /* =============== hero form =============== */
 document.getElementById('heroForm').addEventListener('submit',e=>{
