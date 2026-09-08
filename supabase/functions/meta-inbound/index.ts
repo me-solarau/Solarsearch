@@ -58,12 +58,40 @@ Deno.serve(async (req) => {
           VERIFY_TOKEN && u.searchParams.get("hub.verify_token") === VERIFY_TOKEN) {
         return ok(u.searchParams.get("hub.challenge") || "");
       }
+      // Admin diagnostic (gated by the same verify token): asks Meta which
+      // WhatsApp number our secrets are bound to and whether this app is
+      // subscribed to its WABA — the two usual reasons inbound stays silent.
+      if (VERIFY_TOKEN && u.searchParams.get("diag") === VERIFY_TOKEN) {
+        const waToken = Deno.env.get("WA_TOKEN") || "";
+        const phoneId = Deno.env.get("WA_PHONE_NUMBER_ID") || "";
+        const g = async (path: string) => {
+          const r = await fetch(`https://graph.facebook.com/v21.0/${path}`, {
+            headers: { Authorization: `Bearer ${waToken}` },
+          });
+          return { status: r.status, body: await r.json().catch(() => null) };
+        };
+        const num = phoneId ? await g(`${phoneId}?fields=display_phone_number,verified_name,code_verification_status,platform_type`) : { status: 0, body: "WA_PHONE_NUMBER_ID not set" };
+        const me = await g("me?fields=id,name");
+        const wabaId = u.searchParams.get("waba") || "";
+        const subs = wabaId ? await g(`${wabaId}/subscribed_apps`) : null;
+        return new Response(JSON.stringify({ phone_number_id: phoneId ? "set" : "missing", wa_token: waToken ? "set" : "missing", number: num, token_owner: me, waba_subscribed_apps: subs }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      }
       return new Response("forbidden", { status: 403 });
     }
     if (req.method !== "POST") return ok();
 
     const raw = await req.text();
-    if (!(await validSignature(raw, req.headers.get("x-hub-signature-256")))) {
+    const sigOk = await validSignature(raw, req.headers.get("x-hub-signature-256"));
+    const objName = (() => { try { return String(JSON.parse(raw || "{}").object || ""); } catch { return "unparseable"; } })();
+    // Trace every POST — delivery problems are invisible without this.
+    fetch(`${SB_URL}/rest/v1/meta_webhook_log`, {
+      method: "POST",
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ sig_ok: sigOk, object: objName, note: raw.slice(0, 500) }),
+    }).catch(() => {});
+    if (!sigOk) {
       console.warn("meta-inbound: bad or missing signature");
       return new Response("forbidden", { status: 403 });
     }
