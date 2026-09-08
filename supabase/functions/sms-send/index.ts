@@ -118,7 +118,12 @@ export async function sendSms(opts: {
     status: ok ? (scheduled ? "scheduled" : "sent") : "failed",
     kind: opts.kind ?? "out",
   });
-  if (!ok) return { ok: false, status: 502, error: data?.error?.description || "kudosity send failed", detail: data };
+  if (!ok) {
+    // Surface the provider's verdict in the function logs — a failed send with
+    // no reason is undiagnosable after the fact.
+    console.error("sms-send: kudosity rejected send", JSON.stringify({ to: toIntl(opts.to), kind: opts.kind, http: res.status, error: data?.error }));
+    return { ok: false, status: 502, error: data?.error?.description || "kudosity send failed", detail: data };
+  }
   return { ok: true, sid: data?.message_id, status: scheduled ? "scheduled" : "sent" };
 }
 
