@@ -803,7 +803,9 @@ function doNextStep(id,ev){
   const FN={design:()=>openDesignForm(l.uuid), board:()=>openBoardConfirm(l.uuid),
             notify:()=>emailComparison(l.uuid), sign:()=>copySignLink(l.chToken||''),
             pingtechs:()=>pingTechs(l.uuid), book:()=>openDrawer(id),
-            ai:()=>openDrawer(id), human:()=>openDrawer(id)};
+            // "AI contact the customer" fires Billy immediately — the drawer
+            // opens alongside so the thread is visible as it starts.
+            ai:()=>{openDrawer(id);billyStart(l.uuid);}, human:()=>openDrawer(id)};
   (FN[ns.act]||(()=>openDrawer(id)))();
 }
 
