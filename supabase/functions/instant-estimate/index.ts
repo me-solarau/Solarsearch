@@ -108,9 +108,12 @@ Deno.serve(async (req) => {
         console.error("instant-estimate: engine failed", r.status, JSON.stringify(j).slice(0, 200));
         return json({ error: "pricing unavailable" }, 503);
       }
+      // Marketplace indicative: materials at cost + labour + GST − STC (no
+      // retail material margin) — matches what competing installers quote.
+      const indicative = (Number(j.materials_cost) + Number(j.labour_total)) * 1.10 - Number(j.stc_rebate);
       return json({
         kw: s.kw, kwh: s.kwh, panels: s.panelQty,
-        total: Math.round(Number(j.total_incl_gst) / 100) * 100,
+        total: Math.round(indicative / 100) * 100,
         rebate: Math.round(Number(j.stc_rebate)),
         system: [s.kw > 0 ? `${s.kw} kW solar` : null, s.kwh > 0 ? `${s.kwh} kWh battery` : null].filter(Boolean).join(" + "),
       });
