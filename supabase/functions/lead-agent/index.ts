@@ -161,7 +161,11 @@ async function instantEstimate(ex: Record<string, any>, lead: Record<string, any
     console.error("lead-agent: quote_estimate failed", r.status, JSON.stringify(j).slice(0, 300));
     return null;
   }
-  const total = Math.round(Number(j.total_incl_gst) / 100) * 100;
+  // Marketplace indicative: materials at cost + labour, no retail material
+  // margin — predicts the competitive quotes the customer will actually get.
+  // HQ's Instant quote keeps the full retail stack (total_incl_gst).
+  const indicative = (Number(j.materials_cost) + Number(j.labour_total)) * 1.10 - Number(j.stc_rebate);
+  const total = Math.round(indicative / 100) * 100;
   const sysText = [s.kw > 0 ? `${s.kw} kW solar` : null, s.kwh > 0 ? `${s.kwh} kWh battery` : null]
     .filter(Boolean).join(" + ");
   return {

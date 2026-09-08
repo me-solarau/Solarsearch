@@ -166,6 +166,7 @@ tbody tr:hover{background:var(--tint2)}
     </div>
     <button class="nav-btn sel" data-page="dash"><span class="ic">◐</span><span class="lbl">Dashboard</span></button>
     <button class="nav-btn" data-page="leads"><span class="ic">☰</span><span class="lbl">Lead inbox</span></button>
+    <button class="nav-btn" data-page="billy"><span class="ic">✦</span><span class="lbl">Billy</span></button>
     <button class="nav-btn" data-page="board"><span class="ic">▦</span><span class="lbl">Site Quoted board</span></button>
     <button class="nav-btn" data-page="deals"><span class="ic">✓</span><span class="lbl">Deals & commissions</span></button>
     <button class="nav-btn" data-page="fieldops"><span class="ic">◎</span><span class="lbl">Field ops</span></button>
@@ -254,6 +255,32 @@ tbody tr:hover{background:var(--tint2)}
     </section>
 
     <!-- ============ SITE QUOTED BOARD ============ -->
+    <!-- ============ BILLY ============ -->
+    <section class="page" id="page-billy">
+      <div class="page-head">
+        <div><span class="eyebrow">AI lead follow-up · live conversations</span><h1>Billy</h1>
+          <div class="sub">Every conversation Billy is running or has finished. Click a row for the full transcript and what he's learned.</div></div>
+      </div>
+      <div id="billyStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+      <div class="ss-grid" style="display:grid;grid-template-columns:1.1fr .9fr;gap:16px;align-items:start">
+        <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden">
+          <table style="width:100%;border-collapse:collapse;font-size:.86rem">
+            <thead><tr style="text-align:left">
+              <th style="padding:10px 12px;border-bottom:2px solid var(--line);font-size:.7rem;letter-spacing:.07em;color:var(--ink3)">LEAD</th>
+              <th style="padding:10px 12px;border-bottom:2px solid var(--line);font-size:.7rem;letter-spacing:.07em;color:var(--ink3)">STATUS</th>
+              <th style="padding:10px 12px;border-bottom:2px solid var(--line);font-size:.7rem;letter-spacing:.07em;color:var(--ink3)">KNOWS</th>
+              <th style="padding:10px 12px;border-bottom:2px solid var(--line);font-size:.7rem;letter-spacing:.07em;color:var(--ink3)">MSGS</th>
+              <th style="padding:10px 12px;border-bottom:2px solid var(--line);font-size:.7rem;letter-spacing:.07em;color:var(--ink3)">LAST</th>
+            </tr></thead>
+            <tbody id="billyRows"><tr><td colspan="5" class="src" style="padding:16px">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div id="billyDetail" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;min-height:220px">
+          <span class="src">Select a conversation to read the transcript.</span>
+        </div>
+      </div>
+    </section>
+
     <section class="page" id="page-board">
       <div class="page-head">
         <div><span class="eyebrow">Inspected · designed · seats open</span><h1>Site Quoted board</h1></div>
@@ -1477,6 +1504,79 @@ async function billyTakeover(leadId){
   toast(error?'Take-over failed: '+error.message
     :'Billy has stepped back — text the customer yourself; he won\'t reply on this lead again.');
 }
+/* ===== Billy tab — all agent conversations ===== */
+let _billyThreads=[], _billyNames={};
+const escB=s=>String(s||'').replace(/[<&>]/g,c=>({'<':'&lt;','&':'&amp;','>':'&gt;'}[c]));
+async function renderBilly(){
+  const { data:threads, error } = await db.from('agent_threads')
+    .select('id,lead_id,phone,status,msg_count,summary,extracted,updated_at,created_at')
+    .order('updated_at',{ascending:false});
+  if(error){ $('billyRows').innerHTML=`<tr><td colspan="5" class="src" style="padding:16px">Could not load: ${escB(error.message)}</td></tr>`; return; }
+  _billyThreads=threads||[];
+  const ids=[...new Set(_billyThreads.map(t=>t.lead_id))];
+  _billyNames={};
+  if(ids.length){
+    const { data:ls } = await db.from('leads').select('id,state,customers(full_name,mobile)').in('id',ids);
+    (ls||[]).forEach(l=>_billyNames[l.id]={name:(l.customers&&l.customers.full_name)||'(no name)',mobile:(l.customers&&l.customers.mobile)||'',state:l.state});
+  }
+  const CHIP={active:['#177A53','LIVE'],qualified:['#B87A10','QUALIFIED'],human:['#5A3FA0','HUMAN'],
+    not_interested:['#8a948f','CLOSED'],opted_out:['#C2452D','OPTED OUT'],expired:['#8a948f','EXPIRED']};
+  const live=_billyThreads.filter(t=>t.status==='active').length;
+  const qual=_billyThreads.filter(t=>(t.extracted||{}).qualified_alerted).length;
+  const msgs=_billyThreads.reduce((a,t)=>a+(t.msg_count||0),0);
+  const tile=(n,l)=>`<div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 16px">
+    <div style="font-size:1.4rem;font-weight:800;font-family:var(--display)">${n}</div><div class="src">${l}</div></div>`;
+  $('billyStats').innerHTML=tile(live,'live conversations')+tile(qual,'qualified')+tile(msgs,'Billy messages sent');
+  $('billyRows').innerHTML=_billyThreads.map(t=>{
+    const n=_billyNames[t.lead_id]||{}; const [col,lbl]=CHIP[t.status]||['#8a948f',t.status];
+    const ex=t.extracted||{};
+    const knows=[ex.bill_quarterly?'$'+ex.bill_quarterly+'/qtr':null, ex.timeline||null,
+      ex.instant_estimate?('est '+'$'+Number(ex.instant_estimate.total).toLocaleString()):null,
+      ex.budget_fit?('budget '+ex.budget_fit):null].filter(Boolean).join(' · ')||'—';
+    return `<tr onclick="billyOpen('${t.id}')" style="cursor:pointer;border-bottom:1px solid var(--line)">
+      <td style="padding:10px 12px"><b>${escB(n.name)}</b><br><span class="src mono">${escB(n.mobile||('…'+t.phone))}</span></td>
+      <td style="padding:10px 12px"><span class="pill" style="background:${col}18;color:${col};font-weight:700">${lbl}</span></td>
+      <td style="padding:10px 12px;font-size:.78rem;color:var(--ink2)">${escB(knows)}</td>
+      <td style="padding:10px 12px" class="mono">${t.msg_count||0}</td>
+      <td style="padding:10px 12px" class="src">${age(t.updated_at)} ago</td></tr>`;
+  }).join('')||'<tr><td colspan="5" class="src" style="padding:16px">No conversations yet — Billy starts one whenever a lead texts in, uses the website estimator, or you press "AI contact now".</td></tr>';
+}
+async function billyOpen(threadId){
+  const t=_billyThreads.find(x=>x.id===threadId); if(!t)return;
+  const n=_billyNames[t.lead_id]||{};
+  const { data:msgs } = await db.from('sms_messages')
+    .select('direction,body,kind,status,created_at').eq('lead_id',t.lead_id)
+    .order('created_at',{ascending:true}).limit(100);
+  const ex=t.extracted||{};
+  const fact=(k,v)=>v?`<dt style="color:var(--ink3)">${k}</dt><dd style="margin:0"><b>${escB(String(v))}</b></dd>`:'';
+  $('billyDetail').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div><b>${escB(n.name)}</b> <span class="src mono">${escB(n.mobile||'')}</span></div>
+      ${t.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="billyThreadTakeover('${t.id}')">Take over</button>`:''}
+    </div>
+    ${t.summary?`<div style="background:var(--tint2);border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:.82rem;margin-bottom:10px"><span class="src">BILLY'S BRIEFING</span><br>${escB(t.summary)}</div>`:''}
+    <dl style="display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:.8rem;margin:0 0 12px">
+      ${fact('Bill',ex.bill_quarterly?'$'+ex.bill_quarterly+'/qtr':null)}${fact('Timeline',ex.timeline)}
+      ${fact('Rebate claimed',ex.rebate_claimed===true?'yes':ex.rebate_claimed===false?'no':null)}
+      ${fact('Owner',ex.owner_status)}${fact('Storeys',ex.storeys)}${fact('Roof',ex.roof)}
+      ${fact('Postcode',ex.postcode)}${fact('Estimate',ex.instant_estimate?'$'+Number(ex.instant_estimate.total).toLocaleString()+' ('+escB(ex.instant_estimate.system||'')+')':null)}
+      ${fact('Budget fit',ex.budget_fit)}${fact('Photos',ex.photos)}
+    </dl>
+    <div style="max-height:420px;overflow-y:auto;border-top:1px solid var(--line);padding-top:10px">
+      ${(msgs||[]).map(m=>{const mine=m.direction==='out';
+        return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'};margin:6px 0">
+          <div style="max-width:82%;background:${mine?'var(--ink)':'var(--tint2)'};color:${mine?'#fff':'var(--ink)'};border:1px solid var(--line);border-radius:12px;padding:7px 11px;font-size:.84rem">
+            <div>${escB(m.body)}</div>
+            <div style="font-size:.64rem;opacity:.6;margin-top:2px">${mine?(m.kind||'out'):'customer'} · ${m.status||''} · ${age(m.created_at)} ago</div>
+          </div></div>`;}).join('')||'<span class="src">No messages logged.</span>'}
+    </div>`;
+}
+async function billyThreadTakeover(threadId){
+  const { error } = await db.from('agent_threads')
+    .update({status:'human',updated_at:new Date().toISOString()}).eq('id',threadId);
+  toast(error?'Take-over failed: '+error.message:'Billy has stepped back on this conversation.');
+  renderBilly();
+}
 async function pingTechs(leadId){
   toast('Pinging available techs…');
   const { data:r, error } = await db.functions.invoke('notify-pool',{ body:{ lead_id:leadId } });
@@ -1864,7 +1964,7 @@ async function loadQuoteFromLead(){
   toast(`Loaded ${p.ss_ref||ref} — ${p.roof||'roof?'} · ${p.phase?p.phase+'-phase':'phase?'}${p.ac_run_m!=null?' · AC '+p.ac_run_m+'m':''}${flags.length?' · ⚠ '+flags.join(', '):''}`);
 }
 
-function renderAll(){ renderDash();renderLeads();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }
+function renderAll(){ renderDash();renderLeads();renderBilly();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }
 async function boot(){ syncDemoChip(); await loadData(); renderAll(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
 
