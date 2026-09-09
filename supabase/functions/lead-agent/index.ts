@@ -110,6 +110,13 @@ async function logChannelMsg(direction: string, ident: string, body: string, lea
   }) }).catch(() => {});
 }
 
+// Record a channel send failure where it can be read without platform logs.
+async function logSendFail(channel: string, ident: string, status: number, detail: string) {
+  await sbFetch("meta_webhook_log", { method: "POST", body: JSON.stringify({
+    sig_ok: false, object: `send_fail:${channel}`, note: `${ident} http=${status} ${detail}`.slice(0, 500),
+  }) }).catch(() => {});
+}
+
 // Messenger reply via the Graph Send API.
 async function fbSend(psid: string, text: string, lead_id: string | null) {
   if (!META_PAGE_TOKEN) return { ok: false, error: "META_PAGE_TOKEN not set" };
@@ -118,7 +125,7 @@ async function fbSend(psid: string, text: string, lead_id: string | null) {
     body: JSON.stringify({ recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } }),
   });
   const ok = r.ok;
-  if (!ok) console.error("lead-agent: fbSend failed", r.status, await r.text().catch(() => ""));
+  if (!ok) { const d = await r.text().catch(() => ""); console.error("lead-agent: fbSend failed", r.status, d); await logSendFail("messenger", `fb:${psid}`, r.status, d); }
   await logChannelMsg("out", `fb:${psid}`, text, lead_id, "billy");
   return { ok };
 }
@@ -133,7 +140,7 @@ async function waSend(waId: string, text: string, lead_id: string | null) {
     body: JSON.stringify({ messaging_product: "whatsapp", to: waId, type: "text", text: { body: text } }),
   });
   const ok = r.ok;
-  if (!ok) console.error("lead-agent: waSend failed", r.status, await r.text().catch(() => ""));
+  if (!ok) { const d = await r.text().catch(() => ""); console.error("lead-agent: waSend failed", r.status, d); await logSendFail("whatsapp", `wa:${waId}`, r.status, d); }
   await logChannelMsg("out", `wa:${waId}`, text, lead_id, "billy");
   return { ok };
 }
@@ -497,6 +504,65 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   return { handled: true, replied: sends > 0, status };
 }
 
+// ---------------------------------------------------------------------------
+// Follow-up sweep — Billy's one proactive nudge. A scheduled poke (pg_cron)
+// hits this; it finds active threads where Billy spoke last and the customer
+// then went quiet, and sends a single gentle "still keen?" — once per thread,
+// ever. Bounded to daytime Sydney hours and to the 4–22h-since-last-activity
+// window, which keeps WhatsApp/Messenger sends inside Meta's 24h reply window.
+// ---------------------------------------------------------------------------
+async function followupSweep() {
+  // Daytime only (08:00–20:59 Australia/Sydney) — never nudge overnight.
+  const syd = Number(new Intl.DateTimeFormat("en-AU", { hour: "2-digit", hour12: false, timeZone: "Australia/Sydney" }).format(new Date()));
+  if (syd < 8 || syd >= 21) return { ok: true, skipped: "outside daytime hours", nudged: 0 };
+
+  const since4h = new Date(Date.now() - 4 * 3600e3).toISOString();
+  const since22h = new Date(Date.now() - 22 * 3600e3).toISOString();
+  const r = await sbFetch(
+    `agent_threads?status=eq.active&select=*` +
+    `&updated_at=lt.${encodeURIComponent(since4h)}&updated_at=gt.${encodeURIComponent(since22h)}` +
+    `&order=updated_at.asc&limit=25`,
+  );
+  const threads = await r.json().catch(() => []);
+  if (!Array.isArray(threads)) return { ok: true, nudged: 0, scanned: 0 };
+
+  let nudged = 0;
+  for (const t of threads) {
+    const ex = (t.extracted || {}) as Record<string, any>;
+    if (ex.followed_up) continue;                         // already delivered — one nudge per thread, ever
+    if ((ex.followup_attempts ?? 0) >= 3) continue;       // gave up after repeated send failures
+    if ((t.msg_count ?? 0) >= MAX_MSGS) continue;
+    const digits = String(t.phone).replace(/^fb:/, "").replace(/\D/g, "");
+    if (!digits || OUR_NUMBERS.includes(normPhone(digits))) continue;
+
+    // Only nudge if the LAST message was Billy's — i.e. the customer went quiet.
+    const lm = await sbFetch(
+      `sms_messages?select=direction,created_at&or=(from_number.like.*${digits},to_number.like.*${digits})` +
+      `&order=created_at.desc&limit=1`,
+    );
+    const lmr = await lm.json().catch(() => []);
+    if (!Array.isArray(lmr) || !lmr[0] || lmr[0].direction !== "out") continue;
+
+    const lead = await leadFor(t.lead_id);
+    if (!lead) continue;
+    const first = String(lead?.customers?.full_name || "").split(" ")[0];
+    const nudge = `Hi${first ? " " + first : ""}, Billy from Solarsearch — just circling back. ` +
+      `Still keen to get your solar & battery estimate sorted? Happy to pick up right where we left off whenever suits.`;
+
+    const sr = await channelSend(t, nudge, lead.id);
+    if (sr.ok) {
+      // Delivered — flag as nudged so it never fires again.
+      await patchThread(t.id, { extracted: { ...ex, followed_up: true, followed_up_at: new Date().toISOString() }, msg_count: (t.msg_count ?? 0) + 1 });
+      nudged++;
+    } else {
+      // Send failed (e.g. a dead token) — count the attempt so a transient
+      // outage doesn't permanently burn the nudge, but cap retries at 3.
+      await patchThread(t.id, { extracted: { ...ex, followup_attempts: (ex.followup_attempts ?? 0) + 1, followup_last_error_at: new Date().toISOString() } });
+    }
+  }
+  return { ok: true, scanned: threads.length, nudged };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const json = (b: unknown, s = 200) =>
@@ -505,6 +571,29 @@ Deno.serve(async (req) => {
     const auth = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
     const isService = auth === SERVICE_KEY;
     const body = await req.json().catch(() => ({}));
+
+    // ---- scheduled follow-up sweep (service role, or the pg_cron token) ----
+    if (body.followup_sweep) {
+      let okAuth = isService;
+      if (!okAuth && body.token) {
+        const s = await sbFetch(`app_secrets?name=eq.followup_token&select=value&limit=1`);
+        const rows = await s.json().catch(() => []);
+        okAuth = Array.isArray(rows) && !!rows[0]?.value && rows[0].value === body.token;
+      }
+      if (!okAuth) return json({ error: "forbidden" }, 403);
+      if (body.dry_run) {
+        const since4h = new Date(Date.now() - 4 * 3600e3).toISOString();
+        const since22h = new Date(Date.now() - 22 * 3600e3).toISOString();
+        const r = await sbFetch(
+          `agent_threads?status=eq.active&select=id,channel,phone,msg_count,updated_at,extracted` +
+          `&updated_at=lt.${encodeURIComponent(since4h)}&updated_at=gt.${encodeURIComponent(since22h)}&order=updated_at.asc&limit=25`,
+        );
+        const rows = await r.json().catch(() => []);
+        const cand = (Array.isArray(rows) ? rows : []).filter((t: Record<string, any>) => { const e = t.extracted || {}; return !e.followed_up && (e.followup_attempts ?? 0) < 3; });
+        return json({ ok: true, dry_run: true, candidates: cand.map((t: Record<string, any>) => ({ id: t.id, channel: t.channel, updated_at: t.updated_at })) });
+      }
+      return json(await followupSweep());
+    }
 
     // ---- customer reply, forwarded by sms-inbound (service role only) ----
     if (body.inbound) {
