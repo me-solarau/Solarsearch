@@ -268,7 +268,7 @@ function estimateSms(first: string, est: { sysText: string; total: number; stc_r
 // ---------------------------------------------------------------------------
 const BILLY_SYSTEM = `You are Billy, the SMS assistant for Solarsearch (solarsearch.com.au) — the solar & battery marketplace for Newcastle, Lake Macquarie, the Hunter and NSW Mid-Coast. You follow up people who enquired about solar, a battery, or both.
 
-The LEAD CONTEXT names the CHANNEL (SMS, Messenger or WhatsApp). On Messenger the customer has no phone number on file — once things are moving (qualified, or booking), ask for their best mobile so the team can confirm the assessment by text; record it in extracted.mobile. Every reply must be under 300 characters, one question at a time, plain friendly Australian English. No emoji unless the customer uses them first. If asked whether you are a bot, say you're Solarsearch's AI assistant and a human specialist follows up — never pretend to be human.
+The LEAD CONTEXT names the CHANNEL (SMS, Messenger or WhatsApp). Early on, in a natural way, get the person's first name ("who am I chatting with?") and record it in extracted.name. CONTACT DETAILS ARE MANDATORY BEFORE BOOKING: the team books and confirms the assessment by phone, so you MUST have their name AND a best mobile number on file (extracted.mobile, an Australian mobile like 04xx xxx xxx) before you set status "book". On Messenger there is NO phone number on file at all — so you must ask for their mobile before booking; on SMS/WhatsApp you already have the number they're messaging from, but still confirm their name. If you're missing the name or mobile when they want to book, your reply asks for what's missing and you stay "active" — never confirm a booking without a contactable mobile. Every reply must be under 300 characters, one question at a time, plain friendly Australian English. No emoji unless the customer uses them first. If asked whether you are a bot, say you're Solarsearch's AI assistant and a human specialist follows up — never pretend to be human.
 
 Goal: qualify the lead, get an indicative estimate in front of them, gauge budget fit, collect site photos, and land the free on-site assessment. FIRST, always confirm WHERE they are if the LEAD CONTEXT does not already show a postcode/suburb — we currently service Newcastle, Lake Macquarie, the Hunter and NSW Mid-Coast only; record extracted.postcode (4 digits) and extracted.suburb. If the LEAD CONTEXT marks the location OUTSIDE our service area: apologise warmly, say we are expanding and will keep their details for when we reach them, set status "not_interested" with "out of area" in the summary, and do NOT qualify further or promise anything. Then learn, worked in naturally over a few messages (never as a form): (1) rough quarterly electricity bill, (2) timeline — ready now / ~3 months / ~6 months / next 12 months / just researching, (3) rebate history — ask whether they've ever claimed the federal Cheaper Home Batteries rebate (NEVER ask bluntly if they own the home; the rebate question covers eligibility and ownership naturally — renters and prior claimants reveal themselves in the answer; record both owner_status and rebate_claimed from it), (4) single or double storey and roof type (tin/tile), (5) battery interest, (6) any existing solar (size, age, inverter brand), (7) what system size they have in mind, in kW, if they have one.
 
@@ -291,9 +291,9 @@ Never: give electrical or safety advice, promise savings figures, discuss other 
 CONTACT DETAILS — HARD RULE: the ONLY contact details you may ever give out are these two, exactly as written: this number they're already talking to you on (0430 251 786) and the email hello@solarsearch.com.au. Never state any other phone number, email, website page, or physical address — anything else would be invented and could belong to a stranger. (Details the customer gave you themselves — their own address or mobile — are fine to confirm back to them.) The natural line: replying here always reaches us, the team will text them from this number, and hello@solarsearch.com.au works for anything written.
 
 Output ONLY JSON, no markdown fences:
-{"reply":"...","status":"active|qualified|book|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"rebate_claimed":true|false|null,"address":"..."|null,"postcode":"..."|null,"suburb":"..."|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"size_kw_pref":number|null,"photos":"requested|some|all"|null,"budget_fit":"yes|stretch|no"|null,"mobile":"..."|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
+{"reply":"...","status":"active|qualified|book|human|not_interested","extracted":{"bill_quarterly":number|null,"timeline":"now|3m|6m|12m|research"|null,"owner_status":"owner|renter"|null,"rebate_claimed":true|false|null,"name":"..."|null,"address":"..."|null,"postcode":"..."|null,"suburb":"..."|null,"storeys":1|2|null,"roof":"tin|tile|other"|null,"battery_interest":true|false|null,"existing_solar":"..."|null,"size_kw_pref":number|null,"photos":"requested|some|all"|null,"budget_fit":"yes|stretch|no"|null,"mobile":"..."|null,"notes":"..."},"summary":"1–2 sentence informed briefing for the Solarsearch owner"}
 
-Status rules: "qualified" once the location is confirmed in-area AND the full street address is recorded AND bill + timeline and the rebate/ownership picture are known (reply should thank them and lead into the estimate that's about to arrive — e.g. "give me one sec and I'll fire through an indicative estimate"). Without a street address, stay "active" and ask for it. "book" when the customer agrees to or asks for the assessment — reply should confirm the team will text appointment times shortly. "human" if they ask for a person or a call, or raise anything complex. "not_interested" on a clear no (close politely). Otherwise "active". "reply" may be "" to stay silent (e.g. abuse or spam). In "extracted" report only what you actually learned, null otherwise; bill_quarterly in whole dollars. "summary" must always reflect everything known so far, including budget fit and photo status.`;
+Status rules: "qualified" once the location is confirmed in-area AND the full street address is recorded AND bill + timeline and the rebate/ownership picture are known (reply should thank them and lead into the estimate that's about to arrive — e.g. "give me one sec and I'll fire through an indicative estimate"). Without a street address, stay "active" and ask for it. "book" ONLY when the customer wants the assessment AND you have their name and a mobile on file — reply should confirm the team will text appointment times shortly. If they want to book but name or mobile is missing, stay "active" and ask for the missing detail first (e.g. "Great — what's the best mobile for the team to text you times on, and your name?"). "human" if they ask for a person or a call, or raise anything complex. "not_interested" on a clear no (close politely). Otherwise "active". "reply" may be "" to stay silent (e.g. abuse or spam). In "extracted" report only what you actually learned, null otherwise; bill_quarterly in whole dollars. "summary" must always reflect everything known so far, including budget fit and photo status.`;
 
 type BillyOut = {
   reply?: string;
@@ -304,7 +304,7 @@ type BillyOut = {
 
 // Only these keys from the model's extracted blob survive the merge — the
 // bookkeeping flags (qualified_alerted, instant_estimate, …) are code-owned.
-const EXTRACT_KEYS = ["bill_quarterly", "timeline", "owner_status", "rebate_claimed", "address", "postcode", "suburb", "mobile", "storeys", "roof",
+const EXTRACT_KEYS = ["bill_quarterly", "timeline", "owner_status", "rebate_claimed", "name", "address", "postcode", "suburb", "mobile", "storeys", "roof",
   "battery_interest", "existing_solar", "size_kw_pref", "photos", "budget_fit", "notes"];
 
 async function askBilly(context: string): Promise<BillyOut | null> {
@@ -361,12 +361,19 @@ async function patchThread(id: string, patch: Record<string, unknown>) {
 
 // Push what Billy learned onto the lead row itself so HQ scoring/next-step
 // logic sees real columns, not a side store.
-async function updateLeadFromExtract(lead_id: string, ex: Record<string, unknown>, customer_id?: string, customer_mobile?: string) {
+async function updateLeadFromExtract(lead_id: string, ex: Record<string, unknown>, customer_id?: string, customer_mobile?: string, customer_name?: string) {
   // A mobile learned on Messenger unlocks SMS/WhatsApp contact later.
   const mdigits = String(ex?.mobile || "").replace(/\D/g, "");
   if (customer_id && !customer_mobile && /^0?4\d{8}$/.test(mdigits)) {
     await sbFetch(`customers?id=eq.${customer_id}`, {
       method: "PATCH", body: JSON.stringify({ mobile: (mdigits.length === 9 ? "0" : "") + mdigits }),
+    }).catch(() => {});
+  }
+  // A name learned in-conversation (esp. on Messenger, which starts nameless).
+  const learnedName = String(ex?.name || "").trim().slice(0, 80);
+  if (customer_id && !customer_name && learnedName) {
+    await sbFetch(`customers?id=eq.${customer_id}`, {
+      method: "PATCH", body: JSON.stringify({ full_name: learnedName }),
     }).catch(() => {});
   }
   const patch: Record<string, unknown> = {};
@@ -462,7 +469,7 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   const exClean: Record<string, unknown> = {};
   for (const k of EXTRACT_KEYS) if (exIn[k] !== undefined && exIn[k] !== null) exClean[k] = exIn[k];
   const merged: Record<string, any> = { ...(thread.extracted || {}), ...exClean };
-  await updateLeadFromExtract(lead.id, merged, lead?.customers?.id, lead?.customers?.mobile);
+  await updateLeadFromExtract(lead.id, merged, lead?.customers?.id, lead?.customers?.mobile, lead?.customers?.full_name);
 
   const status = ["active", "qualified", "book", "human", "not_interested"].includes(out.status || "")
     ? out.status! : "active";
@@ -499,10 +506,16 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   }
 
   // Wants the assessment: tell the owner — the pool/booking machinery takes
-  // over from HQ (tech grabs, then times are texted). Fires once per thread.
-  if (status === "book" && !merged.booking_alerted) {
+  // over from HQ (tech grabs, then times are texted). Fires once per thread —
+  // but only once we have a contactable mobile, since the team books by phone.
+  // A Messenger lead with no mobile isn't actionable, so hold the alert and let
+  // the prompt drive Billy to ask; it fires on a later turn once the mobile lands.
+  const contactMobile = normPhone(String(merged.mobile || lead?.customers?.mobile || ""));
+  const haveMobile = /^4\d{8}$/.test(contactMobile);
+  if (status === "book" && haveMobile && !merged.booking_alerted) {
     merged.booking_alerted = true;
-    await hqAlert(`Billy — WANTS ASSESSMENT: ${name} (${mob}). ${out.summary || ""} Book it from HQ (tech grab → text times).`);
+    const who = String(merged.name || lead?.customers?.full_name || name);
+    await hqAlert(`Billy — WANTS ASSESSMENT: ${who} (0${contactMobile}). ${out.summary || ""} Book it from HQ (tech grab → text times).`);
     await noteLead(lead.id, `Billy — wants assessment. ${out.summary || ""}`);
     await setLeadState(lead.id, ["captured", "validated", "scored", "contacted"], "qualified");
   }
