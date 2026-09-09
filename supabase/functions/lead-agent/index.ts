@@ -117,10 +117,29 @@ async function logSendFail(channel: string, ident: string, status: number, detai
   }) }).catch(() => {});
 }
 
+// The Solarsearch Facebook page id (public — appears in every webhook entry).
+const FB_PAGE_ID = "1262476340286076";
+
+// Messenger's Send API needs the PAGE's own access token (so `me` resolves to
+// the page). META_PAGE_TOKEN may be a page token already, or a never-expiring
+// System User token — in which case we exchange it for the page token once and
+// cache it for the life of the warm instance. Either input ends up correct.
+let PAGE_TOKEN_CACHE = "";
+async function pageAccessToken(): Promise<string> {
+  if (PAGE_TOKEN_CACHE) return PAGE_TOKEN_CACHE;
+  try {
+    const r = await fetch(`https://graph.facebook.com/v21.0/${FB_PAGE_ID}?fields=access_token&access_token=${encodeURIComponent(META_PAGE_TOKEN)}`);
+    const j = await r.json().catch(() => null);
+    if (r.ok && j?.access_token) { PAGE_TOKEN_CACHE = String(j.access_token); return PAGE_TOKEN_CACHE; }
+  } catch { /* fall through */ }
+  return META_PAGE_TOKEN; // already a page token, or nothing better available
+}
+
 // Messenger reply via the Graph Send API.
 async function fbSend(psid: string, text: string, lead_id: string | null) {
   if (!META_PAGE_TOKEN) return { ok: false, error: "META_PAGE_TOKEN not set" };
-  const r = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(META_PAGE_TOKEN)}`, {
+  const tok = await pageAccessToken();
+  const r = await fetch(`https://graph.facebook.com/v21.0/${FB_PAGE_ID}/messages?access_token=${encodeURIComponent(tok)}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ recipient: { id: psid }, messaging_type: "RESPONSE", message: { text } }),
   });
