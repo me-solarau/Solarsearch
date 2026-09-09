@@ -74,7 +74,12 @@ Deno.serve(async (req) => {
         const me = await g("me?fields=id,name");
         const wabaId = u.searchParams.get("waba") || "";
         const subs = wabaId ? await g(`${wabaId}/subscribed_apps`) : null;
-        return new Response(JSON.stringify({ phone_number_id: phoneId ? "set" : "missing", wa_token: waToken ? "set" : "missing", number: num, token_owner: me, waba_subscribed_apps: subs }), {
+        // Is the Messenger page token still alive? (short-lived page tokens die overnight)
+        const pageToken = Deno.env.get("META_PAGE_TOKEN") || "";
+        const pageProbe = pageToken
+          ? await (await fetch(`https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${encodeURIComponent(pageToken)}`)).json().catch(() => null)
+          : "META_PAGE_TOKEN not set";
+        return new Response(JSON.stringify({ phone_number_id: phoneId ? "set" : "missing", wa_token: waToken ? "set" : "missing", number: num, token_owner: me, waba_subscribed_apps: subs, page_token_probe: pageProbe }), {
           status: 200, headers: { "Content-Type": "application/json" },
         });
       }
