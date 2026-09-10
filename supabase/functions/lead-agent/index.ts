@@ -261,6 +261,14 @@ function estimateSms(first: string, est: { sysText: string; total: number; stc_r
     `quote for acceptance follows your free on-site assessment. Is that roughly in line with what you had in mind?`;
 }
 
+// Warm, code-composed decline for a lead whose postcode is outside the areas
+// Solarsearch covers. Fixed wording so it never invents a promise or a date.
+function outOfAreaSms(first: string, pc: string) {
+  return `${first ? first + ", t" : "T"}hanks for reaching out! I'm really sorry — postcode ${pc} is just outside the ` +
+    `areas Solarsearch currently covers (Newcastle, Lake Macquarie, the Hunter & NSW Mid-Coast). We're expanding, so ` +
+    `I'll keep your details on file and be in touch the moment we can help. Really appreciate your interest.`;
+}
+
 // ---------------------------------------------------------------------------
 // Billy's brain. Product knowledge is drawn from what installers on the
 // network (ME-SOLAR and peers) actually install, but the voice is pure
@@ -471,9 +479,23 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   const merged: Record<string, any> = { ...(thread.extracted || {}), ...exClean };
   await updateLeadFromExtract(lead.id, merged, lead?.customers?.id, lead?.customers?.mobile, lead?.customers?.full_name);
 
-  const status = ["active", "qualified", "book", "human", "not_interested"].includes(out.status || "")
+  let status = ["active", "qualified", "book", "human", "not_interested"].includes(out.status || "")
     ? out.status! : "active";
-  const reply = (out.reply || "").trim().slice(0, 480);
+  let reply = (out.reply || "").trim().slice(0, 480);
+
+  // Service-area screen for THIS turn. The postcode may only have been parsed
+  // from the message we just answered, so re-check it against the merged facts
+  // (the model that drafted the reply may not have known it yet). If it's
+  // OUTSIDE our postcodes, Billy politely declines and the thread closes —
+  // overriding the reply with a warm, code-composed decline unless the model
+  // already declined on its own.
+  const pcTurn = String(merged.postcode || lead?.sites?.postcode || "").trim();
+  const svcTurn = pcTurn ? await inServiceArea(pcTurn) : null;
+  if (svcTurn === false) {
+    if (status !== "not_interested") reply = outOfAreaSms(first, pcTurn);
+    status = "not_interested";
+    merged.out_of_area = true;
+  }
 
   let sends = 0;
   if (reply) {
@@ -481,41 +503,27 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
     if (r.ok) sends++;
   }
 
-  // Qualified: price it through the shared engine and text the official
-  // indicative estimate as its own message. Fires once per thread — and only
-  // once a full street address is on file (the estimate is site-specific and
-  // the assessment happens at the property). If the model jumps the gun the
-  // block simply doesn't run, and fires on a later turn when the address lands.
-  if (status === "qualified" && String(merged.address || "").trim() && !merged.qualified_alerted) {
-    // Screen the postcode deterministically BEFORE pricing. Only a postcode
-    // positively confirmed inside our service area gets an estimate — an
-    // unknown postcode waits (like a missing address does) and an out-of-area
-    // one is never priced, no matter what status the model chose.
-    const pcQ = String(merged.postcode || lead?.sites?.postcode || "").trim();
-    const svc = await inServiceArea(pcQ);
-    if (svc === true) {
-      merged.qualified_alerted = true;
-      let estLine = "";
-      const est = await instantEstimate(merged, lead);
-      if (est) {
-        const r = await channelSend(thread, estimateSms(first, est), lead.id);
-        if (r.ok) sends++;
-        merged.instant_estimate = {
-          system: est.sysText, total: est.total, stc_rebate: est.stc_rebate,
-          sized: est.sizing, at: new Date().toISOString(),
-        };
-        estLine = ` Indicative: ${est.sysText} ≈ ${fmt$(est.total)} after rebates.`;
-      }
-      await hqAlert(`Billy — QUALIFIED: ${name} (${mob}), ${merged.address}. ${out.summary || ""}${estLine}`);
-      await noteLead(lead.id, `Billy — ${out.summary || "qualified"}${estLine}`);
-      await setLeadState(lead.id, ["captured", "validated", "scored", "contacted"], "qualified");
-    } else if (svc === false && !merged.out_of_area_alerted) {
-      // Genuine enquiry we can't service — flag it once, never price it.
-      merged.out_of_area_alerted = true;
-      await hqAlert(`Billy — OUT OF AREA: ${name} (${mob}), postcode ${pcQ} — not priced. ${out.summary || ""}`);
-      await noteLead(lead.id, `Billy — out of area (postcode ${pcQ}); no estimate sent.`);
+  // Qualified → price it and text the indicative estimate, but ONLY once the
+  // postcode is positively confirmed inside our service area. Out-of-area leads
+  // are already declined and closed above, so this only ever sees an in-area or
+  // an as-yet-unknown postcode — and an unknown one waits (like a missing
+  // address does) and prices on a later turn once it's confirmed.
+  if (status === "qualified" && String(merged.address || "").trim() && svcTurn === true && !merged.qualified_alerted) {
+    merged.qualified_alerted = true;
+    let estLine = "";
+    const est = await instantEstimate(merged, lead);
+    if (est) {
+      const r = await channelSend(thread, estimateSms(first, est), lead.id);
+      if (r.ok) sends++;
+      merged.instant_estimate = {
+        system: est.sysText, total: est.total, stc_rebate: est.stc_rebate,
+        sized: est.sizing, at: new Date().toISOString(),
+      };
+      estLine = ` Indicative: ${est.sysText} ≈ ${fmt$(est.total)} after rebates.`;
     }
-    // svc === null (postcode not yet confirmed): no estimate this turn — wait for it.
+    await hqAlert(`Billy — QUALIFIED: ${name} (${mob}), ${merged.address}. ${out.summary || ""}${estLine}`);
+    await noteLead(lead.id, `Billy — ${out.summary || "qualified"}${estLine}`);
+    await setLeadState(lead.id, ["captured", "validated", "scored", "contacted"], "qualified");
   }
 
   // Wants the assessment: tell the owner — the pool/booking machinery takes
@@ -542,9 +550,10 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
     last_inbound_at: new Date().toISOString(),
   });
   if (closing) {
-    const tag = status === "human" ? "WANTS A HUMAN" : "NOT INTERESTED";
-    await hqAlert(`Billy — ${tag}: ${name} (${mob}). ${out.summary || ""}`);
-    await noteLead(lead.id, `Billy — ${out.summary || tag}`);
+    const tag = status === "human" ? "WANTS A HUMAN" : merged.out_of_area ? "OUT OF AREA" : "NOT INTERESTED";
+    const extra = merged.out_of_area ? ` (postcode ${pcTurn}, not serviced)` : "";
+    await hqAlert(`Billy — ${tag}: ${name} (${mob})${extra}. ${out.summary || ""}`);
+    await noteLead(lead.id, `Billy — ${out.summary || tag}${extra}`);
   }
   return { handled: true, replied: sends > 0, status };
 }
