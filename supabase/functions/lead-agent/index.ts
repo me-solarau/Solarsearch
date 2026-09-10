@@ -487,22 +487,35 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   // the assessment happens at the property). If the model jumps the gun the
   // block simply doesn't run, and fires on a later turn when the address lands.
   if (status === "qualified" && String(merged.address || "").trim() && !merged.qualified_alerted) {
-    merged.qualified_alerted = true;
-    let estLine = "";
+    // Screen the postcode deterministically BEFORE pricing. Only a postcode
+    // positively confirmed inside our service area gets an estimate — an
+    // unknown postcode waits (like a missing address does) and an out-of-area
+    // one is never priced, no matter what status the model chose.
     const pcQ = String(merged.postcode || lead?.sites?.postcode || "").trim();
-    const est = (await inServiceArea(pcQ)) === false ? null : await instantEstimate(merged, lead);
-    if (est) {
-      const r = await channelSend(thread, estimateSms(first, est), lead.id);
-      if (r.ok) sends++;
-      merged.instant_estimate = {
-        system: est.sysText, total: est.total, stc_rebate: est.stc_rebate,
-        sized: est.sizing, at: new Date().toISOString(),
-      };
-      estLine = ` Indicative: ${est.sysText} ≈ ${fmt$(est.total)} after rebates.`;
+    const svc = await inServiceArea(pcQ);
+    if (svc === true) {
+      merged.qualified_alerted = true;
+      let estLine = "";
+      const est = await instantEstimate(merged, lead);
+      if (est) {
+        const r = await channelSend(thread, estimateSms(first, est), lead.id);
+        if (r.ok) sends++;
+        merged.instant_estimate = {
+          system: est.sysText, total: est.total, stc_rebate: est.stc_rebate,
+          sized: est.sizing, at: new Date().toISOString(),
+        };
+        estLine = ` Indicative: ${est.sysText} ≈ ${fmt$(est.total)} after rebates.`;
+      }
+      await hqAlert(`Billy — QUALIFIED: ${name} (${mob}), ${merged.address}. ${out.summary || ""}${estLine}`);
+      await noteLead(lead.id, `Billy — ${out.summary || "qualified"}${estLine}`);
+      await setLeadState(lead.id, ["captured", "validated", "scored", "contacted"], "qualified");
+    } else if (svc === false && !merged.out_of_area_alerted) {
+      // Genuine enquiry we can't service — flag it once, never price it.
+      merged.out_of_area_alerted = true;
+      await hqAlert(`Billy — OUT OF AREA: ${name} (${mob}), postcode ${pcQ} — not priced. ${out.summary || ""}`);
+      await noteLead(lead.id, `Billy — out of area (postcode ${pcQ}); no estimate sent.`);
     }
-    await hqAlert(`Billy — QUALIFIED: ${name} (${mob}), ${merged.address}. ${out.summary || ""}${estLine}`);
-    await noteLead(lead.id, `Billy — ${out.summary || "qualified"}${estLine}`);
-    await setLeadState(lead.id, ["captured", "validated", "scored", "contacted"], "qualified");
+    // svc === null (postcode not yet confirmed): no estimate this turn — wait for it.
   }
 
   // Wants the assessment: tell the owner — the pool/booking machinery takes
