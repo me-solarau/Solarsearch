@@ -195,7 +195,10 @@ async function billySentLastHour(digits: string): Promise<number> {
 // Deterministic service-area check against the same table HQ uses. null =
 // unknown postcode / lookup failed (treat as unverified, not out-of-area).
 async function inServiceArea(pc: string): Promise<boolean | null> {
-  if (!/^\d{4}$/.test(pc)) return null;
+  // "0000" is the placeholder postcode new Messenger/WhatsApp leads are created
+  // with before they tell us where they are — treat it as UNKNOWN, never as a
+  // real (out-of-area) postcode, or every such lead gets wrongly declined.
+  if (!/^\d{4}$/.test(pc) || pc === "0000") return null;
   const r = await sbFetch(`installer_service_areas?select=postcode&postcode=eq.${pc}&paused=eq.false&limit=1`);
   const rows = await r.json().catch(() => null);
   if (!Array.isArray(rows)) return null;
@@ -456,7 +459,8 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   }
 
   // location: prefer what Billy has extracted, else the lead's site record
-  const pc = String(thread?.extracted?.postcode || lead?.sites?.postcode || "").trim();
+  const pcRaw = String(thread?.extracted?.postcode || lead?.sites?.postcode || "").trim();
+  const pc = pcRaw === "0000" ? "" : pcRaw;   // ignore the placeholder postcode
   let locLine = "";
   if (pc) {
     const svc = await inServiceArea(pc);
@@ -489,7 +493,8 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   // OUTSIDE our postcodes, Billy politely declines and the thread closes —
   // overriding the reply with a warm, code-composed decline unless the model
   // already declined on its own.
-  const pcTurn = String(merged.postcode || lead?.sites?.postcode || "").trim();
+  const pcTurnRaw = String(merged.postcode || lead?.sites?.postcode || "").trim();
+  const pcTurn = pcTurnRaw === "0000" ? "" : pcTurnRaw;   // ignore the placeholder postcode
   const svcTurn = pcTurn ? await inServiceArea(pcTurn) : null;
   if (svcTurn === false) {
     if (status !== "not_interested") reply = outOfAreaSms(first, pcTurn);
