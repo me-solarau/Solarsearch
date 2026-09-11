@@ -135,6 +135,21 @@ async function pageAccessToken(): Promise<string> {
   return META_PAGE_TOKEN; // already a page token, or nothing better available
 }
 
+// Look up a Messenger user's real name from their PSID. Available once they've
+// messaged the page (and pages_messaging is granted). The webhook only carries
+// the PSID, so without this every Messenger lead shows as "(no name)". Returns
+// "" when unavailable — never blocks the conversation.
+async function fbProfileName(psid: string): Promise<string> {
+  if (!META_PAGE_TOKEN) return "";
+  try {
+    const tok = await pageAccessToken();
+    const r = await fetch(`https://graph.facebook.com/v21.0/${psid}?fields=first_name,last_name&access_token=${encodeURIComponent(tok)}`);
+    const j = await r.json().catch(() => null);
+    if (r.ok && j) return `${j.first_name || ""} ${j.last_name || ""}`.trim().slice(0, 80);
+  } catch { /* ignore — name is a nice-to-have */ }
+  return "";
+}
+
 // Messenger reply via the Graph Send API.
 async function fbSend(psid: string, text: string, lead_id: string | null) {
   if (!META_PAGE_TOKEN) return { ok: false, error: "META_PAGE_TOKEN not set" };
@@ -669,6 +684,35 @@ Deno.serve(async (req) => {
       return json(await followupSweep());
     }
 
+    // ---- backfill Messenger display names (admin/service) ----
+    // One-off: name the existing Messenger leads that were created before name
+    // lookup existed (they show as "(no name)" in HQ). Idempotent.
+    if (body.backfill_names) {
+      let okAuth = isService;
+      if (!okAuth) {
+        const chk = await fetch(`${SB_URL}/rest/v1/rpc/is_admin`, {
+          method: "POST",
+          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${auth}`, "Content-Type": "application/json" },
+          body: "{}",
+        });
+        okAuth = chk.ok && (await chk.json().catch(() => false)) === true;
+      }
+      if (!okAuth) return json({ error: "forbidden" }, 403);
+      const r = await sbFetch(`agent_threads?channel=eq.messenger&select=phone,lead_id&limit=300`);
+      const threads = await r.json().catch(() => []);
+      let named = 0, scanned = 0;
+      const seen = new Set<string>();
+      for (const t of (Array.isArray(threads) ? threads : [])) {
+        if (seen.has(t.phone)) continue; seen.add(t.phone);
+        scanned++;
+        const lead = await leadFor(t.lead_id);
+        if (!lead?.customers?.id || lead.customers.full_name) continue;
+        const nm = await fbProfileName(String(t.phone).replace(/^fb:/, ""));
+        if (nm) { await sbFetch(`customers?id=eq.${lead.customers.id}`, { method: "PATCH", body: JSON.stringify({ full_name: nm }) }).catch(() => {}); named++; }
+      }
+      return json({ ok: true, scanned, named });
+    }
+
     // ---- re-engage captured out-of-area leads once their zone goes live ----
     // hq_activate_zone reopens the threads and flags extracted.reengage_pending;
     // this sends each a one-off "good news, we now cover you" on their channel.
@@ -735,8 +779,17 @@ Deno.serve(async (req) => {
       if (thread) {
         lead = await leadFor(thread.lead_id);
         if (thread.channel !== ch) { await patchThread(thread.id, { channel: ch }); thread.channel = ch; }
+        // Fill a still-nameless Messenger lead from the profile (leads created
+        // before name-lookup existed, or when the first lookup came back empty).
+        if (ch === "messenger" && lead?.customers?.id && !lead?.customers?.full_name) {
+          const nm = await fbProfileName(sender);
+          if (nm) { await sbFetch(`customers?id=eq.${lead.customers.id}`, { method: "PATCH", body: JSON.stringify({ full_name: nm }) }).catch(() => {}); lead.customers.full_name = nm; }
+        }
       } else {
-        const name = String(body.channel_inbound.name || "").slice(0, 80);
+        // Prefer any name the webhook carried; otherwise look the Messenger
+        // user's name up from their PSID so the lead isn't created as "(no name)".
+        let name = String(body.channel_inbound.name || "").slice(0, 80);
+        if (!name && ch === "messenger") name = await fbProfileName(sender);
         const cap = await rpc("capture_lead", { payload: {
           name, mobile: ch === "whatsapp" ? "0" + normPhone(sender) : null,
           source_platform: ch === "whatsapp" ? "whatsapp" : "facebook_messenger",
