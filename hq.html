@@ -2037,8 +2037,28 @@ window.activateZone=async function(pc){
   await loadServiceAreas(); await loadData(); renderAll();
 };
 
+// One-off per session: name the Messenger leads that came in before name
+// lookup existed (they show as "(no name)"). Runs as the signed-in admin; the
+// server fetches each profile from the page token. Only fires when there's
+// actually a nameless Messenger lead to fix.
+let NAMES_BACKFILLED=false;
+async function maybeBackfillNames(){
+  if(NAMES_BACKFILLED) return;
+  const need=(leads||[]).some(l=>String(l.plat||'').includes('messenger')&&(!l.name||l.name==='(no name)'));
+  if(!need) return;
+  NAMES_BACKFILLED=true;
+  try{
+    const { data:{ session } }=await db.auth.getSession();
+    const res=await fetch(SUPABASE_URL+'/functions/v1/lead-agent',{method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+(session?session.access_token:SUPABASE_ANON_KEY),'Content-Type':'application/json'},
+      body:JSON.stringify({backfill_names:true})});
+    const j=await res.json().catch(()=>({}));
+    if(j&&j.named>0){ toast('Named '+j.named+' Messenger '+(j.named===1?'lead':'leads')); await loadData(); renderAll(); }
+  }catch(e){}
+}
+
 function renderAll(){ renderDash();renderLeads();renderBilly();renderOutOfArea();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }
-async function boot(){ syncDemoChip(); await loadData(); renderAll(); }
+async function boot(){ syncDemoChip(); await loadData(); renderAll(); maybeBackfillNames(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
 
 // Inline onclick="..." handlers in the markup above reach into this module's
