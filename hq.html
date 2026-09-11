@@ -167,6 +167,7 @@ tbody tr:hover{background:var(--tint2)}
     <button class="nav-btn sel" data-page="dash"><span class="ic">◐</span><span class="lbl">Dashboard</span></button>
     <button class="nav-btn" data-page="leads"><span class="ic">☰</span><span class="lbl">Lead inbox</span></button>
     <button class="nav-btn" data-page="billy"><span class="ic">✦</span><span class="lbl">Billy</span></button>
+    <button class="nav-btn" data-page="oosa"><span class="ic">◈</span><span class="lbl">Out of area</span></button>
     <button class="nav-btn" data-page="board"><span class="ic">▦</span><span class="lbl">Site Quoted board</span></button>
     <button class="nav-btn" data-page="deals"><span class="ic">✓</span><span class="lbl">Deals & commissions</span></button>
     <button class="nav-btn" data-page="fieldops"><span class="ic">◎</span><span class="lbl">Field ops</span></button>
@@ -279,6 +280,14 @@ tbody tr:hover{background:var(--tint2)}
           <span class="src">Select a conversation to read the transcript.</span>
         </div>
       </div>
+    </section>
+
+    <section class="page" id="page-oosa">
+      <div class="page-head">
+        <div><span class="eyebrow">Demand outside your coverage · captured, not lost</span><h1>Out of area</h1>
+          <div class="sub">Every enquiry Billy took from a postcode your installers don't cover yet, grouped by postcode. Activate a zone to add it to coverage and re-engage the people who asked.</div></div>
+      </div>
+      <div id="oosaBody"><div class="src">Loading…</div></div>
     </section>
 
     <section class="page" id="page-board">
@@ -1973,7 +1982,62 @@ async function loadQuoteFromLead(){
   toast(`Loaded ${p.ss_ref||ref} — ${p.roof||'roof?'} · ${p.phase?p.phase+'-phase':'phase?'}${p.ac_run_m!=null?' · AC '+p.ac_run_m+'m':''}${flags.length?' · ⚠ '+flags.join(', '):''}`);
 }
 
-function renderAll(){ renderDash();renderLeads();renderBilly();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }
+/* ===================== OUT OF AREA ===================== */
+// An enquiry is "out of area" when it has a real postcode (not the "0000"
+// placeholder) that isn't in the serviced set. Reuses the already-loaded leads
+// and the outOfArea() predicate — no extra query for the read.
+let OOSA_INSTALLERS=[];
+async function renderOutOfArea(){
+  const host=$('oosaBody'); if(!host) return;
+  if(!SERVICE_PCS.size){ host.innerHTML='<div class="src">Service areas not loaded yet.</div>'; return; }
+  if(!OOSA_INSTALLERS.length){
+    const { data } = await db.from('installers').select('id,company_name,status').order('company_name');
+    OOSA_INSTALLERS=(data||[]).filter(i=>i.status!=='rejected');
+  }
+  const oos=(leads||[]).filter(l=>/^\d{4}$/.test(l.pc)&&l.pc!=='0000'&&outOfArea(l.pc));
+  if(!oos.length){ host.innerHTML='<div class="src">No out-of-area enquiries captured yet. When someone outside your postcodes messages Billy, they’ll appear here grouped by postcode.</div>'; return; }
+  const byPc={};
+  oos.forEach(l=>{ const g=(byPc[l.pc]=byPc[l.pc]||{pc:l.pc,rows:[],suburbs:new Set()}); g.rows.push(l); if(l.suburb) g.suburbs.add(l.suburb); });
+  const groups=Object.values(byPc).sort((a,b)=>b.rows.length-a.rows.length);
+  const instOpts=OOSA_INSTALLERS.map(i=>`<option value="${escP(i.id)}">${escP(i.company_name)}</option>`).join('');
+  host.innerHTML=groups.map(g=>{
+    const subs=[...g.suburbs].join(', ')||'—';
+    const rows=g.rows.map(l=>`<tr><td>${escP(l.name)}</td><td>${escP(l.suburb||'—')}</td><td>${escP(l.plat)}</td><td>${l.ageH}h ago</td></tr>`).join('');
+    return `<div class="card" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <div><b style="font-size:1.05rem">${escP(g.pc)}</b> · ${escP(subs)}
+          <span style="background:var(--amber);color:var(--ink);border-radius:99px;padding:1px 9px;font-size:.7rem;font-weight:700;margin-left:8px">${g.rows.length} ${g.rows.length===1?'enquiry':'enquiries'}</span></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="oosaInst_${g.pc}" style="padding:8px;border-radius:8px;background:var(--panel);border:1px solid var(--line);color:inherit">${instOpts||'<option value="">No installers</option>'}</select>
+          <button class="btn" style="background:var(--amber);color:var(--ink)" onclick="activateZone('${g.pc}')">Activate zone</button>
+        </div>
+      </div>
+      <div class="tscroll" style="margin-top:10px"><table style="width:100%;font-size:.84rem">
+        <thead><tr><th>Name</th><th>Suburb</th><th>Channel</th><th>Enquired</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+    </div>`;
+  }).join('');
+}
+window.activateZone=async function(pc){
+  const sel=$('oosaInst_'+pc); const iid=sel?sel.value:'';
+  if(!iid){ toast('Pick an installer to cover this zone first.'); return; }
+  const { data, error }=await db.rpc('hq_activate_zone',{p_postcode:pc,p_installer_id:iid});
+  if(error){ toast('Activate failed: '+error.message); return; }
+  // Best-effort proactive re-engagement of the captured leads (works inside
+  // Meta's 24h reply window; older Messenger/WhatsApp leads simply wait for a
+  // reply). Runs as the signed-in admin.
+  try{
+    const { data:{ session } }=await db.auth.getSession();
+    await fetch(SUPABASE_URL+'/functions/v1/lead-agent',{method:'POST',
+      headers:{apikey:SUPABASE_ANON_KEY,'Authorization':'Bearer '+(session?session.access_token:SUPABASE_ANON_KEY),'Content-Type':'application/json'},
+      body:JSON.stringify({reengage:true})});
+  }catch(e){}
+  const re=(data&&data.reengaged)||0;
+  toast(`Zone ${pc} activated${re?` · re-engaging ${re} lead${re===1?'':'s'}`:''}.`);
+  await loadServiceAreas(); await loadData(); renderAll();
+};
+
+function renderAll(){ renderDash();renderLeads();renderBilly();renderOutOfArea();renderBoard();renderDeals();renderCamps();renderVetting();renderFieldOps();renderAnalytics();renderPricing();renderQuote(); }
 async function boot(){ syncDemoChip(); await loadData(); renderAll(); }
 async function signOut(){ await db.auth.signOut(); location.href='/login.html'; }
 

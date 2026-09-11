@@ -372,7 +372,22 @@ async function patchThread(id: string, patch: Record<string, unknown>) {
 
 // Push what Billy learned onto the lead row itself so HQ scoring/next-step
 // logic sees real columns, not a side store.
-async function updateLeadFromExtract(lead_id: string, ex: Record<string, unknown>, customer_id?: string, customer_mobile?: string, customer_name?: string) {
+async function updateLeadFromExtract(lead_id: string, ex: Record<string, unknown>, customer_id?: string, customer_mobile?: string, customer_name?: string, site_id?: string, site_postcode?: string, site_address?: string) {
+  // Persist the location the customer gives us onto the site record. New
+  // Messenger/WhatsApp leads start with a "0000" / "(not provided)" placeholder;
+  // without this the real postcode lives only on the conversation and the site
+  // (and the out-of-area demand view built on it) stays blank. Never overwrite a
+  // real value with a blank, and never store the placeholder.
+  if (site_id) {
+    const sp: Record<string, unknown> = {};
+    const pc = String((ex as Record<string, unknown>)?.postcode || "").trim();
+    if (/^\d{4}$/.test(pc) && pc !== "0000" && pc !== String(site_postcode || "").trim()) sp.postcode = pc;
+    const addr = String((ex as Record<string, unknown>)?.address || "").trim();
+    if (addr && addr.length > 4 && !/not provided/i.test(addr) && addr !== String(site_address || "").trim()) sp.address = addr;
+    if (Object.keys(sp).length) {
+      await sbFetch(`sites?id=eq.${site_id}`, { method: "PATCH", body: JSON.stringify(sp) }).catch(() => {});
+    }
+  }
   // A mobile learned on Messenger unlocks SMS/WhatsApp contact later.
   const mdigits = String(ex?.mobile || "").replace(/\D/g, "");
   if (customer_id && !customer_mobile && /^0?4\d{8}$/.test(mdigits)) {
@@ -418,7 +433,7 @@ async function adoptInboundRows(lead_id: string, digits: string) {
 
 async function leadFor(lead_id: string) {
   const r = await sbFetch(
-    `leads?id=eq.${lead_id}&select=id,state,lead_type,bill_quarterly_cents,timeline,owner_status,customers(id,full_name,mobile),sites(postcode,address)`,
+    `leads?id=eq.${lead_id}&select=id,site_id,state,lead_type,bill_quarterly_cents,timeline,owner_status,customers(id,full_name,mobile),sites(id,postcode,address)`,
   );
   const rows = await r.json().catch(() => []);
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
@@ -481,7 +496,7 @@ async function converse(thread: Record<string, any>, lead: Record<string, any>) 
   const exClean: Record<string, unknown> = {};
   for (const k of EXTRACT_KEYS) if (exIn[k] !== undefined && exIn[k] !== null) exClean[k] = exIn[k];
   const merged: Record<string, any> = { ...(thread.extracted || {}), ...exClean };
-  await updateLeadFromExtract(lead.id, merged, lead?.customers?.id, lead?.customers?.mobile, lead?.customers?.full_name);
+  await updateLeadFromExtract(lead.id, merged, lead?.customers?.id, lead?.customers?.mobile, lead?.customers?.full_name, lead?.site_id, lead?.sites?.postcode, lead?.sites?.address);
 
   let status = ["active", "qualified", "book", "human", "not_interested"].includes(out.status || "")
     ? out.status! : "active";
@@ -652,6 +667,38 @@ Deno.serve(async (req) => {
         return json({ ok: true, dry_run: true, candidates: cand.map((t: Record<string, any>) => ({ id: t.id, channel: t.channel, updated_at: t.updated_at })) });
       }
       return json(await followupSweep());
+    }
+
+    // ---- re-engage captured out-of-area leads once their zone goes live ----
+    // hq_activate_zone reopens the threads and flags extracted.reengage_pending;
+    // this sends each a one-off "good news, we now cover you" on their channel.
+    // Best-effort: a Messenger/WhatsApp lead last active >24h ago is outside
+    // Meta's reply window and the send simply fails (flag stays for a retry).
+    if (body.reengage) {
+      let okAuth = isService;
+      if (!okAuth) {
+        const chk = await fetch(`${SB_URL}/rest/v1/rpc/is_admin`, {
+          method: "POST",
+          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${auth}`, "Content-Type": "application/json" },
+          body: "{}",
+        });
+        okAuth = chk.ok && (await chk.json().catch(() => false)) === true;
+      }
+      if (!okAuth) return json({ error: "forbidden" }, 403);
+      const r = await sbFetch(`agent_threads?status=eq.active&extracted->>reengage_pending=eq.true&select=*&limit=50`);
+      const threads = await r.json().catch(() => []);
+      let reengaged = 0;
+      for (const t of (Array.isArray(threads) ? threads : [])) {
+        const lead = await leadFor(t.lead_id);
+        if (!lead) continue;
+        const first = String(lead?.customers?.full_name || "").split(" ")[0];
+        const msg = `Great news${first ? " " + first : ""} — Solarsearch now covers your area! Keen to pick up where we left off and get your solar & battery estimate sorted? If it still suits, tell me your rough quarterly power bill and I'll get started.`;
+        const sr = await channelSend(t, msg, lead.id);
+        const ex = { ...(t.extracted || {}) };
+        delete ex.reengage_pending;
+        if (sr.ok) { await patchThread(t.id, { extracted: { ...ex, reengaged_at: new Date().toISOString() }, msg_count: (t.msg_count ?? 0) + 1 }); reengaged++; }
+      }
+      return json({ ok: true, reengaged });
     }
 
     // ---- customer reply, forwarded by sms-inbound (service role only) ----
